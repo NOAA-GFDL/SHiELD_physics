@@ -4,10 +4,20 @@ SHiELD_driver contains the SHiELD Physics component of the SHiELD atmosphere mod
 
 More information is available on the [GFDL SHiELD page](https://www.gfdl.noaa.gov/shield/).
 
+# History & Attribution
+
+```FV3GFS```, ```GFS_layer```, and ```gsmphys``` contain derivative code (baseline 2017 GFS) plus innovations developed by GFDL during and subsequent to the NGGPS Phase II and III (competition and implementation phases).
+
+```IPD_layer``` was developed by GFDL personnel, with community input, under funding from NWS Office of Science and Technology Integration (mostly superseded within the UFS by the CCPP [framework](https://github.com/NCAR/ccpp-framework) and [physics)](https://github.com/NCAR/ccpp-physics).
+
+```atmos_drivers``` is derivative code from the NOAA-GFDL [Atmospheric Drivers project](https://github.com/NOAA-GFDL/atmos_drivers)
+
+```simple_coupler``` is derivative code from the NOAA-GFDL [FMS Coupler project](https://github.com/NOAA-GFDL/FMSCoupler)
+
 # Disclaimer
 
 The United States Department of Commerce (DOC) GitHub project code is provided
-on an "as is" basis and the user assumes responsibility for its use. DOC has
+on an 'as is' basis and the user assumes responsibility for its use. DOC has
 relinquished control of the information and no longer has responsibility to
 protect the integrity, confidentiality, or availability of the information. Any
 claims against the Department of Commerce stemming from the use of its GitHub
