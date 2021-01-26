@@ -8,7 +8,7 @@ More information is available on the [GFDL SHiELD page](https://www.gfdl.noaa.go
 
 ```FV3GFS```, ```GFS_layer```, and ```gsmphys``` contain derivative code (baseline 2017 GFS) plus innovations developed by GFDL during and subsequent to the NGGPS Phase II and III (competition and implementation phases).
 
-```IPD_layer``` was developed by GFDL personnel, with community input, under funding from NWS Office of Science and Technology Integration (mostly superseded within the UFS by the CCPP [framework](https://github.com/NCAR/ccpp-framework) and [physics)](https://github.com/NCAR/ccpp-physics).
+```IPD_layer``` was developed by GFDL personnel, with community input, under funding from NWS Office of Science and Technology Integration.
 
 ```atmos_drivers``` is derivative code from the NOAA-GFDL [Atmospheric Drivers project](https://github.com/NOAA-GFDL/atmos_drivers)
 
