@@ -939,9 +939,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: cldcov (:,:)   => null()  !< instantaneous 3D cloud fraction
 
     contains
-      procedure create    => diag_create
-      procedure rad_zero  => diag_rad_zero
-      procedure phys_zero => diag_phys_zero
+      procedure :: create    => diag_create
+      procedure :: rad_zero  => diag_rad_zero
+      procedure :: phys_zero => diag_phys_zero
   end type GFS_diag_type
 
 !----------------
