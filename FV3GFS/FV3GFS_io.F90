@@ -17,7 +17,7 @@ module FV3GFS_io_mod
   use block_control_mod,  only: block_control_type
   use mpp_mod,            only: mpp_error, mpp_pe, mpp_root_pe, &
                                 mpp_chksum, NOTE, FATAL, mpp_get_current_pelist_name
-  use fms_mod,            only: file_exist, stdout
+  use fms_mod,            only: file_exist, stdout, set_domain
   use fms_io_mod,         only: restart_file_type, free_restart_type, &
                                 register_restart_field,               &
                                 restore_state, save_restart
@@ -119,7 +119,9 @@ module FV3GFS_io_mod
     type(block_control_type), intent(in)    :: Atm_block
     type(IPD_control_type),   intent(in)    :: Model
     type(domain2d),           intent(in)    :: fv_domain
- 
+
+    call set_domain(fv_domain)
+
     !--- read in surface data from chgres 
     call sfc_prop_restart_read (IPD_Data%Sfcprop, Atm_block, Model, fv_domain)
  
