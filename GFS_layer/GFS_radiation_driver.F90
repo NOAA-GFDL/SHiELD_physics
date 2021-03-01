@@ -1728,7 +1728,6 @@
 
           if (Model%swhtr) then
             Radtend%swhc(:,:) = 0
-            cldtausw(:,:) = 0.0
           endif
 
         endif                  ! end_if_nday
