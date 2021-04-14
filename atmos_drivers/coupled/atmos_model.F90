@@ -406,6 +406,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step)
    Init_parm%tracer_names    => tracer_names
 
 #ifdef INTERNAL_FILE_NML
+   allocate(Init_parm%input_nml_file, mold=input_nml_file)
    Init_parm%input_nml_file  => input_nml_file
    Init_parm%fn_nml='using internal file'
 #else
