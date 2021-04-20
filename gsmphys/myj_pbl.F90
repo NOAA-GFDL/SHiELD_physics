@@ -216,12 +216,12 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !----------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        IDS,IDE,JDS,JDE &
       ,IMS,IME,JMS,JME &
       ,ITS,ITE,JTS,JTE,LM
 !
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        NPHS
 !
       INTEGER(KIND=KINT),DIMENSION(IMS:IME,JMS:JME),INTENT(OUT):: &
@@ -273,7 +273,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
 !***
 !***  LOCAL VARIABLES
 !***
-      INTEGER(KIND=KINT):: &
+      INTEGER(KIND=KLOG):: &
        I,IQTB,ITTB,J,K,LLOW,LMH,LMXL
 !
       INTEGER(KIND=KINT),DIMENSION(IMS:IME,JMS:JME):: &
@@ -864,14 +864,14 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !----------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,I,J,LM
 !
       REAL(KIND=KFPT),INTENT(IN):: &
        RSQDT
 !
-      INTEGER(KIND=KINT),INTENT(OUT):: &
-       LMXL,LPBL
+      INTEGER(KIND=KLOG),INTENT(OUT):: LMXL
+      INTEGER(KIND=KINT),INTENT(OUT):: LPBL
 !
       real(kind=kfpt),dimension(1:lm-1),intent(in):: EPSL
       REAL(KIND=KFPT),DIMENSION(1:LM),INTENT(IN):: &
@@ -1070,7 +1070,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !----------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,I,J,LM
 !
       REAL(KIND=KFPT),INTENT(IN):: &
@@ -1277,7 +1277,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !----------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,LMXL,I,J,LM
 !
       REAL(KIND=KFPT),DIMENSION(1:LM),INTENT(IN):: &
@@ -1441,7 +1441,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !----------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,I,J,LM
 !
       REAL(KIND=KFPT),INTENT(IN):: &
@@ -1524,7 +1524,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !---------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,I,J,LM
 !
       REAL(KIND=KFPT),INTENT(IN):: &
@@ -1627,7 +1627,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       IMPLICIT NONE
 !
 !---------------------------------------------------------------------
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        LMH,I,J,LM
 !
       REAL(KIND=KFPT),INTENT(IN):: &
@@ -1712,7 +1712,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL,1:ITBL),PRIVATE,SAVE:: &
       LOGICAL(KIND=KLOG),INTENT(IN):: &
        RESTART
 
-      INTEGER(KIND=KINT),INTENT(IN):: &
+      INTEGER(KIND=KLOG),INTENT(IN):: &
        IDS,IDE,JDS,JDE,LM &
       ,IMS,IME,JMS,JME &
       ,ITS,ITE,JTS,JTE
@@ -2043,7 +2043,7 @@ REAL(KIND=KFPT),DIMENSION(1:JTBL):: &
 !     *  P, Q - AUXILIARY VECTORS OF THE LENGTH NOLD-2.                *
 !     *                                                                *
 !     ******************************************************************
-      IMPLICIT REAL(A-H,O-Z),INTEGER(I-N)
+      IMPLICIT REAL(A-H,O-Z),INTEGER*8(I-N)
 !-----------------------------------------------------------------------
       DIMENSION &                      
        XOLD(JTBL),YOLD(JTBL),Y2(JTBL),P(JTBL),Q(JTBL) &                        
