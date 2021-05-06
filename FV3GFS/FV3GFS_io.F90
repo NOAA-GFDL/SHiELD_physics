@@ -17,10 +17,14 @@ module FV3GFS_io_mod
   use block_control_mod,  only: block_control_type
   use mpp_mod,            only: mpp_error, mpp_pe, mpp_root_pe, &
                                 mpp_chksum, NOTE, FATAL, mpp_get_current_pelist_name
-  use fms_mod,            only: file_exist, stdout, set_domain
-  use fms_io_mod,         only: restart_file_type, free_restart_type, &
-                                register_restart_field,               &
-                                restore_state, save_restart
+  use fms_mod,            only: stdout
+  use fms2_io_mod,        only: FmsNetcdfDomainFile_t, unlimited,      &
+                                open_file, close_file, register_field, &
+                                register_axis, register_restart_field, &
+                                register_variable_attribute,           &
+                                read_restart, write_restart,           &
+                                get_global_io_domain_indices,          &
+                                dimension_exists, write_data
   use mpp_domains_mod,    only: domain2d
   use time_manager_mod,   only: time_type
   use diag_manager_mod,   only: register_diag_field, send_data
@@ -60,10 +64,10 @@ module FV3GFS_io_mod
   character(len=32)  :: fn_phy = 'phy_data.nc'
 
   !--- GFDL FMS netcdf restart data types
-  type(restart_file_type) :: Oro_restart
-  type(restart_file_type) :: Sfc_restart
-  type(restart_file_type) :: Phy_restart
- 
+  type(FmsNetcdfDomainFile_t) :: Oro_restart
+  type(FmsNetcdfDomainFile_t) :: Sfc_restart
+  type(FmsNetcdfDomainFile_t) :: Phy_restart
+
   !--- GFDL FMS restart containers
   character(len=32),    allocatable,         dimension(:)       :: oro_name2, sfc_name2, sfc_name3
   real(kind=kind_phys), allocatable, target, dimension(:,:,:)   :: oro_var2, sfc_var2, phy_var2
@@ -119,8 +123,6 @@ module FV3GFS_io_mod
     type(block_control_type), intent(in)    :: Atm_block
     type(IPD_control_type),   intent(in)    :: Model
     type(domain2d),           intent(in)    :: fv_domain
-
-    call set_domain(fv_domain)
 
     !--- read in surface data from chgres 
     call sfc_prop_restart_read (IPD_Data%Sfcprop, Atm_block, Model, fv_domain)
@@ -354,7 +356,8 @@ module FV3GFS_io_mod
 !    calls a GFDL FMS routine to restore the data from a restart file.
 !    calculates sncovr if it is not present in the restart file.
 !
-!    calls:  register_restart_field, restart_state, free_restart
+!    calls:  open_file, register_restart_field, read_restart,
+!            close_file
 !   
 !    opens:  oro_data.tile?.nc, sfc_data.tile?.nc
 !   
@@ -368,17 +371,17 @@ module FV3GFS_io_mod
     !--- local variables
     integer :: i, j, k, ix, lsoil, num, nb
     integer :: isc, iec, jsc, jec, npz, nx, ny
-    integer :: id_restart
     integer :: nvar_o2, nvar_s2m, nvar_s2o, nvar_s3
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
     character(len=64) :: fname
     !--- local variables for sncovr calculation
     integer :: vegtyp
-    logical :: mand
+    logical :: opt
     real(kind=kind_phys) :: rsnow
+    character(len=8), allocatable, dimension(:) :: dim_names_2d, dim_names_3d
         
-    nvar_o2  = 17
+    nvar_o2  = 16
     nvar_s2m = 32
     nvar_s2o = 18
     nvar_s3  = 3
@@ -390,45 +393,53 @@ module FV3GFS_io_mod
     npz = Atm_block%npz
     nx = (iec - isc + 1)
     ny = (jec - jsc + 1)
- 
+
+    !--- Open the restart file and associate it with the Oro_restart fileobject
+    fname='INPUT/'//trim(fn_oro)
+    if (open_file(Oro_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+      call register_axis(Oro_restart, "lat", "y")
+      call register_axis(Oro_restart, "lon", "x")
+      allocate(dim_names_2d(2))
+      dim_names_2d(1) = "lat"
+      dim_names_2d(2) = "lon"
+
     !--- OROGRAPHY FILE
-    if (.not. allocated(oro_name2)) then
+      if (.not. allocated(oro_name2)) then
     !--- allocate the various containers needed for orography data
-      allocate(oro_name2(nvar_o2))
-      allocate(oro_var2(nx,ny,nvar_o2))
-      oro_var2 = -9999._kind_phys
+        allocate(oro_name2(nvar_o2))
+        allocate(oro_var2(nx,ny,nvar_o2))
+        oro_var2 = -9999._kind_phys
 
-      oro_name2(1)  = 'stddev'     ! hprim
-      oro_name2(2)  = 'stddev'     ! hprime(ix,1)
-      oro_name2(3)  = 'convexity'  ! hprime(ix,2)
-      oro_name2(4)  = 'oa1'        ! hprime(ix,3)
-      oro_name2(5)  = 'oa2'        ! hprime(ix,4)
-      oro_name2(6)  = 'oa3'        ! hprime(ix,5)
-      oro_name2(7)  = 'oa4'        ! hprime(ix,6)
-      oro_name2(8)  = 'ol1'        ! hprime(ix,7)
-      oro_name2(9)  = 'ol2'        ! hprime(ix,8)
-      oro_name2(10) = 'ol3'        ! hprime(ix,9)
-      oro_name2(11) = 'ol4'        ! hprime(ix,10)
-      oro_name2(12) = 'theta'      ! hprime(ix,11)
-      oro_name2(13) = 'gamma'      ! hprime(ix,12)
-      oro_name2(14) = 'sigma'      ! hprime(ix,13)
-      oro_name2(15) = 'elvmax'     ! hprime(ix,14)
-      oro_name2(16) = 'orog_filt'  ! oro
-      oro_name2(17) = 'orog_raw'   ! oro_uf
+        !oro_name2(1)  = 'stddev'     ! hprim
+        oro_name2(1)  = 'stddev'     ! hprime(ix,1)
+        oro_name2(2)  = 'convexity'  ! hprime(ix,2)
+        oro_name2(3)  = 'oa1'        ! hprime(ix,3)
+        oro_name2(4)  = 'oa2'        ! hprime(ix,4)
+        oro_name2(5)  = 'oa3'        ! hprime(ix,5)
+        oro_name2(6)  = 'oa4'        ! hprime(ix,6)
+        oro_name2(7)  = 'ol1'        ! hprime(ix,7)
+        oro_name2(8)  = 'ol2'        ! hprime(ix,8)
+        oro_name2(9)  = 'ol3'        ! hprime(ix,9)
+        oro_name2(10) = 'ol4'        ! hprime(ix,10)
+        oro_name2(11) = 'theta'      ! hprime(ix,11)
+        oro_name2(12) = 'gamma'      ! hprime(ix,12)
+        oro_name2(13) = 'sigma'      ! hprime(ix,13)
+        oro_name2(14) = 'elvmax'     ! hprime(ix,14)
+        oro_name2(15) = 'orog_filt'  ! oro
+        oro_name2(16) = 'orog_raw'   ! oro_uf
       !--- register the 2D fields
-      do num = 1,nvar_o2
-        var2_p => oro_var2(:,:,num)
-        id_restart = register_restart_field(Oro_restart, fn_oro, oro_name2(num), var2_p, domain=fv_domain)
-      enddo
-      nullify(var2_p)
-    endif
+        do num = 1,nvar_o2
+          var2_p => oro_var2(:,:,num)
+          call register_restart_field(Oro_restart, oro_name2(num), var2_p, dim_names_2d)
+        enddo
+        nullify(var2_p)
+      endif
 
-    fname = 'INPUT/'//trim(fn_oro)
-    if (file_exist(fname)) then 
-       
-       !--- read the orography restart/data
-       call mpp_error(NOTE,'reading topographic/orographic information from INPUT/oro_data.tile*.nc')
-       call restore_state(Oro_restart)
+      !--- read the orography restart/data
+      call mpp_error(NOTE,'reading topographic/orographic information from INPUT/oro_data.tile*.nc')
+      call read_restart(Oro_restart)
+      call close_file(Oro_restart)
+      deallocate(dim_names_2d)
 
        !--- copy data into GFS containers
        do nb = 1, Atm_block%nblks
@@ -439,24 +450,24 @@ module FV3GFS_io_mod
              !--- stddev
              Sfcprop(nb)%hprim(ix)      = oro_var2(i,j,1)
              !--- hprime(1:14)
-             Sfcprop(nb)%hprime(ix,1)  = oro_var2(i,j,2)
-             Sfcprop(nb)%hprime(ix,2)  = oro_var2(i,j,3)
-             Sfcprop(nb)%hprime(ix,3)  = oro_var2(i,j,4)
-             Sfcprop(nb)%hprime(ix,4)  = oro_var2(i,j,5)
-             Sfcprop(nb)%hprime(ix,5)  = oro_var2(i,j,6)
-             Sfcprop(nb)%hprime(ix,6)  = oro_var2(i,j,7)
-             Sfcprop(nb)%hprime(ix,7)  = oro_var2(i,j,8)
-             Sfcprop(nb)%hprime(ix,8)  = oro_var2(i,j,9)
-             Sfcprop(nb)%hprime(ix,9)  = oro_var2(i,j,10)
-             Sfcprop(nb)%hprime(ix,10) = oro_var2(i,j,11)
-             Sfcprop(nb)%hprime(ix,11) = oro_var2(i,j,12)
-             Sfcprop(nb)%hprime(ix,12) = oro_var2(i,j,13)
-             Sfcprop(nb)%hprime(ix,13) = oro_var2(i,j,14)
-             Sfcprop(nb)%hprime(ix,14) = oro_var2(i,j,15)
+             Sfcprop(nb)%hprime(ix,1)  = oro_var2(i,j,1)
+             Sfcprop(nb)%hprime(ix,2)  = oro_var2(i,j,2)
+             Sfcprop(nb)%hprime(ix,3)  = oro_var2(i,j,3)
+             Sfcprop(nb)%hprime(ix,4)  = oro_var2(i,j,4)
+             Sfcprop(nb)%hprime(ix,5)  = oro_var2(i,j,5)
+             Sfcprop(nb)%hprime(ix,6)  = oro_var2(i,j,6)
+             Sfcprop(nb)%hprime(ix,7)  = oro_var2(i,j,7)
+             Sfcprop(nb)%hprime(ix,8)  = oro_var2(i,j,8)
+             Sfcprop(nb)%hprime(ix,9)  = oro_var2(i,j,9)
+             Sfcprop(nb)%hprime(ix,10) = oro_var2(i,j,10)
+             Sfcprop(nb)%hprime(ix,11) = oro_var2(i,j,11)
+             Sfcprop(nb)%hprime(ix,12) = oro_var2(i,j,12)
+             Sfcprop(nb)%hprime(ix,13) = oro_var2(i,j,13)
+             Sfcprop(nb)%hprime(ix,14) = oro_var2(i,j,14)
              !--- oro
-             Sfcprop(nb)%oro(ix)        = oro_var2(i,j,16)
+             Sfcprop(nb)%oro(ix)        = oro_var2(i,j,15)
              !--- oro_uf
-             Sfcprop(nb)%oro_uf(ix)     = oro_var2(i,j,17)
+             Sfcprop(nb)%oro_uf(ix)     = oro_var2(i,j,16)
           enddo
        enddo
 
@@ -482,109 +493,294 @@ module FV3GFS_io_mod
 
     endif
  
-    !--- deallocate containers and free restart container
+    !--- deallocate containers
     deallocate(oro_name2, oro_var2)
-    call free_restart_type(Oro_restart)
- 
-    !--- SURFACE FILE
-    if (.not. allocated(sfc_name2)) then
-      !--- allocate the various containers needed for restarts
-      allocate(sfc_name2(nvar_s2m+nvar_s2o))
-      allocate(sfc_name3(nvar_s3))
-      allocate(sfc_var2(nx,ny,nvar_s2m+nvar_s2o))
-      allocate(sfc_var3(nx,ny,Model%lsoil,nvar_s3))
-      sfc_var2 = -9999._kind_phys
-      sfc_var3 = -9999._kind_phys
- 
-      !--- names of the 2D variables to save
-      sfc_name2(1)  = 'slmsk'
-      sfc_name2(2)  = 'tsea'    !tsfc
-      sfc_name2(3)  = 'sheleg'  !weasd
-      sfc_name2(4)  = 'tg3'
-      sfc_name2(5)  = 'zorl'
-      sfc_name2(6)  = 'alvsf'
-      sfc_name2(7)  = 'alvwf'
-      sfc_name2(8)  = 'alnsf'
-      sfc_name2(9)  = 'alnwf'
-      sfc_name2(10) = 'facsf'
-      sfc_name2(11) = 'facwf'
-      sfc_name2(12) = 'vfrac'
-      sfc_name2(13) = 'canopy'
-      sfc_name2(14) = 'f10m'
-      sfc_name2(15) = 't2m'
-      sfc_name2(16) = 'q2m'
-      sfc_name2(17) = 'vtype'
-      sfc_name2(18) = 'stype'
-      sfc_name2(19) = 'uustar'
-      sfc_name2(20) = 'ffmm'
-      sfc_name2(21) = 'ffhh'
-      sfc_name2(22) = 'hice'
-      sfc_name2(23) = 'fice'
-      sfc_name2(24) = 'tisfc'
-      sfc_name2(25) = 'tprcp'
-      sfc_name2(26) = 'srflag'
-      sfc_name2(27) = 'snwdph'  !snowd
-      sfc_name2(28) = 'shdmin'
-      sfc_name2(29) = 'shdmax'
-      sfc_name2(30) = 'slope'
-      sfc_name2(31) = 'snoalb'
-      !--- below here all variables are optional
-      sfc_name2(32) = 'sncovr'
-      !--- NSSTM inputs only needed when (nstf_name(1) > 0) .and. (nstf_name(2)) == 0) 
-      sfc_name2(33) = 'tref'
-      sfc_name2(34) = 'z_c'
-      sfc_name2(35) = 'c_0'
-      sfc_name2(36) = 'c_d'
-      sfc_name2(37) = 'w_0'
-      sfc_name2(38) = 'w_d'
-      sfc_name2(39) = 'xt'
-      sfc_name2(40) = 'xs'
-      sfc_name2(41) = 'xu'
-      sfc_name2(42) = 'xv'
-      sfc_name2(43) = 'xz'
-      sfc_name2(44) = 'zm'
-      sfc_name2(45) = 'xtts'
-      sfc_name2(46) = 'xzts'
-      sfc_name2(47) = 'd_conv'
-      sfc_name2(48) = 'ifd'
-      sfc_name2(49) = 'dt_cool'
-      sfc_name2(50) = 'qrain'
- 
-      !--- register the 2D fields
-      do num = 1,nvar_s2m
-        var2_p => sfc_var2(:,:,num)
-        if (trim(sfc_name2(num)) == 'sncovr') then
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain, mandatory=.false.)
-        else
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain)
-        endif
-      enddo
-      if (Model%nstf_name(1) > 0) then
-        mand = .false.
-        if (Model%nstf_name(2) == 0) mand = .true.
-        do num = nvar_s2m+1,nvar_s2m+nvar_s2o
-          var2_p => sfc_var2(:,:,num)
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain, mandatory=mand)
-        enddo
+
+    !--- Open the restart file and associate it with the Sfc_restart fileobject
+    fname='INPUT/'//trim(fn_srf)
+    if (open_file(Sfc_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+
+      !--- register the axes for restarts
+      if (dimension_exists(Sfc_restart, "xaxis_1")) then
+        call register_axis(Sfc_restart, "xaxis_1", "X")
+        call register_axis(Sfc_restart, "yaxis_1", "Y")
+        call register_axis(Sfc_restart, "zaxis_1", Model%lsoil)
+        call register_axis(Sfc_restart, "Time", unlimited)
+        allocate(dim_names_2d(3))
+        allocate(dim_names_3d(4))
+        dim_names_2d(1) = "xaxis_1"
+        dim_names_2d(2) = "yaxis_1"
+        dim_names_2d(3) = "Time"
+        dim_names_3d(1) = "xaxis_1"
+        dim_names_3d(2) = "yaxis_1"
+        dim_names_3d(3) = "zaxis_1"
+        dim_names_3d(4) = "Time"
+      else
+        call register_axis(Sfc_restart, 'lon', 'X')
+        call register_axis(Sfc_restart, 'lat', 'Y')
+        call register_axis(Sfc_restart, 'lsoil', Model%lsoil)
+        allocate(dim_names_2d(2))
+        allocate(dim_names_3d(3))
+        dim_names_2d(1) = "lat"
+        dim_names_2d(2) = "lon"
+        dim_names_3d(1) = "lat"
+        dim_names_3d(2) = "lon"
+        dim_names_3d(3) = "lsoil"
       endif
-      nullify(var2_p)
+
+      !--- SURFACE FILE
+      if (.not. allocated(sfc_name2)) then
+        !--- allocate the various containers needed for restarts
+        allocate(sfc_name2(nvar_s2m+nvar_s2o))
+        allocate(sfc_name3(nvar_s3))
+        allocate(sfc_var2(nx,ny,nvar_s2m+nvar_s2o))
+        allocate(sfc_var3(nx,ny,Model%lsoil,nvar_s3))
+        sfc_var2 = -9999._kind_phys
+        sfc_var3 = -9999._kind_phys
  
-      !--- names of the 2D variables to save
-      sfc_name3(1) = 'stc'
-      sfc_name3(2) = 'smc'
-      sfc_name3(3) = 'slc'
+        !--- names of the 2D variables to save
+        sfc_name2(1)  = 'slmsk'
+        sfc_name2(2)  = 'tsea'    !tsfc
+        sfc_name2(3)  = 'sheleg'  !weasd
+        sfc_name2(4)  = 'tg3'
+        sfc_name2(5)  = 'zorl'
+        sfc_name2(6)  = 'alvsf'
+        sfc_name2(7)  = 'alvwf'
+        sfc_name2(8)  = 'alnsf'
+        sfc_name2(9)  = 'alnwf'
+        sfc_name2(10) = 'facsf'
+        sfc_name2(11) = 'facwf'
+        sfc_name2(12) = 'vfrac'
+        sfc_name2(13) = 'canopy'
+        sfc_name2(14) = 'f10m'
+        sfc_name2(15) = 't2m'
+        sfc_name2(16) = 'q2m'
+        sfc_name2(17) = 'vtype'
+        sfc_name2(18) = 'stype'
+        sfc_name2(19) = 'uustar'
+        sfc_name2(20) = 'ffmm'
+        sfc_name2(21) = 'ffhh'
+        sfc_name2(22) = 'hice'
+        sfc_name2(23) = 'fice'
+        sfc_name2(24) = 'tisfc'
+        sfc_name2(25) = 'tprcp'
+        sfc_name2(26) = 'srflag'
+        sfc_name2(27) = 'snwdph'  !snowd
+        sfc_name2(28) = 'shdmin'
+        sfc_name2(29) = 'shdmax'
+        sfc_name2(30) = 'slope'
+        sfc_name2(31) = 'snoalb'
+        !--- below here all variables are optional
+        sfc_name2(32) = 'sncovr'
+        !--- NSSTM inputs only needed when (nstf_name(1) > 0) .and. (nstf_name(2)) == 0)
+        sfc_name2(33) = 'tref'
+        sfc_name2(34) = 'z_c'
+        sfc_name2(35) = 'c_0'
+        sfc_name2(36) = 'c_d'
+        sfc_name2(37) = 'w_0'
+        sfc_name2(38) = 'w_d'
+        sfc_name2(39) = 'xt'
+        sfc_name2(40) = 'xs'
+        sfc_name2(41) = 'xu'
+        sfc_name2(42) = 'xv'
+        sfc_name2(43) = 'xz'
+        sfc_name2(44) = 'zm'
+        sfc_name2(45) = 'xtts'
+        sfc_name2(46) = 'xzts'
+        sfc_name2(47) = 'd_conv'
+        sfc_name2(48) = 'ifd'
+        sfc_name2(49) = 'dt_cool'
+        sfc_name2(50) = 'qrain'
+
+        !--- register the 2D fields
+        do num = 1,nvar_s2m
+          var2_p => sfc_var2(:,:,num)
+          if (trim(sfc_name2(num)) == 'sncovr') then
+            call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d, is_optional=.true.)
+          else
+            call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d)
+          endif
+        enddo
+        if (Model%nstf_name(1) > 0) then
+          opt = .true.
+          if (Model%nstf_name(2) == 0) opt = .false.
+          do num = nvar_s2m+1,nvar_s2m+nvar_s2o
+            var2_p => sfc_var2(:,:,num)
+            call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d, is_optional=opt)
+          enddo
+        endif
+        nullify(var2_p)
  
-      !--- register the 3D fields
-      do num = 1,nvar_s3
-        var3_p => sfc_var3(:,:,:,num)
-        id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name3(num), var3_p, domain=fv_domain)
+        !--- names of the 2D variables to save
+        sfc_name3(1) = 'stc'
+        sfc_name3(2) = 'smc'
+        sfc_name3(3) = 'slc'
+ 
+        !--- register the 3D fields
+        do num = 1,nvar_s3
+          var3_p => sfc_var3(:,:,:,num)
+          call register_restart_field(Sfc_restart, sfc_name3(num), var3_p, dim_names_3d)
+        enddo
+        nullify(var3_p)
+      endif
+
+      !--- read the surface restart/data
+      call mpp_error(NOTE,'reading surface properties data from INPUT/sfc_data.tile*.nc')
+      call read_restart(Sfc_restart)
+      call close_file(Sfc_restart)
+      deallocate(dim_names_2d)
+      deallocate(dim_names_3d)
+
+      !--- place the data into the block GFS containers
+      do nb = 1, Atm_block%nblks
+         do ix = 1, Atm_block%blksz(nb)
+            i = Atm_block%index(nb)%ii(ix) - isc + 1
+            j = Atm_block%index(nb)%jj(ix) - jsc + 1
+            !--- 2D variables
+            !--- slmsk
+            Sfcprop(nb)%slmsk(ix)  = sfc_var2(i,j,1)
+            !--- tsfc (tsea in sfc file)
+            Sfcprop(nb)%tsfc(ix)   = sfc_var2(i,j,2)
+            !--- weasd (sheleg in sfc file)
+            Sfcprop(nb)%weasd(ix)  = sfc_var2(i,j,3)
+            !--- tg3
+            Sfcprop(nb)%tg3(ix)    = sfc_var2(i,j,4)
+            !--- zorl
+            Sfcprop(nb)%zorl(ix)   = sfc_var2(i,j,5)
+            !--- alvsf
+            Sfcprop(nb)%alvsf(ix)  = sfc_var2(i,j,6)
+            !--- alvwf
+            Sfcprop(nb)%alvwf(ix)  = sfc_var2(i,j,7)
+            !--- alnsf
+            Sfcprop(nb)%alnsf(ix)  = sfc_var2(i,j,8)
+            !--- alnwf
+            Sfcprop(nb)%alnwf(ix)  = sfc_var2(i,j,9)
+            !--- facsf
+            Sfcprop(nb)%facsf(ix)  = sfc_var2(i,j,10)
+            !--- facwf
+            Sfcprop(nb)%facwf(ix)  = sfc_var2(i,j,11)
+            !--- vfrac
+            Sfcprop(nb)%vfrac(ix)  = sfc_var2(i,j,12)
+            !--- canopy
+            Sfcprop(nb)%canopy(ix) = sfc_var2(i,j,13)
+            !--- f10m
+            Sfcprop(nb)%f10m(ix)   = sfc_var2(i,j,14)
+            !--- t2m
+            Sfcprop(nb)%t2m(ix)    = sfc_var2(i,j,15)
+            !--- q2m
+            Sfcprop(nb)%q2m(ix)    = sfc_var2(i,j,16)
+            !--- vtype
+            Sfcprop(nb)%vtype(ix)  = sfc_var2(i,j,17)
+            !--- stype
+            Sfcprop(nb)%stype(ix)  = sfc_var2(i,j,18)
+            !--- uustar
+            Sfcprop(nb)%uustar(ix) = sfc_var2(i,j,19)
+            !--- ffmm
+            Sfcprop(nb)%ffmm(ix)   = sfc_var2(i,j,20)
+            !--- ffhh
+            Sfcprop(nb)%ffhh(ix)   = sfc_var2(i,j,21)
+            !--- hice
+            Sfcprop(nb)%hice(ix)   = sfc_var2(i,j,22)
+            !--- fice
+            Sfcprop(nb)%fice(ix)   = sfc_var2(i,j,23)
+            !--- tisfc
+            Sfcprop(nb)%tisfc(ix)  = sfc_var2(i,j,24)
+            !--- tprcp
+            Sfcprop(nb)%tprcp(ix)  = sfc_var2(i,j,25)
+            !--- srflag
+            Sfcprop(nb)%srflag(ix) = sfc_var2(i,j,26)
+            !--- snowd (snwdph in the file)
+            Sfcprop(nb)%snowd(ix)  = sfc_var2(i,j,27)
+            !--- shdmin
+            Sfcprop(nb)%shdmin(ix) = sfc_var2(i,j,28)
+            !--- shdmax
+            Sfcprop(nb)%shdmax(ix) = sfc_var2(i,j,29)
+            !--- slope
+            Sfcprop(nb)%slope(ix)  = sfc_var2(i,j,30)
+            !--- snoalb
+            Sfcprop(nb)%snoalb(ix) = sfc_var2(i,j,31)
+            !--- sncovr
+            Sfcprop(nb)%sncovr(ix) = sfc_var2(i,j,32)
+            !
+            !--- NSSTM variables
+            if ((Model%nstf_name(1) > 0) .and. (Model%nstf_name(2) == 1)) then
+               !--- nsstm tref
+               Sfcprop(nb)%tref(ix)    = Sfcprop(nb)%tsfc(ix)
+               Sfcprop(nb)%xz(ix)      = 30.0d0
+            endif
+            if ((Model%nstf_name(1) > 0) .and. (Model%nstf_name(2) == 0)) then
+               !--- nsstm tref
+               Sfcprop(nb)%tref(ix)    = sfc_var2(i,j,33)
+               !--- nsstm z_c
+               Sfcprop(nb)%z_c(ix)     = sfc_var2(i,j,34)
+               !--- nsstm c_0
+               Sfcprop(nb)%c_0(ix)     = sfc_var2(i,j,35)
+               !--- nsstm c_d
+               Sfcprop(nb)%c_d(ix)     = sfc_var2(i,j,36)
+               !--- nsstm w_0
+               Sfcprop(nb)%w_0(ix)     = sfc_var2(i,j,37)
+               !--- nsstm w_d
+               Sfcprop(nb)%w_d(ix)     = sfc_var2(i,j,38)
+               !--- nsstm xt
+               Sfcprop(nb)%xt(ix)      = sfc_var2(i,j,39)
+               !--- nsstm xs
+               Sfcprop(nb)%xs(ix)      = sfc_var2(i,j,40)
+               !--- nsstm xu
+               Sfcprop(nb)%xu(ix)      = sfc_var2(i,j,41)
+               !--- nsstm xv
+               Sfcprop(nb)%xv(ix)      = sfc_var2(i,j,42)
+               !--- nsstm xz
+               Sfcprop(nb)%xz(ix)      = sfc_var2(i,j,43)
+               !--- nsstm zm
+               Sfcprop(nb)%zm(ix)      = sfc_var2(i,j,44)
+               !--- nsstm xtts
+               Sfcprop(nb)%xtts(ix)    = sfc_var2(i,j,45)
+               !--- nsstm xzts
+               Sfcprop(nb)%xzts(ix)    = sfc_var2(i,j,46)
+               !--- nsstm d_conv
+               Sfcprop(nb)%d_conv(ix)  = sfc_var2(i,j,47)
+               !--- nsstm ifd
+               Sfcprop(nb)%ifd(ix)     = sfc_var2(i,j,48)
+               !--- nsstm dt_cool
+               Sfcprop(nb)%dt_cool(ix) = sfc_var2(i,j,49)
+               !--- nsstm qrain
+               Sfcprop(nb)%qrain(ix)   = sfc_var2(i,j,50)
+            endif
+
+            !--- 3D variables
+            do lsoil = 1,Model%lsoil
+               !--- stc
+               Sfcprop(nb)%stc(ix,lsoil) = sfc_var3(i,j,lsoil,1)
+               !--- smc
+               Sfcprop(nb)%smc(ix,lsoil) = sfc_var3(i,j,lsoil,2)
+               !--- slc
+               Sfcprop(nb)%slc(ix,lsoil) = sfc_var3(i,j,lsoil,3)
+            enddo
+         enddo
       enddo
-      nullify(var3_p)
-    endif
- 
-    !--- read the surface restart/data
-    fname = 'INPUT/'//trim(fn_srf)
-    if (.not. file_exist(fname)) then ! cold start
+
+      !--- if sncovr does not exist in the restart, need to create it
+      if (nint(sfc_var2(1,1,32)) == -9999) then
+         if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing sncovr')
+         !--- compute sncovr from existing variables
+         !--- code taken directly from read_fix.f
+         do nb = 1, Atm_block%nblks
+            do ix = 1, Atm_block%blksz(nb)
+               Sfcprop(nb)%sncovr(ix) = 0.0
+               if (Sfcprop(nb)%slmsk(ix) > 0.001) then
+                  vegtyp = Sfcprop(nb)%vtype(ix)
+                  if (vegtyp == 0) vegtyp = 7
+                  rsnow  = 0.001*Sfcprop(nb)%weasd(ix)/snupx(vegtyp)
+                  if (0.001*Sfcprop(nb)%weasd(ix) < snupx(vegtyp)) then
+                     Sfcprop(nb)%sncovr(ix) = 1.0 - (exp(-salp_data*rsnow) - rsnow*exp(-salp_data))
+                  else
+                     Sfcprop(nb)%sncovr(ix) = 1.0
+                  endif
+               endif
+            enddo
+         enddo
+      endif
+    else ! cold start
        call mpp_error(NOTE,'No INPUT/sfc_data.tile*.nc surface data found; cold-starting land surface')
        !Need a namelist for options:
        ! 1. choice of sst (uniform, profiles) --- ML0 should relax to this
@@ -682,160 +878,6 @@ module FV3GFS_io_mod
                 Sfcprop(nb)%slc(ix,:) = 1.0 
           enddo
        enddo
-    else
-       call mpp_error(NOTE,'reading surface properties data from INPUT/sfc_data.tile*.nc')
-       call restore_state(Sfc_restart)       
- 
-       !--- place the data into the block GFS containers
-       do nb = 1, Atm_block%nblks
-          do ix = 1, Atm_block%blksz(nb)
-             i = Atm_block%index(nb)%ii(ix) - isc + 1
-             j = Atm_block%index(nb)%jj(ix) - jsc + 1
-             !--- 2D variables
-             !--- slmsk
-             Sfcprop(nb)%slmsk(ix)  = sfc_var2(i,j,1)
-             !--- tsfc (tsea in sfc file)
-             Sfcprop(nb)%tsfc(ix)   = sfc_var2(i,j,2)
-             !--- weasd (sheleg in sfc file)
-             Sfcprop(nb)%weasd(ix)  = sfc_var2(i,j,3)
-             !--- tg3
-             Sfcprop(nb)%tg3(ix)    = sfc_var2(i,j,4)
-             !--- zorl
-             Sfcprop(nb)%zorl(ix)   = sfc_var2(i,j,5)
-             !--- alvsf
-             Sfcprop(nb)%alvsf(ix)  = sfc_var2(i,j,6)
-             !--- alvwf
-             Sfcprop(nb)%alvwf(ix)  = sfc_var2(i,j,7)
-             !--- alnsf
-             Sfcprop(nb)%alnsf(ix)  = sfc_var2(i,j,8)
-             !--- alnwf
-             Sfcprop(nb)%alnwf(ix)  = sfc_var2(i,j,9)
-             !--- facsf
-             Sfcprop(nb)%facsf(ix)  = sfc_var2(i,j,10)
-             !--- facwf
-             Sfcprop(nb)%facwf(ix)  = sfc_var2(i,j,11)
-             !--- vfrac
-             Sfcprop(nb)%vfrac(ix)  = sfc_var2(i,j,12)
-             !--- canopy
-             Sfcprop(nb)%canopy(ix) = sfc_var2(i,j,13)
-             !--- f10m
-             Sfcprop(nb)%f10m(ix)   = sfc_var2(i,j,14)
-             !--- t2m
-             Sfcprop(nb)%t2m(ix)    = sfc_var2(i,j,15)
-             !--- q2m
-             Sfcprop(nb)%q2m(ix)    = sfc_var2(i,j,16)
-             !--- vtype
-             Sfcprop(nb)%vtype(ix)  = sfc_var2(i,j,17)
-             !--- stype
-             Sfcprop(nb)%stype(ix)  = sfc_var2(i,j,18)
-             !--- uustar
-             Sfcprop(nb)%uustar(ix) = sfc_var2(i,j,19)
-             !--- ffmm
-             Sfcprop(nb)%ffmm(ix)   = sfc_var2(i,j,20)
-             !--- ffhh
-             Sfcprop(nb)%ffhh(ix)   = sfc_var2(i,j,21)
-             !--- hice
-             Sfcprop(nb)%hice(ix)   = sfc_var2(i,j,22)
-             !--- fice
-             Sfcprop(nb)%fice(ix)   = sfc_var2(i,j,23)
-             !--- tisfc
-             Sfcprop(nb)%tisfc(ix)  = sfc_var2(i,j,24)
-             !--- tprcp
-             Sfcprop(nb)%tprcp(ix)  = sfc_var2(i,j,25)
-             !--- srflag
-             Sfcprop(nb)%srflag(ix) = sfc_var2(i,j,26)
-             !--- snowd (snwdph in the file)
-             Sfcprop(nb)%snowd(ix)  = sfc_var2(i,j,27)
-             !--- shdmin
-             Sfcprop(nb)%shdmin(ix) = sfc_var2(i,j,28)
-             !--- shdmax
-             Sfcprop(nb)%shdmax(ix) = sfc_var2(i,j,29)
-             !--- slope
-             Sfcprop(nb)%slope(ix)  = sfc_var2(i,j,30)
-             !--- snoalb
-             Sfcprop(nb)%snoalb(ix) = sfc_var2(i,j,31)
-             !--- sncovr
-             Sfcprop(nb)%sncovr(ix) = sfc_var2(i,j,32)
-             !
-             !--- NSSTM variables
-             if ((Model%nstf_name(1) > 0) .and. (Model%nstf_name(2) == 1)) then
-                !--- nsstm tref
-                Sfcprop(nb)%tref(ix)    = Sfcprop(nb)%tsfc(ix)
-                Sfcprop(nb)%xz(ix)      = 30.0d0
-             endif
-             if ((Model%nstf_name(1) > 0) .and. (Model%nstf_name(2) == 0)) then
-                !--- nsstm tref
-                Sfcprop(nb)%tref(ix)    = sfc_var2(i,j,33)
-                !--- nsstm z_c
-                Sfcprop(nb)%z_c(ix)     = sfc_var2(i,j,34)
-                !--- nsstm c_0
-                Sfcprop(nb)%c_0(ix)     = sfc_var2(i,j,35)
-                !--- nsstm c_d
-                Sfcprop(nb)%c_d(ix)     = sfc_var2(i,j,36)
-                !--- nsstm w_0
-                Sfcprop(nb)%w_0(ix)     = sfc_var2(i,j,37)
-                !--- nsstm w_d
-                Sfcprop(nb)%w_d(ix)     = sfc_var2(i,j,38)
-                !--- nsstm xt
-                Sfcprop(nb)%xt(ix)      = sfc_var2(i,j,39)
-                !--- nsstm xs
-                Sfcprop(nb)%xs(ix)      = sfc_var2(i,j,40)
-                !--- nsstm xu
-                Sfcprop(nb)%xu(ix)      = sfc_var2(i,j,41)
-                !--- nsstm xv
-                Sfcprop(nb)%xv(ix)      = sfc_var2(i,j,42)
-                !--- nsstm xz
-                Sfcprop(nb)%xz(ix)      = sfc_var2(i,j,43)
-                !--- nsstm zm
-                Sfcprop(nb)%zm(ix)      = sfc_var2(i,j,44)
-                !--- nsstm xtts
-                Sfcprop(nb)%xtts(ix)    = sfc_var2(i,j,45)
-                !--- nsstm xzts
-                Sfcprop(nb)%xzts(ix)    = sfc_var2(i,j,46)
-                !--- nsstm d_conv
-                Sfcprop(nb)%d_conv(ix)  = sfc_var2(i,j,47)
-                !--- nsstm ifd
-                Sfcprop(nb)%ifd(ix)     = sfc_var2(i,j,48)
-                !--- nsstm dt_cool
-                Sfcprop(nb)%dt_cool(ix) = sfc_var2(i,j,49)
-                !--- nsstm qrain
-                Sfcprop(nb)%qrain(ix)   = sfc_var2(i,j,50)
-             endif
-
-             !--- 3D variables
-             do lsoil = 1,Model%lsoil
-                !--- stc
-                Sfcprop(nb)%stc(ix,lsoil) = sfc_var3(i,j,lsoil,1)
-                !--- smc
-                Sfcprop(nb)%smc(ix,lsoil) = sfc_var3(i,j,lsoil,2)
-                !--- slc
-                Sfcprop(nb)%slc(ix,lsoil) = sfc_var3(i,j,lsoil,3)
-             enddo
-          enddo
-       enddo
-
-       !--- if sncovr does not exist in the restart, need to create it
-       if (nint(sfc_var2(1,1,32)) == -9999) then
-          if (Model%me == Model%master ) call mpp_error(NOTE, 'gfs_driver::surface_props_input - computing sncovr') 
-          !--- compute sncovr from existing variables
-          !--- code taken directly from read_fix.f
-          do nb = 1, Atm_block%nblks
-             do ix = 1, Atm_block%blksz(nb)
-                Sfcprop(nb)%sncovr(ix) = 0.0
-                if (Sfcprop(nb)%slmsk(ix) > 0.001) then
-                   vegtyp = Sfcprop(nb)%vtype(ix)
-                   if (vegtyp == 0) vegtyp = 7
-                   rsnow  = 0.001*Sfcprop(nb)%weasd(ix)/snupx(vegtyp)
-                   if (0.001*Sfcprop(nb)%weasd(ix) < snupx(vegtyp)) then
-                      Sfcprop(nb)%sncovr(ix) = 1.0 - (exp(-salp_data*rsnow) - rsnow*exp(-salp_data))
-                   else
-                      Sfcprop(nb)%sncovr(ix) = 1.0
-                   endif
-                endif
-             enddo
-          enddo
-       endif
-
     endif
 
 
@@ -1017,7 +1059,8 @@ module FV3GFS_io_mod
 !    takes an optional argument to append timestamps for intermediate 
 !    restarts.
 !
-!    calls:  register_restart_field, save_restart
+!    calls:  open_file, register_restart_field, write_restart,
+!            close_file
 !----------------------------------------------------------------------      
   subroutine sfc_prop_restart_write (Sfcprop, Atm_block, Model, fv_domain, timestamp)
     !--- interface variable definitions
@@ -1029,12 +1072,15 @@ module FV3GFS_io_mod
     !--- local variables
     integer :: i, j, k, nb, ix, lsoil, num
     integer :: isc, iec, jsc, jec, npz, nx, ny
-    integer :: id_restart
     integer :: nvar2m, nvar2o, nvar3
-    logical :: mand
+    logical :: opt
     character(len=32) :: fn_srf = 'sfc_data.nc'
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
+    character(len=64) :: fname
+    integer :: is, ie
+    integer, allocatable, dimension(:) :: buffer
+    character(len=8), allocatable, dimension(:) :: dim_names_2d, dim_names_3d
 
     nvar2m = 32
     nvar2o = 18
@@ -1048,223 +1094,277 @@ module FV3GFS_io_mod
     nx = (iec - isc + 1)
     ny = (jec - jsc + 1)
 
-    if (.not. allocated(sfc_name2)) then
-      !--- allocate the various containers needed for restarts
-      allocate(sfc_name2(nvar2m+nvar2o))
-      allocate(sfc_name3(nvar3))
-      allocate(sfc_var2(nx,ny,nvar2m+nvar2o))
-      allocate(sfc_var3(nx,ny,Model%lsoil,nvar3))
-      sfc_var2 = -9999._kind_phys
-      sfc_var3 = -9999._kind_phys
+    !--- Assign dimensions to array for use in register_restart_field
+    allocate(dim_names_2d(3))
+    allocate(dim_names_3d(4))
+    dim_names_2d(1) = "xaxis_1"
+    dim_names_2d(2) = "yaxis_1"
+    dim_names_2d(3) = "Time"
+    dim_names_3d(1) = "xaxis_1"
+    dim_names_3d(2) = "yaxis_1"
+    dim_names_3d(3) = "zaxis_1"
+    dim_names_3d(4) = "Time"
 
-      !--- names of the 2D variables to save
-      sfc_name2(1)  = 'slmsk'
-      sfc_name2(2)  = 'tsea'    !tsfc
-      sfc_name2(3)  = 'sheleg'  !weasd
-      sfc_name2(4)  = 'tg3'
-      sfc_name2(5)  = 'zorl'
-      sfc_name2(6)  = 'alvsf'
-      sfc_name2(7)  = 'alvwf'
-      sfc_name2(8)  = 'alnsf'
-      sfc_name2(9)  = 'alnwf'
-      sfc_name2(10) = 'facsf'
-      sfc_name2(11) = 'facwf'
-      sfc_name2(12) = 'vfrac'
-      sfc_name2(13) = 'canopy'
-      sfc_name2(14) = 'f10m'
-      sfc_name2(15) = 't2m'
-      sfc_name2(16) = 'q2m'
-      sfc_name2(17) = 'vtype'
-      sfc_name2(18) = 'stype'
-      sfc_name2(19) = 'uustar'
-      sfc_name2(20) = 'ffmm'
-      sfc_name2(21) = 'ffhh'
-      sfc_name2(22) = 'hice'
-      sfc_name2(23) = 'fice'
-      sfc_name2(24) = 'tisfc'
-      sfc_name2(25) = 'tprcp'
-      sfc_name2(26) = 'srflag'
-      sfc_name2(27) = 'snwdph'  !snowd
-      sfc_name2(28) = 'shdmin'
-      sfc_name2(29) = 'shdmax'
-      sfc_name2(30) = 'slope'
-      sfc_name2(31) = 'snoalb'
-      !--- below here all variables are optional
-      sfc_name2(32) = 'sncovr'
-      !--- NSSTM inputs only needed when (nstf_name(1) > 0) .and. (nstf_name(2)) == 0)
-      sfc_name2(33) = 'tref'
-      sfc_name2(34) = 'z_c'
-      sfc_name2(35) = 'c_0'
-      sfc_name2(36) = 'c_d'
-      sfc_name2(37) = 'w_0'
-      sfc_name2(38) = 'w_d'
-      sfc_name2(39) = 'xt'
-      sfc_name2(40) = 'xs'
-      sfc_name2(41) = 'xu'
-      sfc_name2(42) = 'xv'
-      sfc_name2(43) = 'xz'
-      sfc_name2(44) = 'zm'
-      sfc_name2(45) = 'xtts'
-      sfc_name2(46) = 'xzts'
-      sfc_name2(47) = 'd_conv'
-      sfc_name2(48) = 'ifd'
-      sfc_name2(49) = 'dt_cool'
-      sfc_name2(50) = 'qrain'
+    !--- Open the restart file and associate it with the Sfc_restart fileobject
+    if (present(timestamp)) then
+      fname='RESTART/'//trim(timestamp)//'.'//trim(fn_srf)
+    else
+      fname='RESTART/'//trim(fn_srf)
+    endif
+
+    if (open_file(Sfc_restart, fname, "overwrite", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+
+      !--- register the axes for restarts
+      call register_axis(Sfc_restart, 'xaxis_1', 'X')
+      call register_field(Sfc_restart, 'xaxis_1', 'double', (/'xaxis_1'/))
+      call register_variable_attribute(Sfc_restart, 'xaxis_1', 'cartesian_axis', 'X', str_len=1)
+      call get_global_io_domain_indices(Sfc_restart, 'xaxis_1', is, ie, indices=buffer)
+      call write_data(Sfc_restart, "xaxis_1", buffer)
+      deallocate(buffer)
+
+      call register_axis(Sfc_restart, 'yaxis_1', 'Y')
+      call register_field(Sfc_restart, 'yaxis_1', 'double', (/'yaxis_1'/))
+      call register_variable_attribute(Sfc_restart, 'yaxis_1', 'cartesian_axis', 'Y', str_len=1)
+      call get_global_io_domain_indices(Sfc_restart, 'yaxis_1', is, ie, indices=buffer)
+      call write_data(Sfc_restart, "yaxis_1", buffer)
+      deallocate(buffer)
+
+      call register_axis(Sfc_restart, 'zaxis_1', dimension_length=Model%lsoil)
+      call register_field(Sfc_restart, 'zaxis_1', 'double', (/'zaxis_1'/))
+      call register_variable_attribute(Sfc_restart, 'zaxis_1', 'cartesian_axis', 'Z', str_len=1)
+      allocate( buffer(Model%lsoil) )
+      do i=1, Model%lsoil
+         buffer(i) = i
+      end do
+      call write_data(Sfc_restart, 'zaxis_1', buffer)
+      deallocate(buffer)
+
+      call register_axis(Sfc_restart, 'Time', unlimited)
+      call register_field(Sfc_restart, 'Time', 'double', (/'Time'/))
+      call register_variable_attribute(Sfc_restart, 'Time', 'cartesian_axis', 'T', str_len=1)
+      call write_data(Sfc_restart, 'Time', 1)
+
+      if (.not. allocated(sfc_name2)) then
+        !--- allocate the various containers needed for restarts
+        allocate(sfc_name2(nvar2m+nvar2o))
+        allocate(sfc_name3(nvar3))
+        allocate(sfc_var2(nx,ny,nvar2m+nvar2o))
+        allocate(sfc_var3(nx,ny,Model%lsoil,nvar3))
+        sfc_var2 = -9999._kind_phys
+        sfc_var3 = -9999._kind_phys
+
+        !--- names of the 2D variables to save
+        sfc_name2(1)  = 'slmsk'
+        sfc_name2(2)  = 'tsea'    !tsfc
+        sfc_name2(3)  = 'sheleg'  !weasd
+        sfc_name2(4)  = 'tg3'
+        sfc_name2(5)  = 'zorl'
+        sfc_name2(6)  = 'alvsf'
+        sfc_name2(7)  = 'alvwf'
+        sfc_name2(8)  = 'alnsf'
+        sfc_name2(9)  = 'alnwf'
+        sfc_name2(10) = 'facsf'
+        sfc_name2(11) = 'facwf'
+        sfc_name2(12) = 'vfrac'
+        sfc_name2(13) = 'canopy'
+        sfc_name2(14) = 'f10m'
+        sfc_name2(15) = 't2m'
+        sfc_name2(16) = 'q2m'
+        sfc_name2(17) = 'vtype'
+        sfc_name2(18) = 'stype'
+        sfc_name2(19) = 'uustar'
+        sfc_name2(20) = 'ffmm'
+        sfc_name2(21) = 'ffhh'
+        sfc_name2(22) = 'hice'
+        sfc_name2(23) = 'fice'
+        sfc_name2(24) = 'tisfc'
+        sfc_name2(25) = 'tprcp'
+        sfc_name2(26) = 'srflag'
+        sfc_name2(27) = 'snwdph'  !snowd
+        sfc_name2(28) = 'shdmin'
+        sfc_name2(29) = 'shdmax'
+        sfc_name2(30) = 'slope'
+        sfc_name2(31) = 'snoalb'
+        !--- below here all variables are optional
+        sfc_name2(32) = 'sncovr'
+        !--- NSSTM inputs only needed when (nstf_name(1) > 0) .and. (nstf_name(2)) == 0)
+        sfc_name2(33) = 'tref'
+        sfc_name2(34) = 'z_c'
+        sfc_name2(35) = 'c_0'
+        sfc_name2(36) = 'c_d'
+        sfc_name2(37) = 'w_0'
+        sfc_name2(38) = 'w_d'
+        sfc_name2(39) = 'xt'
+        sfc_name2(40) = 'xs'
+        sfc_name2(41) = 'xu'
+        sfc_name2(42) = 'xv'
+        sfc_name2(43) = 'xz'
+        sfc_name2(44) = 'zm'
+        sfc_name2(45) = 'xtts'
+        sfc_name2(46) = 'xzts'
+        sfc_name2(47) = 'd_conv'
+        sfc_name2(48) = 'ifd'
+        sfc_name2(49) = 'dt_cool'
+        sfc_name2(50) = 'qrain'
+
+        !--- names of the 3D variables to save
+        sfc_name3(1) = 'stc'
+        sfc_name3(2) = 'smc'
+        sfc_name3(3) = 'slc'
+      endif
+
+      do nb = 1, Atm_block%nblks
+        do ix = 1, Atm_block%blksz(nb)
+          !--- 2D variables
+          i = Atm_block%index(nb)%ii(ix) - isc + 1
+          j = Atm_block%index(nb)%jj(ix) - jsc + 1
+          !--- slmsk
+          sfc_var2(i,j,1)  = Sfcprop(nb)%slmsk(ix)
+          !--- tsfc (tsea in sfc file)
+          sfc_var2(i,j,2)  = Sfcprop(nb)%tsfc(ix)
+          !--- weasd (sheleg in sfc file)
+          sfc_var2(i,j,3)  = Sfcprop(nb)%weasd(ix)
+          !--- tg3
+          sfc_var2(i,j,4)  = Sfcprop(nb)%tg3(ix)
+          !--- zorl
+          sfc_var2(i,j,5)  = Sfcprop(nb)%zorl(ix)
+          !--- alvsf
+          sfc_var2(i,j,6)  = Sfcprop(nb)%alvsf(ix)
+          !--- alvwf
+          sfc_var2(i,j,7)  = Sfcprop(nb)%alvwf(ix)
+          !--- alnsf
+          sfc_var2(i,j,8)  = Sfcprop(nb)%alnsf(ix)
+          !--- alnwf
+          sfc_var2(i,j,9)  = Sfcprop(nb)%alnwf(ix)
+          !--- facsf
+          sfc_var2(i,j,10) = Sfcprop(nb)%facsf(ix)
+          !--- facwf
+          sfc_var2(i,j,11) = Sfcprop(nb)%facwf(ix)
+          !--- vfrac
+          sfc_var2(i,j,12) = Sfcprop(nb)%vfrac(ix)
+          !--- canopy
+          sfc_var2(i,j,13) = Sfcprop(nb)%canopy(ix)
+          !--- f10m
+          sfc_var2(i,j,14) = Sfcprop(nb)%f10m(ix)
+          !--- t2m
+          sfc_var2(i,j,15) = Sfcprop(nb)%t2m(ix)
+          !--- q2m
+          sfc_var2(i,j,16) = Sfcprop(nb)%q2m(ix)
+          !--- vtype
+          sfc_var2(i,j,17) = Sfcprop(nb)%vtype(ix)
+          !--- stype
+          sfc_var2(i,j,18) = Sfcprop(nb)%stype(ix)
+          !--- uustar
+          sfc_var2(i,j,19) = Sfcprop(nb)%uustar(ix)
+          !--- ffmm
+          sfc_var2(i,j,20) = Sfcprop(nb)%ffmm(ix)
+          !--- ffhh
+          sfc_var2(i,j,21) = Sfcprop(nb)%ffhh(ix)
+          !--- hice
+          sfc_var2(i,j,22) = Sfcprop(nb)%hice(ix)
+          !--- fice
+          sfc_var2(i,j,23) = Sfcprop(nb)%fice(ix)
+          !--- tisfc
+          sfc_var2(i,j,24) = Sfcprop(nb)%tisfc(ix)
+          !--- tprcp
+          sfc_var2(i,j,25) = Sfcprop(nb)%tprcp(ix)
+          !--- srflag
+          sfc_var2(i,j,26) = Sfcprop(nb)%srflag(ix)
+          !--- snowd (snwdph in the file)
+          sfc_var2(i,j,27) = Sfcprop(nb)%snowd(ix)
+          !--- shdmin
+          sfc_var2(i,j,28) = Sfcprop(nb)%shdmin(ix)
+          !--- shdmax
+          sfc_var2(i,j,29) = Sfcprop(nb)%shdmax(ix)
+          !--- slope
+          sfc_var2(i,j,30) = Sfcprop(nb)%slope(ix)
+          !--- snoalb
+          sfc_var2(i,j,31) = Sfcprop(nb)%snoalb(ix)
+          !--- sncovr
+          sfc_var2(i,j,32) = Sfcprop(nb)%sncovr(ix)
+          !--- NSSTM variables
+          if (Model%nstf_name(1) > 0) then
+            !--- nsstm tref
+              sfc_var2(i,j,33) = Sfcprop(nb)%tref(ix)
+            !--- nsstm z_c
+            sfc_var2(i,j,34) = Sfcprop(nb)%z_c(ix)
+            !--- nsstm c_0
+            sfc_var2(i,j,35) = Sfcprop(nb)%c_0(ix)
+            !--- nsstm c_d
+            sfc_var2(i,j,36) = Sfcprop(nb)%c_d(ix)
+            !--- nsstm w_0
+            sfc_var2(i,j,37) = Sfcprop(nb)%w_0(ix)
+            !--- nsstm w_d
+            sfc_var2(i,j,38) = Sfcprop(nb)%w_d(ix)
+            !--- nsstm xt
+            sfc_var2(i,j,39) = Sfcprop(nb)%xt(ix)
+            !--- nsstm xs
+            sfc_var2(i,j,40) = Sfcprop(nb)%xs(ix)
+            !--- nsstm xu
+            sfc_var2(i,j,41) = Sfcprop(nb)%xu(ix)
+            !--- nsstm xv
+            sfc_var2(i,j,42) = Sfcprop(nb)%xv(ix)
+            !--- nsstm xz
+            sfc_var2(i,j,43) = Sfcprop(nb)%xz(ix)
+            !--- nsstm zm
+            sfc_var2(i,j,44) = Sfcprop(nb)%zm(ix)
+            !--- nsstm xtts
+            sfc_var2(i,j,45) = Sfcprop(nb)%xtts(ix)
+            !--- nsstm xzts
+            sfc_var2(i,j,46) = Sfcprop(nb)%xzts(ix)
+            !--- nsstm d_conv
+            sfc_var2(i,j,47) = Sfcprop(nb)%d_conv(ix)
+            !--- nsstm ifd
+            sfc_var2(i,j,48) = Sfcprop(nb)%ifd(ix)
+            !--- nsstm dt_cool
+            sfc_var2(i,j,49) = Sfcprop(nb)%dt_cool(ix)
+            !--- nsstm qrain
+            sfc_var2(i,j,50) = Sfcprop(nb)%qrain(ix)
+          endif
  
+          !--- 3D variables
+          do lsoil = 1,Model%lsoil
+            !--- stc
+            sfc_var3(i,j,lsoil,1) = Sfcprop(nb)%stc(ix,lsoil)
+            !--- smc
+            sfc_var3(i,j,lsoil,2) = Sfcprop(nb)%smc(ix,lsoil)
+            !--- slc
+            sfc_var3(i,j,lsoil,3) = Sfcprop(nb)%slc(ix,lsoil)
+          enddo
+        enddo
+      enddo
+
       !--- register the 2D fields
       do num = 1,nvar2m
         var2_p => sfc_var2(:,:,num)
         if (trim(sfc_name2(num)) == 'sncovr') then
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain, mandatory=.false.)
+          call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d, is_optional=.true.)
         else
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain)
+          call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d)
         endif
       enddo
       if (Model%nstf_name(1) > 0) then
-        mand = .false.
-        if (Model%nstf_name(2) ==0) mand = .true.
+        opt = .true.
+        if (Model%nstf_name(2) ==0) opt = .false.
         do num = nvar2m+1,nvar2m+nvar2o
           var2_p => sfc_var2(:,:,num)
-          id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name2(num), var2_p, domain=fv_domain, mandatory=mand)
+           call register_restart_field(Sfc_restart, sfc_name2(num), var2_p, dim_names_2d, is_optional=opt)
         enddo
       endif
       nullify(var2_p)
- 
-      !--- names of the 2D variables to save
-      sfc_name3(1) = 'stc'
-      sfc_name3(2) = 'smc'
-      sfc_name3(3) = 'slc'
- 
+
       !--- register the 3D fields
       do num = 1,nvar3
         var3_p => sfc_var3(:,:,:,num)
-        id_restart = register_restart_field(Sfc_restart, fn_srf, sfc_name3(num), var3_p, domain=fv_domain)
+        call register_restart_field(Sfc_restart, sfc_name3(num), var3_p, dim_names_3d)
       enddo
       nullify(var3_p)
-    endif
-   
-    do nb = 1, Atm_block%nblks
-      do ix = 1, Atm_block%blksz(nb)
-        !--- 2D variables
-        i = Atm_block%index(nb)%ii(ix) - isc + 1
-        j = Atm_block%index(nb)%jj(ix) - jsc + 1
-        !--- slmsk
-        sfc_var2(i,j,1)  = Sfcprop(nb)%slmsk(ix)
-        !--- tsfc (tsea in sfc file)
-        sfc_var2(i,j,2)  = Sfcprop(nb)%tsfc(ix)
-        !--- weasd (sheleg in sfc file)
-        sfc_var2(i,j,3)  = Sfcprop(nb)%weasd(ix)
-        !--- tg3
-        sfc_var2(i,j,4)  = Sfcprop(nb)%tg3(ix)
-        !--- zorl
-        sfc_var2(i,j,5)  = Sfcprop(nb)%zorl(ix)
-        !--- alvsf
-        sfc_var2(i,j,6)  = Sfcprop(nb)%alvsf(ix)
-        !--- alvwf
-        sfc_var2(i,j,7)  = Sfcprop(nb)%alvwf(ix)
-        !--- alnsf
-        sfc_var2(i,j,8)  = Sfcprop(nb)%alnsf(ix)
-        !--- alnwf
-        sfc_var2(i,j,9)  = Sfcprop(nb)%alnwf(ix)
-        !--- facsf
-        sfc_var2(i,j,10) = Sfcprop(nb)%facsf(ix)
-        !--- facwf
-        sfc_var2(i,j,11) = Sfcprop(nb)%facwf(ix)
-        !--- vfrac
-        sfc_var2(i,j,12) = Sfcprop(nb)%vfrac(ix)
-        !--- canopy
-        sfc_var2(i,j,13) = Sfcprop(nb)%canopy(ix)
-        !--- f10m
-        sfc_var2(i,j,14) = Sfcprop(nb)%f10m(ix)
-        !--- t2m
-        sfc_var2(i,j,15) = Sfcprop(nb)%t2m(ix)
-        !--- q2m
-        sfc_var2(i,j,16) = Sfcprop(nb)%q2m(ix)
-        !--- vtype
-        sfc_var2(i,j,17) = Sfcprop(nb)%vtype(ix)
-        !--- stype
-        sfc_var2(i,j,18) = Sfcprop(nb)%stype(ix)
-        !--- uustar
-        sfc_var2(i,j,19) = Sfcprop(nb)%uustar(ix)
-        !--- ffmm
-        sfc_var2(i,j,20) = Sfcprop(nb)%ffmm(ix)
-        !--- ffhh
-        sfc_var2(i,j,21) = Sfcprop(nb)%ffhh(ix)
-        !--- hice
-        sfc_var2(i,j,22) = Sfcprop(nb)%hice(ix)
-        !--- fice
-        sfc_var2(i,j,23) = Sfcprop(nb)%fice(ix)
-        !--- tisfc
-        sfc_var2(i,j,24) = Sfcprop(nb)%tisfc(ix)
-        !--- tprcp
-        sfc_var2(i,j,25) = Sfcprop(nb)%tprcp(ix)
-        !--- srflag
-        sfc_var2(i,j,26) = Sfcprop(nb)%srflag(ix)
-        !--- snowd (snwdph in the file)
-        sfc_var2(i,j,27) = Sfcprop(nb)%snowd(ix)
-        !--- shdmin
-        sfc_var2(i,j,28) = Sfcprop(nb)%shdmin(ix)
-        !--- shdmax
-        sfc_var2(i,j,29) = Sfcprop(nb)%shdmax(ix)
-        !--- slope
-        sfc_var2(i,j,30) = Sfcprop(nb)%slope(ix)
-        !--- snoalb
-        sfc_var2(i,j,31) = Sfcprop(nb)%snoalb(ix)
-        !--- sncovr
-        sfc_var2(i,j,32) = Sfcprop(nb)%sncovr(ix)
-        !--- NSSTM variables
-        if (Model%nstf_name(1) > 0) then
-          !--- nsstm tref
-          sfc_var2(i,j,33) = Sfcprop(nb)%tref(ix)
-          !--- nsstm z_c
-          sfc_var2(i,j,34) = Sfcprop(nb)%z_c(ix)
-          !--- nsstm c_0
-          sfc_var2(i,j,35) = Sfcprop(nb)%c_0(ix)
-          !--- nsstm c_d
-          sfc_var2(i,j,36) = Sfcprop(nb)%c_d(ix)
-          !--- nsstm w_0
-          sfc_var2(i,j,37) = Sfcprop(nb)%w_0(ix)
-          !--- nsstm w_d
-          sfc_var2(i,j,38) = Sfcprop(nb)%w_d(ix)
-          !--- nsstm xt
-          sfc_var2(i,j,39) = Sfcprop(nb)%xt(ix)
-          !--- nsstm xs
-          sfc_var2(i,j,40) = Sfcprop(nb)%xs(ix)
-          !--- nsstm xu
-          sfc_var2(i,j,41) = Sfcprop(nb)%xu(ix)
-          !--- nsstm xv
-          sfc_var2(i,j,42) = Sfcprop(nb)%xv(ix)
-          !--- nsstm xz
-          sfc_var2(i,j,43) = Sfcprop(nb)%xz(ix)
-          !--- nsstm zm
-          sfc_var2(i,j,44) = Sfcprop(nb)%zm(ix)
-          !--- nsstm xtts
-          sfc_var2(i,j,45) = Sfcprop(nb)%xtts(ix)
-          !--- nsstm xzts
-          sfc_var2(i,j,46) = Sfcprop(nb)%xzts(ix)
-          !--- nsstm d_conv
-          sfc_var2(i,j,47) = Sfcprop(nb)%d_conv(ix)
-          !--- nsstm ifd
-          sfc_var2(i,j,48) = Sfcprop(nb)%ifd(ix)
-          !--- nsstm dt_cool
-          sfc_var2(i,j,49) = Sfcprop(nb)%dt_cool(ix)
-          !--- nsstm qrain
-          sfc_var2(i,j,50) = Sfcprop(nb)%qrain(ix)
-        endif
- 
-        !--- 3D variables
-        do lsoil = 1,Model%lsoil
-          !--- stc
-          sfc_var3(i,j,lsoil,1) = Sfcprop(nb)%stc(ix,lsoil)
-          !--- smc
-          sfc_var3(i,j,lsoil,2) = Sfcprop(nb)%smc(ix,lsoil)
-          !--- slc
-          sfc_var3(i,j,lsoil,3) = Sfcprop(nb)%slc(ix,lsoil)
-        enddo
-      enddo
-    enddo
 
-    call save_restart(Sfc_restart, timestamp)
+      call write_restart(Sfc_restart)
+      call close_file(Sfc_restart)
+      deallocate(dim_names_2d)
+      deallocate(dim_names_3d)
+    endif
 
   end subroutine sfc_prop_restart_write
 
@@ -1277,7 +1377,8 @@ module FV3GFS_io_mod
 !    calls a GFDL FMS routine to restore the data from a restart file.
 !    calculates sncovr if it is not present in the restart file.
 !
-!    calls:  register_restart_field, restart_state, free_restart
+!    calls:  open_file, register_restart_field, read_restart,
+!            close_file
 !   
 !    opens:  phys_data.tile?.nc
 !   
@@ -1291,11 +1392,11 @@ module FV3GFS_io_mod
     !--- local variables
     integer :: i, j, k, nb, ix, num
     integer :: isc, iec, jsc, jec, npz, nx, ny
-    integer :: id_restart
     integer :: nvar2d, nvar3d
     character(len=64) :: fname
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
+    character(len=8), allocatable, dimension(:) :: dim_names_2d, dim_names_3d
 
 
     isc = Atm_block%isc
@@ -1307,33 +1408,55 @@ module FV3GFS_io_mod
     ny = (jec - jsc + 1)
     nvar2d = IPD_Restart%num2d
     nvar3d = IPD_Restart%num3d
- 
-    !--- register the restart fields
-    if (.not. allocated(phy_var2)) then
-      allocate (phy_var2(nx,ny,nvar2d))
-      allocate (phy_var3(nx,ny,npz,nvar3d))
-      phy_var2 = 0.0_kind_phys
-      phy_var3 = 0.0_kind_phys
-      
-      do num = 1,nvar2d
-        var2_p => phy_var2(:,:,num)
-        id_restart = register_restart_field (Phy_restart, fn_phy, trim(IPD_Restart%name2d(num)), &
-                                             var2_p, domain=fv_domain, mandatory=.false.)
-      enddo
-      do num = 1,nvar3d
-        var3_p => phy_var3(:,:,:,num)
-        id_restart = register_restart_field (Phy_restart, fn_phy, trim(IPD_restart%name3d(num)), &
-                                             var3_p, domain=fv_domain, mandatory=.false.)
-      enddo
-      nullify(var2_p)
-      nullify(var3_p)
-    endif
 
-    fname = 'INPUT/'//trim(fn_phy)
-    if (file_exist(fname)) then
+    !--- Assign dimensions to array for use in register_restart_field
+    allocate(dim_names_2d(3))
+    allocate(dim_names_3d(4))
+    dim_names_2d(1) = "xaxis_1"
+    dim_names_2d(2) = "yaxis_1"
+    dim_names_2d(3) = "Time"
+    dim_names_3d(1) = "xaxis_1"
+    dim_names_3d(2) = "yaxis_1"
+    dim_names_3d(3) = "zaxis_1"
+    dim_names_3d(4) = "Time"
+
+    !--- Open the restart file and associate it with the Phy_restart fileobject
+    fname='INPUT/'//trim(fn_phy)
+    if (open_file(Phy_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+
+      !--- register the axes for restarts
+      call register_axis(Phy_restart, "xaxis_1", "X")
+      call register_axis(Phy_restart, "yaxis_1", "Y")
+      call register_axis(Phy_restart, "zaxis_1", npz)
+      call register_axis(Phy_restart, "Time", unlimited)
+
+      !--- register the restart fields
+      if (.not. allocated(phy_var2)) then
+        allocate (phy_var2(nx,ny,nvar2d))
+        allocate (phy_var3(nx,ny,npz,nvar3d))
+        phy_var2 = 0.0_kind_phys
+        phy_var3 = 0.0_kind_phys
+
+        do num = 1,nvar2d
+          var2_p => phy_var2(:,:,num)
+          call register_restart_field (Phy_restart, trim(IPD_Restart%name2d(num)), &
+                                       var2_p, dim_names_2d, is_optional=.true.)
+        enddo
+        do num = 1,nvar3d
+          var3_p => phy_var3(:,:,:,num)
+          call register_restart_field (Phy_restart, trim(IPD_restart%name3d(num)), &
+                                       var3_p, dim_names_3d, is_optional=.true.)
+        enddo
+        nullify(var2_p)
+        nullify(var3_p)
+      endif
+
       !--- read the surface restart/data
       call mpp_error(NOTE,'reading physics restart data from INPUT/phy_data.tile*.nc')
-      call restore_state(Phy_restart)
+      call read_restart(Phy_restart)
+      call close_file(Phy_restart)
+      deallocate(dim_names_2d)
+      deallocate(dim_names_3d)
     else
       call mpp_error(NOTE,'No physics restarts - cold starting physical parameterizations')
       return
@@ -1373,7 +1496,8 @@ module FV3GFS_io_mod
 !    takes an optional argument to append timestamps for intermediate 
 !    restarts.
 !
-!    calls:  register_restart_field, save_restart
+!    calls:  open_file, register_restart_field, write_restart,
+!            close_file
 !----------------------------------------------------------------------      
   subroutine phys_restart_write (IPD_Restart, Atm_block, Model, fv_domain, timestamp)
     !--- interface variable definitions
@@ -1385,10 +1509,14 @@ module FV3GFS_io_mod
     !--- local variables
     integer :: i, j, k, nb, ix, num
     integer :: isc, iec, jsc, jec, npz, nx, ny
-    integer :: id_restart
     integer :: nvar2d, nvar3d
     real(kind=kind_phys), pointer, dimension(:,:)   :: var2_p => NULL()
     real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
+    character(len=64) :: fname
+    integer :: is, ie
+    integer, allocatable, dimension(:) :: buffer
+    character(len=8), dimension(3) :: dim_names_2d
+    character(len=8), dimension(4) :: dim_names_3d
 
 
     isc = Atm_block%isc
@@ -1401,51 +1529,101 @@ module FV3GFS_io_mod
     nvar2d = IPD_Restart%num2d
     nvar3d = IPD_Restart%num3d
 
-    !--- register the restart fields 
-    if (.not. allocated(phy_var2)) then
-      allocate (phy_var2(nx,ny,nvar2d))
-      allocate (phy_var3(nx,ny,npz,nvar3d))
-      phy_var2 = 0.0_kind_phys
-      phy_var3 = 0.0_kind_phys
-      
-      do num = 1,nvar2d
-        var2_p => phy_var2(:,:,num)
-        id_restart = register_restart_field (Phy_restart, fn_phy, trim(IPD_Restart%name2d(num)), &
-                                             var2_p, domain=fv_domain, mandatory=.false.)
-      enddo
-      do num = 1,nvar3d
-        var3_p => phy_var3(:,:,:,num)
-        id_restart = register_restart_field (Phy_restart, fn_phy, trim(IPD_restart%name3d(num)), &
-                                             var3_p, domain=fv_domain, mandatory=.false.)
-      enddo
-      nullify(var2_p)
-      nullify(var3_p)
+    !--- Assign dimensions to array for use in register_restart_field
+    dim_names_2d(1) = "xaxis_1"
+    dim_names_2d(2) = "yaxis_1"
+    dim_names_2d(3) = "Time"
+    dim_names_3d(1) = "xaxis_1"
+    dim_names_3d(2) = "yaxis_1"
+    dim_names_3d(3) = "zaxis_1"
+    dim_names_3d(4) = "Time"
+
+    !--- Open the restart file and associate it with the Phy_restart fileobject
+    if (present(timestamp)) then
+      fname='RESTART/'//trim(timestamp)//'.'//trim(fn_phy)
+    else
+      fname='RESTART/'//trim(fn_phy)
     endif
 
-    !--- 2D variables
-    do num = 1,nvar2d
-      do nb = 1,Atm_block%nblks
-        do ix = 1, Atm_block%blksz(nb)            
-          i = Atm_block%index(nb)%ii(ix) - isc + 1
-          j = Atm_block%index(nb)%jj(ix) - jsc + 1
-          phy_var2(i,j,num) = IPD_Restart%data(nb,num)%var2p(ix)
-        enddo
-      enddo
-    enddo
-    !--- 3D variables
-    do num = 1,nvar3d
-      do nb = 1,Atm_block%nblks
-        do k=1,npz
-          do ix = 1, Atm_block%blksz(nb)            
+    if (open_file(Phy_restart, fname, "overwrite", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+
+      !--- register the axes for restarts
+      call register_axis(Phy_restart, "xaxis_1", "X")
+      call register_field(Phy_restart, 'xaxis_1', 'double', (/'xaxis_1'/))
+      call register_variable_attribute(Phy_restart, 'xaxis_1', 'cartesian_axis', 'X', str_len=1)
+      call get_global_io_domain_indices(Phy_restart, 'xaxis_1', is, ie, indices=buffer)
+      call write_data(Phy_restart, "xaxis_1", buffer)
+      deallocate(buffer)
+
+      call register_axis(Phy_restart, "yaxis_1", "Y")
+      call register_field(Phy_restart, 'yaxis_1', 'double', (/'yaxis_1'/))
+      call register_variable_attribute(Phy_restart, 'yaxis_1', 'cartesian_axis', 'Y', str_len=1)
+      call get_global_io_domain_indices(Phy_restart, 'yaxis_1', is, ie, indices=buffer)
+      call write_data(Phy_restart, "yaxis_1", buffer)
+      deallocate(buffer)
+
+      call register_axis(Phy_restart, "zaxis_1", npz)
+      call register_field(Phy_restart, 'zaxis_1', 'double', (/'zaxis_1'/))
+      call register_variable_attribute(Phy_restart, 'zaxis_1', 'cartesian_axis', 'Z', str_len=1)
+      allocate( buffer(npz) )
+      do i=1, npz
+         buffer(i)=i
+      end do
+      call write_data(Phy_restart, "zaxis_1", buffer)
+      deallocate(buffer)
+
+      call register_axis(Phy_restart, "Time", unlimited)
+      call register_field(Phy_restart, 'Time', 'double', (/'Time'/))
+      call register_variable_attribute(Phy_restart, 'Time', 'cartesian_axis', 'T', str_len=1)
+      call write_data(Phy_restart, "Time", 1)
+
+      if (.not. allocated(phy_var2)) then
+        allocate (phy_var2(nx,ny,nvar2d))
+        allocate (phy_var3(nx,ny,npz,nvar3d))
+        phy_var2 = 0.0_kind_phys
+        phy_var3 = 0.0_kind_phys
+      endif
+
+      !--- 2D variables
+      do num = 1,nvar2d
+        do nb = 1,Atm_block%nblks
+          do ix = 1, Atm_block%blksz(nb)
             i = Atm_block%index(nb)%ii(ix) - isc + 1
             j = Atm_block%index(nb)%jj(ix) - jsc + 1
-            phy_var3(i,j,k,num) = IPD_Restart%data(nb,num)%var3p(ix,k)
+            phy_var2(i,j,num) = IPD_Restart%data(nb,num)%var2p(ix)
           enddo
         enddo
       enddo
-    enddo
+      !--- 3D variables
+      do num = 1,nvar3d
+        do nb = 1,Atm_block%nblks
+          do k=1,npz
+            do ix = 1, Atm_block%blksz(nb)
+              i = Atm_block%index(nb)%ii(ix) - isc + 1
+              j = Atm_block%index(nb)%jj(ix) - jsc + 1
+              phy_var3(i,j,k,num) = IPD_Restart%data(nb,num)%var3p(ix,k)
+            enddo
+          enddo
+        enddo
+      enddo
 
-    call save_restart(Phy_restart, timestamp)
+      !--- register the restart fields
+      do num = 1,nvar2d
+        var2_p => phy_var2(:,:,num)
+        call register_restart_field (Phy_restart, trim(IPD_Restart%name2d(num)), &
+                                     var2_p, dim_names_2d, is_optional=.true.)
+      enddo
+      do num = 1,nvar3d
+        var3_p => phy_var3(:,:,:,num)
+        call register_restart_field (Phy_restart, trim(IPD_restart%name3d(num)), &
+                                     var3_p, dim_names_3d, is_optional=.true.)
+      enddo
+      nullify(var2_p)
+      nullify(var3_p)
+
+      call write_restart(Phy_restart)
+      call close_file(Phy_restart)
+    endif
 
   end subroutine phys_restart_write
 

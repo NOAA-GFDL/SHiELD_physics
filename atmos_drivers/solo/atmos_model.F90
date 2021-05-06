@@ -25,28 +25,21 @@ program atmos_model
 !
 !-----------------------------------------------------------------------
 
-#ifdef INTERNAL_FILE_NML
-use mpp_mod, only: input_nml_file
-#else
-use fms_mod, only: open_namelist_file
-#endif
-
 use   atmosphere_mod, only: atmosphere_init, atmosphere_end, atmosphere, atmosphere_domain
 
 use time_manager_mod, only: time_type, set_time, get_time,  &
                             operator(+), operator (<), operator (>), &
                             operator (/=), operator (/), operator (*)
 
-use          fms_mod, only: file_exist, check_nml_error,                &
+use          fms_mod, only: check_nml_error,                            &
                             error_mesg, FATAL, WARNING,                 &
                             mpp_pe, mpp_root_pe, fms_init, fms_end,     &
                             stdlog, stdout, write_version_number,       &
-                            open_restart_file,                          &
                             mpp_clock_id, mpp_clock_begin,              &
-                            mpp_clock_end, CLOCK_COMPONENT, set_domain, nullify_domain
-use       fms_io_mod, only: fms_io_exit
+                            mpp_clock_end, CLOCK_COMPONENT
+use      fms2_io_mod, only: file_exists
 
-use  mpp_mod,         only: mpp_set_current_pelist
+use  mpp_mod,         only: mpp_set_current_pelist, input_nml_file
 use  mpp_domains_mod, only: domain2d
 use       mpp_io_mod, only: mpp_open, mpp_close, MPP_ASCII, MPP_OVERWR, &
                             MPP_SEQUENTIAL, MPP_SINGLE, MPP_RDONLY, MPP_DELETE
@@ -129,7 +122,6 @@ character(len=128), parameter :: tag = &
 !   ------ end of atmospheric time step loop -----
 
  call atmos_model_end
- call fms_io_exit
  call fms_end
 
 contains
@@ -164,17 +156,8 @@ contains
 
 !----- read namelist -------
 
-#ifdef INTERNAL_FILE_NML
-     read (input_nml_file, nml=main_nml, iostat=io)
-     ierr = check_nml_error(io, 'main_nml')
-#else
-   unit = open_namelist_file ( )
-   ierr=1; do while (ierr /= 0)
-          read  (unit, nml=main_nml, iostat=io, end=10)
-          ierr = check_nml_error (io, 'main_nml')
-   enddo
-10 call mpp_close (unit)
-#endif
+   read (input_nml_file, nml=main_nml, iostat=io)
+   ierr = check_nml_error(io, 'main_nml')
 
 !----- write namelist to logfile -----
 
@@ -187,7 +170,7 @@ contains
 
 !----- read restart file -----
 
-   if (file_exist('INPUT/atmos_model.res')) then
+   if (file_exists('INPUT/atmos_model.res')) then
        call mpp_open (unit, 'INPUT/atmos_model.res', action=MPP_RDONLY, nohdrs=.true.)
        read  (unit,*) date
        call mpp_close (unit)
@@ -357,11 +340,7 @@ contains
       endif
 
 !----- final output of diagnostic fields ----
-      call set_domain(atmos_domain)  ! This assumes all output fields are on the atmos domain
-
       call diag_manager_end (Time)
-
-      call nullify_domain()
 
       call mpp_clock_end (id_end)
 !-----------------------------------------------------------------------
