@@ -410,6 +410,7 @@
      hgamv(i)  = 0.0
      delta(i)  = 0.0
      wstar3_2(i) =  0.0
+     we(i)       = 0.0
    enddo
 !
    do k = kts,klpbl
