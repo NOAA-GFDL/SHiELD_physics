@@ -166,21 +166,22 @@ module FV3GFS_io_mod
 !--------------------
 ! FV3GFS_restart_read
 !--------------------
-  subroutine FV3GFS_restart_read (IPD_Data, IPD_Restart, Atm_block, Model, fv_domain)
+  subroutine FV3GFS_restart_read (IPD_Data, IPD_Restart, Atm_block, Model, fv_domain, enforce_rst_cksum)
     type(IPD_data_type),      intent(inout) :: IPD_Data(:)
     type(IPD_restart_type),   intent(inout) :: IPD_Restart
     type(block_control_type), intent(in)    :: Atm_block
     type(IPD_control_type),   intent(inout) :: Model
     type(domain2d),           intent(in)    :: fv_domain
+    logical,                  intent(in)    :: enforce_rst_cksum
 
     !--- read in surface data from chgres
-    call sfc_prop_restart_read (IPD_Data%Sfcprop, Atm_block, Model, fv_domain)
+    call sfc_prop_restart_read (IPD_Data%Sfcprop, Atm_block, Model, fv_domain, enforce_rst_cksum)
 
     !--- read in
     if (Model%sfc_override) call sfc_prop_override  (IPD_Data%Sfcprop, IPD_Data%Grid, Atm_block, Model, fv_domain)
 
     !--- read in physics restart data
-    call phys_restart_read (IPD_Restart, Atm_block, Model, fv_domain)
+    call phys_restart_read (IPD_Restart, Atm_block, Model, fv_domain, enforce_rst_cksum)
 
   end subroutine FV3GFS_restart_read
 
@@ -834,12 +835,13 @@ module FV3GFS_io_mod
 !    opens:  oro_data.tile?.nc, sfc_data.tile?.nc
 !
 !----------------------------------------------------------------------
-  subroutine sfc_prop_restart_read (Sfcprop, Atm_block, Model, fv_domain)
+  subroutine sfc_prop_restart_read (Sfcprop, Atm_block, Model, fv_domain, enforce_rst_cksum)
     !--- interface variable definitions
     type(GFS_sfcprop_type),    intent(inout) :: Sfcprop(:)
     type (block_control_type), intent(in)    :: Atm_block
     type(IPD_control_type),    intent(inout) :: Model
     type (domain2d),           intent(in)    :: fv_domain
+    logical,                   intent(in)    :: enforce_rst_cksum
     !--- local variables
     integer :: i, j, k, ix, lsoil, num, nb
     integer :: isc, iec, jsc, jec, npz, nx, ny
@@ -925,7 +927,7 @@ module FV3GFS_io_mod
 
       !--- read the orography restart/data
       call mpp_error(NOTE,'reading topographic/orographic information from INPUT/oro_data.tile*.nc')
-      call read_restart(Oro_restart)
+      call read_restart(Oro_restart, ignore_checksum=enforce_rst_cksum)
       call close_file(Oro_restart)
 
       !--- copy data into GFS containers
@@ -1003,7 +1005,7 @@ module FV3GFS_io_mod
 
       !--- read the surface restart/data
       call mpp_error(NOTE,'reading surface properties data from INPUT/sfc_data.tile*.nc')
-      call read_restart(Sfc_restart)
+      call read_restart(Sfc_restart, ignore_checksum=enforce_rst_cksum)
       call close_file(Sfc_restart)
 
       !--- place the data into the block GFS containers
@@ -2371,12 +2373,13 @@ module FV3GFS_io_mod
 !    opens:  phys_data.tile?.nc
 !
 !----------------------------------------------------------------------
-  subroutine phys_restart_read (IPD_Restart, Atm_block, Model, fv_domain)
+  subroutine phys_restart_read (IPD_Restart, Atm_block, Model, fv_domain, enforce_rst_cksum)
     !--- interface variable definitions
     type(IPD_restart_type),      intent(in) :: IPD_Restart
     type(block_control_type),    intent(in) :: Atm_block
     type(IPD_control_type),      intent(in) :: Model
     type(domain2d),              intent(in) :: fv_domain
+    logical,                     intent(in) :: enforce_rst_cksum
     !--- local variables
     integer :: i, j, k, nb, ix, num
     integer :: isc, iec, jsc, jec, npz, nx, ny
@@ -2439,7 +2442,7 @@ module FV3GFS_io_mod
 
       !--- read the surface restart/data
       call mpp_error(NOTE,'reading physics restart data from INPUT/phy_data.tile*.nc')
-      call read_restart(Phy_restart)
+      call read_restart(Phy_restart, ignore_checksum=enforce_rst_cksum)
       call close_file(Phy_restart)
     else
       call mpp_error(NOTE,'No physics restarts - cold starting physical parameterizations')

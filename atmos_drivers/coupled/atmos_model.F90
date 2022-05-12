@@ -89,7 +89,7 @@ use IPD_driver,         only: IPD_initialize, IPD_setup_step, &
                               IPD_radiation_step,             &
                               IPD_physics_step1,              &
                               IPD_physics_step2
-#ifdef STOCHY 
+#ifdef STOCHY
 use stochastic_physics, only: init_stochastic_physics,         &
                               run_stochastic_physics
 use stochastic_physics_sfc, only: run_stochastic_physics_sfc
@@ -118,7 +118,8 @@ public atmos_model_restart
 !<PUBLICTYPE >
  type atmos_data_type
      type (domain2d)               :: domain             ! domain decomposition
-     integer                       :: axes(4)            ! axis indices (returned by diag_manager) for the atmospheric grid 
+     type (domain2d)               :: domain_for_read    ! domain decomposition for reads
+     integer                       :: axes(4)            ! axis indices (returned by diag_manager) for the atmospheric grid
                                                          ! (they correspond to the x, y, pfull, phalf axes)
      real,                 pointer, dimension(:,:) :: lon_bnd  => null() ! local longitude axis grid box corners in radians.
      real,                 pointer, dimension(:,:) :: lat_bnd  => null() ! local latitude axis grid box corners in radians.
@@ -130,7 +131,7 @@ public atmos_model_restart
      integer                       :: iau_offset         ! iau running window length
      integer, pointer              :: pelist(:) =>null() ! pelist where atmosphere is running.
      logical                       :: pe                 ! current pe.
-     type(grid_box_type)           :: grid               ! hold grid information needed for 2nd order conservative flux exchange 
+     type(grid_box_type)           :: grid               ! hold grid information needed for 2nd order conservative flux exchange
                                                          ! to calculate gradient on cubic sphere grid.
      integer                       :: layout(2)          ! computer task laytout
      logical                       :: regional           ! true if domain is regional
@@ -159,9 +160,13 @@ logical :: debug           = .false.
 logical :: sync            = .false.
 logical :: first_time_step = .true.
 logical :: fprint          = .true.
+logical :: enforce_rst_cksum = .true. ! enforce or override data integrity restart checksums
 real, dimension(4096) :: fdiag = 0. ! xic: TODO: this is hard coded, space can run out in some cases. Should make it allocatable.
-logical :: fdiag_override = .false. ! lmh: if true overrides fdiag and fhzer: all quantities are zeroed out after every calcluation, output interval and accumulation/avg/max/min are controlled by diag_manager, fdiag controls output interval only
-namelist /atmos_model_nml/ blocksize, chksum_debug, dycore_only, debug, sync, first_time_step, fdiag, fprint, fdiag_override
+logical :: fdiag_override = .false. ! lmh: if true overrides fdiag and fhzer: all quantities are zeroed out
+                                    ! after every calcluation, output interval and accumulation/avg/max/min
+                                    ! are controlled by diag_manager, fdiag controls output interval only
+namelist /atmos_model_nml/ blocksize, chksum_debug, dycore_only, debug, sync, first_time_step, fdiag, fprint, &
+                           fdiag_override, enforce_rst_cksum
 type (time_type) :: diag_time, diag_time_fhzero
 logical :: fdiag_fix = .false.
 
@@ -201,7 +206,7 @@ contains
 !   atmospheric tendencies for dynamics, radiation, vertical diffusion of
 !   momentum, tracers, and heat/moisture.  For heat/moisture only the
 !   downward sweep of the tridiagonal elimination is performed, hence
-!   the name "_down". 
+!   the name "_down".
 !</DESCRIPTION>
 
 !   <TEMPLATE>
@@ -345,7 +350,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step, iau_offset)
 
   type (atmos_data_type), intent(inout) :: Atmos
   type (time_type), intent(in) :: Time_init, Time, Time_step
-  integer, intent(in) :: iau_offset 
+  integer, intent(in) :: iau_offset
 !--- local variables ---
   integer :: unit, ntdiag, ntfamily, i, j, k
   integer :: mlon, mlat, nlon, nlat, nlev, sec, dt, sec_prev
@@ -367,7 +372,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step, iau_offset)
   integer :: kdt_prev
   character(len=32), allocatable, target :: tracer_names(:)
   integer :: coarse_diagnostic_axes(4)
-  integer :: nthrds 
+  integer :: nthrds
   !-----------------------------------------------------------------------
 
 !---- set the atmospheric model time ------
@@ -408,16 +413,18 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step, iau_offset)
    call atmosphere_resolution (nlon, nlat, global=.false.)
    call atmosphere_resolution (mlon, mlat, global=.true.)
    call alloc_atmos_data_type (nlon, nlat, Atmos)
-   call atmosphere_domain (Atmos%domain, Atmos%layout, Atmos%regional, Atmos%bounded_domain)
+   call atmosphere_domain (Atmos%domain, Atmos%domain_for_read, Atmos%layout, Atmos%regional, &
+                           Atmos%bounded_domain)
    call atmosphere_diag_axes (Atmos%axes)
    call atmosphere_etalvls (Atmos%ak, Atmos%bk, flip=.true.)
    call atmosphere_grid_bdry (Atmos%lon_bnd, Atmos%lat_bnd, global=.false.)
    call atmosphere_grid_ctr (Atmos%lon, Atmos%lat)
    call atmosphere_hgt (Atmos%layer_hgt, 'layer', relative=.false., flip=.true.)
    call atmosphere_hgt (Atmos%level_hgt, 'level', relative=.false., flip=.true.)
-   call atmosphere_coarse_graining_parameters(Atmos%coarse_domain, Atmos%write_coarse_restart_files, Atmos%write_only_coarse_intermediate_restarts)
+   call atmosphere_coarse_graining_parameters(Atmos%coarse_domain, Atmos%write_coarse_restart_files, &
+                                              Atmos%write_only_coarse_intermediate_restarts)
    call atmosphere_coarsening_strategy(Atmos%coarsening_strategy)
-   
+
 !-----------------------------------------------------------------------
 !--- before going any further check definitions for 'blocks'
 !-----------------------------------------------------------------------
@@ -539,7 +546,7 @@ subroutine atmos_model_init (Atmos, Time_init, Time, Time_step, iau_offset)
        call register_coarse_diag_manager_controlled_diagnostics(Time, coarse_diagnostic_axes)
     endif
    if (.not. dycore_only) &
-      call FV3GFS_restart_read (IPD_Data, IPD_Restart, Atm_block, IPD_Control, Atmos%domain)
+      call FV3GFS_restart_read (IPD_Data, IPD_Restart, Atm_block, IPD_Control, Atmos%domain_for_read, enforce_rst_cksum)
       if (chksum_debug) then
         if (mpp_pe() == mpp_root_pe()) print *,'RESTART READ  ', IPD_Control%kdt, IPD_Control%fhour
         call FV3GFS_IPD_checksum(IPD_Control, IPD_Data, Atm_block)
@@ -628,7 +635,7 @@ subroutine update_atmos_model_state (Atmos)
   integer :: isec,seconds,isec_fhzero
   real(kind=kind_phys) :: time_int, time_intfull
   integer :: is, ie, js, je, kt
-  
+
     call set_atmosphere_pelist()
     call mpp_clock_begin(fv3Clock)
     call mpp_clock_begin(updClock)
@@ -650,7 +657,7 @@ subroutine update_atmos_model_state (Atmos)
        Atm(mygrid)%coarse_graining%write_coarse_diagnostics, &
        real(Atm(mygrid)%delp(is:ie,js:je,:), kind=kind_phys), &
        Atmos%coarsening_strategy, real(Atm(mygrid)%ptop, kind=kind_phys))
-    
+
     call get_time (Atmos%Time - diag_time, isec)
     call get_time (Atmos%Time - Atmos%Time_init, seconds)
 
@@ -720,7 +727,7 @@ subroutine atmos_model_end (Atmos)
 
 !-----------------------------------------------------------------------
 !---- termination routine for atmospheric model ----
-                                              
+
     call atmosphere_end (Atmos % Time, Atmos%grid)
     if (.not. dycore_only) then
        call FV3GFS_restart_write (IPD_Data, IPD_Restart, Atm_block, &
@@ -786,7 +793,7 @@ end subroutine atmos_model_restart
 ! </IN>
 !
 subroutine atmos_data_type_chksum(id, timestep, atm)
-type(atmos_data_type), intent(in) :: atm 
+type(atmos_data_type), intent(in) :: atm
     character(len=*), intent(in) :: id
     integer         , intent(in) :: timestep
     integer :: n, outunit
