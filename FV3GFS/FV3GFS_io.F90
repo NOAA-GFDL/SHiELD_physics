@@ -799,7 +799,7 @@ module FV3GFS_io_mod
 
     !--- register the NOAH-MP 3D fields
     if (Model%lsm == Model%lsm_noahmp) then
-      opt = .false.
+      opt = .true.
       do num = nvar_s3+1,nvar_s3+3
         var3_p => sfc_var3sn(:,:,:,num)
         dim_names_3d(3) = "zaxis_2"

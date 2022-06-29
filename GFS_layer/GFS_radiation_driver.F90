@@ -1643,7 +1643,9 @@
                      tsfg, tsfa, Sfcprop%hprim, Sfcprop%alvsf,    &
                      Sfcprop%alnsf, Sfcprop%alvwf, Sfcprop%alnwf, &
                      Sfcprop%facsf, Sfcprop%facwf, Sfcprop%fice,  &
-                     Sfcprop%tisfc, IM,                           &
+                     Sfcprop%tisfc,Sfcprop%albdvis, Sfcprop%albdnir, &
+                     Sfcprop%albivis, Sfcprop%albinir,               &
+                     IM,                                             &
                      sfcalb)                                           !  ---  outputs
 
 !> -# Approximate mean surface albedo from vis- and nir-  diffuse values.
@@ -1747,7 +1749,8 @@
 
         call setemis (Grid%xlon, Grid%xlat, Sfcprop%slmsk,         &        !  ---  inputs
                       Sfcprop%snowd, Sfcprop%sncovr, Sfcprop%zorl, &
-                      tsfg, tsfa, Sfcprop%hprim, IM,               & 
+                      tsfg, tsfa, Sfcprop%hprim,                   &
+                      Sfcprop%emiss, IM,                           & 
                       Radtend%semis)                                              !  ---  outputs
 
 !>  - Call module_radlw_main::lwrad(), to compute LW heating rates and
