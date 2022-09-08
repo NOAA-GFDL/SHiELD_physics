@@ -183,6 +183,7 @@
 !! \n physparam::ialbflg 
 !!  - = 0: using climatology surface albedo scheme for SW
 !!  - = 1: using MODIS based land surface albedo for SW
+!!  - = 2: using land surface model albedo for SW 
 
       if ( ialbflg == 0 ) then
 
@@ -196,6 +197,11 @@
           print *,' - Using MODIS based land surface albedo for sw'
         endif
 
+      elseif ( ialbflg == 2 ) then      ! use albedo from land model
+
+        if ( me == 0 ) then
+          print *,' - Using Albedo From Land Model'
+        endif
       else
         print *,' !! ERROR in Albedo Scheme Setting, IALB=',ialbflg
         stop
@@ -205,6 +211,7 @@
 !! \n physparam::iemsflg
 !!  - = 0: fixed SFC emissivity at 1.0
 !!  - = 1: input SFC emissivity type map from "semis_file"
+!!  - = 2: using SFC emissivity from land model   
 
       iemslw = mod(iemsflg, 10)          ! emissivity control
       if ( iemslw == 0 ) then            ! fixed sfc emis at 1.0
@@ -256,6 +263,11 @@
           close(NIRADSF)
         endif    ! end if_file_exist_block
 
+      elseif ( iemslw == 2 ) then        ! use emiss from land model
+
+        if ( me == 0 ) then
+          print *,' - Using Surface Emissivity From Land Model'
+        endif
       else
         print *,' !! ERROR in Emissivity Scheme Setting, IEMS=',iemsflg
         stop
@@ -308,6 +320,7 @@
       subroutine setalb                                                 &
      &     ( slmsk,snowf,sncovr,snoalb,zorlf,coszf,tsknf,tairf,hprif,   & !  ---  inputs:
      &       alvsf,alnsf,alvwf,alnwf,facsf,facwf,fice,tisfc,            &
+     &       lsmalbdvis, lsmalbdnir, lsmalbivis, lsmalbinir,            &
      &       IMAX,                                                      &
      &       sfcalb                                                     & !  ---  outputs:
      &     )
@@ -377,6 +390,7 @@
       real (kind=kind_phys), dimension(:), intent(in) ::                &
      &       slmsk, snowf, zorlf, coszf, tsknf, tairf, hprif,           &
      &       alvsf, alnsf, alvwf, alnwf, facsf, facwf, fice, tisfc,     &
+     &       lsmalbdvis, lsmalbdnir, lsmalbivis, lsmalbinir,            &
      &       sncovr, snoalb
 
 !  ---  outputs
@@ -388,11 +402,11 @@
       real (kind=kind_phys) :: asnvb, asnnb, asnvd, asnnd, asevb        &
      &,     asenb, asevd, asend, fsno,  fsea,  rfcs,  rfcw,  flnd       &
      &,     asnow, argh,  hrgh,  fsno0, fsno1, flnd0, fsea0, csnow      &
-     &,     a1, a2, b1, b2, b3, ab1bm, ab2bm
+     &,     a1, a2, b1, b2, b3, ab1bm, ab2bm, m, s, alpha, beta, albtmp
 
       real (kind=kind_phys) ffw, dtgd
 
-      integer :: i, k
+      integer :: i, k, kk, iflag
 
 !
 !===> ...  begin here
@@ -502,7 +516,7 @@
         enddo    ! end_do_i_loop
 
 !> -# If use modis based albedo for land area:
-      else                      
+      elseif ( ialbflg == 1 ) then                     
 
         do i = 1, IMAX
 
@@ -612,8 +626,136 @@
 
         enddo    ! end_do_i_loop
 
+!> -# use land model output for land area:
+      elseif ( ialbflg == 2 ) then                     
+
+        do i = 1, IMAX
+
+!>    - Calculate snow cover input directly for land model, no 
+!!      conversion needed.
+
+         fsno0 = f_zero
+
+         if (nint(slmsk(i)) == 2) then
+           asnow = 0.02*snowf(i)
+           argh  = min(0.50, max(.025, 0.01*zorlf(i)))
+           hrgh  = min(f_one, max(0.20, 1.0577-1.1538e-3*hprif(i) ) )
+           fsno0 = asnow / (argh + asnow) * hrgh
+         endif
+
+         fsno1 = f_one - fsno0
+         flnd0 = f_one
+         fsea0 = max(f_zero, f_one-flnd0)
+         fsno  = fsno0
+         fsea  = fsea0 * fsno1
+         flnd  = flnd0 * fsno1
+
+!>    - Calculate diffused sea surface albedo.
+
+         if (tsknf(i) >= 271.5) then
+            asevd = 0.06
+            asend = 0.06
+         elseif (tsknf(i) < 271.1) then
+            asevd = 0.70
+            asend = 0.65
+         else
+            a1 = (tsknf(i) - 271.1)**2
+            asevd = 0.7 - 4.0*a1
+            asend = 0.65 - 3.6875*a1
+         endif
+
+!>    - Calculate diffused snow albedo, land area use input max snow 
+!!      albedo.
+
+         if (nint(slmsk(i)) == 2) then
+            ffw   = f_one - fice(i)
+            if (ffw < f_one) then
+               dtgd = max(f_zero, min(5.0, (con_ttp-tisfc(i)) ))
+               b1   = 0.03 * dtgd
+            else
+               b1 = f_zero
+            endif
+
+            b3   = 0.06 * ffw
+            asnvd = (0.70 + b1) * fice(i) + b3
+            asnnd = (0.60 + b1) * fice(i) + b3
+            asevd = 0.70        * fice(i) + b3
+            asend = 0.60        * fice(i) + b3
+         else
+            asnvd = snoalb(i)
+            asnnd = snoalb(i)
+         endif
+
+!>    - Calculate direct snow albedo.
+
+         if (nint(slmsk(i)) == 2) then
+           if (coszf(i) < 0.5) then
+              csnow = 0.5 * (3.0 / (f_one+4.0*coszf(i)) - f_one)
+              asnvb = min( 0.98, asnvd+(f_one-asnvd)*csnow )
+              asnnb = min( 0.98, asnnd+(f_one-asnnd)*csnow )
+           else
+             asnvb = asnvd
+             asnnb = asnnd
+           endif
+         endif
+
+!>    - Calculate direct sea surface albedo, use fanglin's zenith angle
+!!      treatment.
+
+         if (coszf(i) > 0.0001) then
+
+!           rfcs = 1.89 - 3.34*coszf(i) + 4.13*coszf(i)*coszf(i)        &
+!    &           - 2.02*coszf(i)*coszf(i)*coszf(i)
+            rfcs = 1.775/(1.0+1.55*coszf(i))      
+
+            if (tsknf(i) >= con_t0c) then
+              asevb = max(asevd, 0.026/(coszf(i)**1.7+0.065)            &
+     &              + 0.15 * (coszf(i)-0.1) * (coszf(i)-0.5)            &
+     &              * (coszf(i)-f_one))
+              asenb = asevb
+            else
+              asevb = asevd
+              asenb = asend
+            endif
+         else
+            rfcs  = f_one
+            asevb = asevd
+            asenb = asend
+         endif
+
+         sfcalb(i,1) = min(0.99,max(0.01,lsmalbdnir(i)))*flnd           &
+     &                 + asenb*fsea + asnnb*fsno
+         sfcalb(i,2) = min(0.99,max(0.01,lsmalbinir(i)))*flnd           &
+     &                 + asend*fsea + asnnd*fsno
+         sfcalb(i,3) = min(0.99,max(0.01,lsmalbdvis(i)))*flnd           &
+     &                 + asevb*fsea + asnvb*fsno
+         sfcalb(i,4) = min(0.99,max(0.01,lsmalbivis(i)))*flnd           &
+     &                 + asevd*fsea + asnvd*fsno
+        enddo    ! end_do_i_loop
+
       endif   ! end if_ialbflg
 !
+
+!! sfc-perts, mgehne ***
+!! perturb all 4 kinds of surface albedo, sfcalb(:,1:4)
+!      if (pertalb>0.0) then
+!        do i = 1, imax
+!          do kk=1, 4
+!            ! compute beta distribution parameters for all 4 albedos
+!            m = sfcalb(i,kk)
+!            s = pertalb*m*(1.-m)
+!            alpha = m*m*(1.-m)/(s*s)-m
+!            beta  = alpha*(1.-m)/m
+!            ! compute beta distribution value corresponding
+!            ! to the given percentile albPpert to use as new albedo
+!            call ppfbet(albPpert(i),alpha,beta,iflag,albtmp)
+!            sfcalb(i,kk) = albtmp
+!          enddo
+!        enddo     ! end_do_i_loop
+!      endif
+!
+!! *** sfc-perts, mgehne
+
       return
 !...................................
       end subroutine setalb
@@ -639,7 +781,7 @@
 !-----------------------------------
       subroutine setemis                                                &
      &     ( xlon,xlat,slmsk,snowf,sncovr,zorlf,tsknf,tairf,hprif,      &  !  ---  inputs:
-     &       IMAX,                                                      &
+     &       lsmemiss, IMAX,                                                   &
      &       sfcemis                                                    &  !  ---  outputs:
      &     )
 
@@ -665,6 +807,8 @@
 !     tsknf (IMAX)  - ground surface temperature in k                   !
 !     tairf (IMAX)  - lowest model layer air temperature in k           !
 !     hprif (IMAX)  - topographic sdv in m                              !
+!     lsmemiss(IMAX)- emissivity from lsm                               !
+!                                                                       ! 
 !     IMAX          - array horizontal dimension                        !
 !                                                                       !
 !  outputs:                                                             !
@@ -688,8 +832,8 @@
       integer, intent(in) :: IMAX
 
       real (kind=kind_phys), dimension(:), intent(in) ::                & 
-     &       xlon,xlat, slmsk, snowf,sncovr, zorlf, tsknf, tairf, hprif
-
+     &       xlon,xlat, slmsk, snowf,sncovr, zorlf, tsknf, tairf, hprif,&
+     &       lsmemiss
 !  ---  outputs
       real (kind=kind_phys), dimension(:), intent(out) :: sfcemis
 
@@ -715,7 +859,7 @@
         sfcemis(:) = f_one
         return
 
-      else                           ! emiss set by sfc type and condition
+      elseif ( iemslw == 1 ) then  ! emiss set by sfc type and condition
 
         dltg = 360.0 / float(IMXEMS)
         hdlt = 0.5 * dltg
@@ -795,6 +939,25 @@
           endif                                          ! end if_ialbflg
 
         enddo  lab_do_IMAX
+
+      elseif ( iemslw == 2 ) then   ! sfc emiss updated in land model
+
+        do i = 1, IMAX
+
+          if ( nint(slmsk(i)) == 0 ) then          ! sea point
+
+            sfcemis(i) = emsref(1)
+
+          else if ( nint(slmsk(i)) == 2 ) then     ! sea-ice
+
+            sfcemis(i) = emsref(7)
+
+          else                                     ! land
+
+            sfcemis(i) = lsmemiss(i)
+
+          endif   ! end if_slmsk_block
+         enddo
 
       endif   ! end if_iemslw_block
 

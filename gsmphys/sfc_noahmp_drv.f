@@ -23,6 +23,7 @@
      &      zwtxy, waxy, wtxy, tsnoxy,zsnsoxy,  snicexy,  snliqxy,      &
      &      lfmassxy, rtmassxy,stmassxy, woodxy, stblcpxy, fastcpxy,    &
      &      xlaixy,xsaixy,taussxy,smoiseq,smcwtdxy,deeprechxy,rechxy,   &
+     &      albdvis, albdnir,  albivis,  albinir,                       &
 
 !  ---  outputs:
      &       sncovr1, qsurf, gflux, drain, evap, hflx, ep, runoff,      &
@@ -85,9 +86,9 @@
       integer, dimension(im), intent(in) :: soiltyp, vegtype, slopetyp
 
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
-     &       t1, q1, sigmaf, sfcemis, dlwflx, dswsfc, snet, tg3, cm,    &
+     &       t1, q1, sigmaf, dlwflx, dswsfc, snet, tg3, cm,             &
      &       ch, prsl1, prslki, wind, shdmin, shdmax,                   &
-     &       snoalb, sfalb, zf,                                         &
+     &       snoalb, zf,                                                &
      &       rainn_mp,rainc_mp,snow_mp,graupel_mp,ice_mp
 
       logical, dimension(im), intent(in) :: dry
@@ -107,7 +108,8 @@
 
 !  ---  in/out:
       real (kind=kind_phys), dimension(im), intent(inout) :: weasd,     &
-     &       snwdph, tskin, tprcp, srflag, canopy, trans, tsurf,zorl
+     &       snwdph, tskin, tprcp, srflag, canopy, trans, tsurf,zorl,   &
+     &       sfcemis, sfalb
 
       real (kind=kind_phys), dimension(im,km), intent(inout) ::         &
      &       smc, stc, slc
@@ -136,6 +138,9 @@
      &    evbs, evcw, sbsno, snowc, stm, snohf, smcwlt2, smcref2,wet1,  &
      &    t2mmp,q2mp 
     
+      real (kind=kind_phys), dimension(im), intent(out) :: albdvis,     &
+     &    albdnir,  albivis,  albinir
+
 !  ---  locals:
       real (kind=kind_phys), dimension(im) :: rch, rho,                 &
      &       q0, qs1, theta1, tv1,  weasd_old, snwdph_old,              &
@@ -185,6 +190,8 @@
       real (kind=kind_phys), dimension( km ) :: smoiseqx
       real (kind=kind_phys), dimension(-2:4) :: zsnsox
       real (kind=kind_phys), dimension(-2:4) :: tsnsox
+      real (kind=kind_phys), dimension(1:2)  :: albd   ! albedo (direct)
+      real (kind=kind_phys), dimension(1:2)  :: albi   ! albedo (diffuse)
 
       real (kind=kind_phys) :: z0wrf,fsa,fsr,fira,fsh,fcev,fgev,        &
      &                         fctr,ecan,etran,trad,tgb,tgv,t2mv,       &
@@ -591,7 +598,7 @@
      &             fsa     ,fsr     ,fira    ,fsh     ,fgev  ,ssoil   , & ! out : 
      &             trad    ,edir    ,runsrf  ,runsub  ,sag   ,albedo  , & ! out : albedo is surface albedo
      &             qsnbot  ,ponding ,ponding1,ponding2,t2mb  ,q2b     , & ! out :
-     &             emissi  ,fpice   ,ch2b    ,esnow )
+     &             emissi  ,fpice   ,ch2b    ,esnow   ,albd, albi)
 
 !
 ! in/out and outs
@@ -667,6 +674,7 @@
      &        runsrf  , runsub  , apar    , psn     , sav     , sag    ,& ! out :
      &        fsno    , nee     , gpp     , npp     , fveg    , albedo ,& ! out :
      &        qsnbot  , ponding , ponding1, ponding2, rssun   , rssha  ,& ! out :
+     &        albd  , albi  ,                                           & ! out :
      &        bgap    , wgap    , chv     , chb     , emissi           ,& ! out :
      &        shg     , shc     , shb     , evg     , evb     , ghv    ,&! out :
      &        ghb     , irg     , irc     , irb     , tr      , evc    ,& ! out :
@@ -680,6 +688,13 @@
         q2mp(i) = q2v*fveg+q2b*(1-fveg) 
 
       endif          ! glacial split ends
+
+! Snow check to prevent possible precision problems
+
+      if(snowh <= 1.e-6_kind_phys .or. swe <= 1.e-3_kind_phys) then
+        snowh = 0.0_kind_phys
+        swe   = 0.0_kind_phys
+      end if
 
 !
 ! mp in/out
@@ -781,6 +796,14 @@
 !         write(*,*) 'snowc',fsno
 
           tsurf(i)   = trad
+          sfcemis(i) = emissi
+          if(albedo .gt. 0.0) then
+            sfalb(i)   = albedo
+	    albdvis(i) = albd(1)
+	    albdnir(i) = albd(2)
+	    albivis(i) = albi(1)
+	    albinir(i) = albi(2)
+          end if
 
           stm(i) = (0.1*smsoil(1)+0.3*smsoil(2)+0.6*smsoil(3)+           &
      &              1.0*smsoil(4))*1000.0  ! unit conversion from m to kg m-2
@@ -1134,6 +1157,5 @@
 
 ! ----------------------------------------------------------------------
       end subroutine penman
-
 
 
