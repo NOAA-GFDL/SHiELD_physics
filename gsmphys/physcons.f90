@@ -83,7 +83,7 @@
 !> spec heat H2O gas (\f$J/kg/K\f$)
   real(kind=kind_phys),parameter:: con_cvap   =1.8460e+3  
 !> spec heat H2O liq (\f$J/kg/K\f$)
-  real(kind=kind_phys),parameter:: con_cliq   =4.1855e+3    
+  real(kind=kind_phys),parameter:: con_cliq   =4.2180e+3    
 !> spec heat H2O ice (\f$J/kg/K\f$)
   real(kind=kind_phys),parameter:: con_csol   =2.1060e+3   
 !> lat heat H2O cond (\f$J/kg\f$)

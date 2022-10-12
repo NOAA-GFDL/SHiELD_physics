@@ -1212,7 +1212,7 @@
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP) :: &
            htswc, htlwc, gcice, grain, grime, htsw0, htlw0, plyr, tlyr,    &
            qlyr, olyr, rhly, tvly,qstl, vvel, clw, ciw, prslk1, tem2da,    &
-           tem2db, cldcov, deltaq, cnvc, cnvw
+           tem2db, cldcov, deltaq, cnvc, cnvw, qa, tau067, tau110
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+1+LTP) :: plvl, tlvl
 
@@ -1354,6 +1354,7 @@
         call coszmn (Grid%xlon,Grid%sinlat,         &     !  ---  inputs
                    Grid%coslat,Model%solhr, IM, me, & 
                    Model%daily_mean,                &
+                   Model%fixed_sollat, Model%sollat,&
                    Radtend%coszen, Radtend%coszdg)        !  ---  outputs
       endif
 
@@ -1594,13 +1595,18 @@
                          Sfcprop%slmsk, tracer1(:,1:lmk,Model%ntclamt),&
                          im, lmk, lmp, clouds, cldsa, mtopa, mbota)    !  ---  outputs
           else
+          if (Model%ntal .gt. 0) then
+              qa(:,:) = tracer1(:,1:lmk,Model%ntal)
+          else
+              qa(:,:) = tracer1(:,1:lmk,2) * 0.0
+          endif
           call progcld6 (plyr, plvl, tlyr, tvly, qlyr, qstl, rhly,&    !  ---  inputs
                          clw, cnvw, cnvc, Grid%xlat, Grid%xlon,   &
                          tracer1(:,1:lmk,Model%ntcw), &
                          tracer1(:,1:lmk,Model%ntrw), &
                          tracer1(:,1:lmk,Model%ntiw), &
                          tracer1(:,1:lmk,Model%ntsw), &
-                         tracer1(:,1:lmk,Model%ntgl), &
+                         tracer1(:,1:lmk,Model%ntgl), qa, &
                          Sfcprop%slmsk, Sfcprop%snowd, &
                          tracer1(:,1:lmk,Model%ntclamt),&
                          im, lmk, lmp, clouds, cldsa, mtopa, mbota)    !  ---  outputs
@@ -1629,6 +1635,21 @@
                        clouds, cldsa, mtopa, mbota)                    !  ---  outputs
 
       endif                                ! end_if_ntcw
+
+!  ---  pass cloud effective radii out, Linjiong Zhou
+
+      if (Model%ncld .eq. 1) then
+          diag%reff(:,:,1) = clouds(:,:,3)
+      else if (Model%ncld .eq. 2) then
+          diag%reff(:,:,1) = clouds(:,:,3)
+          diag%reff(:,:,2) = clouds(:,:,5)
+      else if (Model%ncld .eq. 5) then
+          diag%reff(:,:,1) = clouds(:,:,3)
+          diag%reff(:,:,2) = clouds(:,:,5)
+          diag%reff(:,:,3) = clouds(:,:,7)
+          diag%reff(:,:,4) = clouds(:,:,9)
+          diag%reff(:,:,5) = clouds(:,:,11)
+      endif
 
 !  --- ...  start radiation calculations
 !           remember to set heating rate unit to k/sec!
@@ -1663,15 +1684,19 @@
                         sfcalb, Radtend%coszen, Model%solcon,   &
                         nday, idxday, im, lmk, lmp, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs
-                        hsw0=htsw0, fdncmp=scmpsw)                     ! ---  optional
+                        hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)      ! ---  optional
           else
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs 
                         gasvmr, clouds, Tbd%icsdsw, faersw,     &
                         sfcalb, Radtend%coszen, Model%solcon,   &
                         nday, idxday, IM, LMK, LMP, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs 
-                        FDNCMP=scmpsw)                                 ! ---  optional 
+                        FDNCMP=scmpsw, tau067=tau067)                  ! ---  optional 
           endif
+
+!  ---  pass optical depth out, Linjiong Zhou
+
+          diag%ctau(:,:,1) = tau067
 
           do k = 1, LM
             k1 = k + kd
@@ -1762,13 +1787,18 @@
                       clouds, Tbd%icsdlw, faerlw, Radtend%semis,   &
                       tsfg, im, lmk, lmp, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &        !  ---  outputs
-                      hlw0=htlw0)                                           !  ---  optional
+                      hlw0=htlw0, tau110=tau110)                            !  ---  optional
         else
           call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr,  &        !  ---  inputs
                       clouds, Tbd%icsdlw, faerlw, Radtend%semis,   &
                       tsfg, IM, LMK, LMP, Model%lprnt,             &
-                      htlwc, Diag%topflw, Radtend%sfcflw)                   !  ---  outputs
+                      htlwc, Diag%topflw, Radtend%sfcflw,          &
+                      tau110=tau110)                                        !  ---  outputs
         endif
+
+!  ---  pass emissivity out, Linjiong Zhou
+
+        diag%ctau(:,:,2) = tau110
 
 !> -# Save calculation results
 !>  - Save surface air temp for diurnal adjustment at model t-steps

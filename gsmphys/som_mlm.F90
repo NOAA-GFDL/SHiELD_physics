@@ -37,9 +37,9 @@
 !
       real (kind=kind_phys)   :: maxlat, width_buffer, minmld,  &
                                  cpwater, rhowater, omega, grav
-      parameter(maxlat       = 60.)  ! determine the maximum latitude band for SOM/MLM  
+      parameter(maxlat       = 60.)  ! determine the maximum latitude band for SOM/MLM
       parameter(minmld       = 10.)  ! minimum mixed layer depth
-      parameter(width_buffer = 15.)  ! the width of a buffer band where SST is determined by both SOM/MLM 
+      parameter(width_buffer = 15.)  ! the width of a buffer band where SST is determined by both SOM/MLM
                                      ! and climatology (or climatology plus initial anomaly)
       parameter(cpwater      = 4000.)
       parameter(rhowater     = 1000.)
@@ -68,14 +68,14 @@
       real(kind=kind_phys)  :: mld_restore_tscale = 1.        ! restoring time scale for mld (day)
       real(kind=kind_phys)  :: start_lat          = -30.      ! latitude starting from? Note that this value should not be smaller than -60.
       real(kind=kind_phys)  :: end_lat            = 30.       ! latitude ending with? Note that this value should not be bigger than 60.
-      real(kind=kind_phys)  :: tday1              = 3.        ! 
-      real(kind=kind_phys)  :: tday2              = 10.       ! 
-      real(kind=kind_phys)  :: sst_restore_tscale1= 3.        ! restoring time scale for sst during the period from 1 to tday1 
+      real(kind=kind_phys)  :: tday1              = 3.        !
+      real(kind=kind_phys)  :: tday2              = 10.       !
+      real(kind=kind_phys)  :: sst_restore_tscale1= 3.        ! restoring time scale for sst during the period from 1 to tday1
       real(kind=kind_phys)  :: sst_restore_tscale2= 10.       ! restoring time scale for sst for the period beyond tday2
-      real(kind=kind_phys)  :: mld_restore_tscale1= 3.        ! restoring time scale for mld during the period from 1 to tday1 
+      real(kind=kind_phys)  :: mld_restore_tscale1= 3.        ! restoring time scale for mld during the period from 1 to tday1
       real(kind=kind_phys)  :: mld_restore_tscale2= 10.       ! restoring time scale for mld for the period beyond tday2
                                                               ! beyond the latitude bands (start_lat:end_lat), using climatological SST or
-                                                              ! climatological SST plus initial anomaly 
+                                                              ! climatological SST plus initial anomaly
       logical               :: use_tvar_restore_sst  = .false.! using time varying restoring time scale for sst
       logical               :: use_tvar_restore_mld  = .false.! using time varying restoring time scale for mld
 
@@ -157,6 +157,13 @@
        call abort
       endif
 
+      if (restore_method == 3 .and. .not. Model%use_ext_sst) then
+         write(6,*) ' som_mlm::ocean_init(): Cannot use restore_method == 3'
+         write(6,*) '                        unless external IC provided '
+         write(6,*) '                        (use_ext_sst = .true.). Stop.'
+         call abort
+      endif
+
 !--- write namelist to log file ---
       if (Model%me == Model%master) then
        write(logunit, *) "============================================="
@@ -212,19 +219,19 @@
            hvml,          &
            tmoml,         &
            tmoml0
-               
-      real (kind=kind_phys), dimension(:), intent(out)   ::   & 
+
+      real (kind=kind_phys), dimension(:), intent(out)   ::   &
            qflux_restore  ! restoring flux for diagnosis purpose
 
 !  ---  locals:
       real (kind=kind_phys)                              ::   &
-           lat, mlcp, mldc, taut, taum, & 
+           lat, mlcp, mldc, taut, taum, &
            alphat,alpham, bufzs,        &
            bufzn, fcor, c1, c2, r1, r2
       real (kind=kind_phys), dimension (size(tsfc,1))    :: tsfc1, tsfc2
       real (kind=kind_phys), dimension (size(tsfc,1))    :: qsfc
       integer :: i
-      real (kind=kind_phys)                              ::   &       
+      real (kind=kind_phys)                              ::   &
            tmlp, mldp, humlp, hvmlp, mldn, tmln, tmomln, fday, tem
 !
 !===> ...  begin here
@@ -237,7 +244,7 @@
 !
       qsfc = 0.
       if (use_tvar_restore_sst) then
-       if (fday < tday1) then 
+       if (fday < tday1) then
         taut = sst_restore_tscale1*86400.
        elseif (fday >= tday1 .and. fday < tday2 ) then
         tem = (sst_restore_tscale2 - sst_restore_tscale1)/(tday2-tday1)
@@ -248,7 +255,7 @@
       else
        taut = sst_restore_tscale*86400.
       endif
-      alphat = 1. + dtp/taut 
+      alphat = 1. + dtp/taut
 !
       if (use_tvar_restore_mld) then
        if (fday < tday1) then
@@ -318,7 +325,7 @@
         call abort
        endif
 
-       fcor = 2 * omega * sin (Grid%xlat(i)) 
+       fcor = 2 * omega * sin (Grid%xlat(i))
 
        if ( islmsk(i) ==0 ) then
         if (ocean_option == "SOM") then
@@ -354,7 +361,7 @@
         select case (ocean_option)
         case("SOM")
           if (use_qflux) then
-           tsfc1(i) = ts_som(i) + qsfc(i)/mlcp*dtp 
+           tsfc1(i) = ts_som(i) + qsfc(i)/mlcp*dtp
           else
            tsfc1(i) = (ts_som(i) + qsfc(i)/mlcp*dtp + tsfc2(i)/taut*dtp ) / alphat
           endif
@@ -384,7 +391,7 @@
         c2 = min(1.0, abs((bufzn - lat) / (bufzn - end_lat)) )
 !        r2 = (exp(c2**interp_order)-1.)/(exp(1.0)-1.)
         if (lat >= start_lat .and. lat<= end_lat ) then
-         tsfc(i) = tsfc1(i)  
+         tsfc(i) = tsfc1(i)
         elseif (lat >= bufzs .and. lat < start_lat) then  ! the first buffer zone
 !         tsfc(i) = c1 * tsfc1(i) + (1.-c1) * tsfc2(i)
          tsfc(i) = c1 * ts_som(i) + (1.-c1) * tsfc2(i)
@@ -408,8 +415,8 @@
       IMPLICIT NONE
 !----------------------------------------------------------------
 !
-!  SUBROUTINE OCEANML CALCULATES THE SEA SURFACE TEMPERATURE 
-!  FROM A SIMPLE OCEAN MIXED LAYER MODEL BASED ON 
+!  SUBROUTINE OCEANML CALCULATES THE SEA SURFACE TEMPERATURE
+!  FROM A SIMPLE OCEAN MIXED LAYER MODEL BASED ON
 !  (Pollard, Rhines and Thompson (1973).
 !
 !-- DT          time step (second)
@@ -417,14 +424,14 @@
 !-- taum        MLD restoring time scale
 !-- alpham      MLD restoring parameter
 !-- qsfc        net surface heat flux
-!-- taux        wind stress at zonal direction 
-!-- tauy        wind stress at meridional direction 
+!-- taux        wind stress at zonal direction
+!-- tauy        wind stress at meridional direction
 !-- tml         ocean mixed layer temperature (K)
 !-- tml0        ocean mixed layer temperature (K) at initial time or previous time step
 !-- tmoml       top 200 m ocean mean temperature (K) at initial time or previous time step
 !-- H           ocean mixed layer depth (m)
 !-- H0          ocean mixed layer depth (m) at initial time or nudged MLD toward climatology
-!-- HC          climatological or constant ocean mixed layer depth (m) 
+!-- HC          climatological or constant ocean mixed layer depth (m)
 !-- huml        ocean mixed layer u component of wind
 !-- hvml        ocean mixed layer v component of wind
 !
@@ -477,7 +484,7 @@
         hv2=hv1+tauy2/rhowater*dt-fdt/2.*(hu2+hu1)
        endif
 ! consider the flux effect
-       A2 = A1+q*dt 
+       A2 = A1+q*dt
        A3 = A1+q*dt - 0.5*Gam*h0**2
 
        huml=hu2
@@ -495,14 +502,14 @@
 
 !       write(0,*) 'test0',h,hc,taum,alpham,dt
        if(do_mld_restore) then
-         h  = (h + HC/taum*dt)/alpham 
+         h  = (h + HC/taum*dt)/alpham
        endif
 !       write(0,*) 'test1',h,hc,taum,alpham,dt
 ! limit to posit ive h change
 !       if (use_old_mlm) then
-!        if(h.lt.hold) h=hold  
+!        if(h.lt.hold) h=hold
 !       else
-!        if(h.lt.hold) h=h0    
+!        if(h.lt.hold) h=h0
 !       endif
 ! no change unless tml is warmer than layer mean temp tmol or tsk-5 (see omlinit)
        if(tml.ge.tmoml .and. h.ne.0.)then
@@ -512,12 +519,12 @@
           if (use_old_mlm) then
 ! if MLD does not deepen, we only consider the surface heat flux effect
            if (h <= hold) then
-            tml=max(tml + q*dt/h, tmoml) 
+            tml=max(tml + q*dt/h, tmoml)
            else
-            tml=max(tml0 - Gam*(h-h0) + 0.5*Gam*h + A2/h, tmoml) 
+            tml=max(tml0 - Gam*(h-h0) + 0.5*Gam*h + A2/h, tmoml)
            endif
           else
-           tml=max(tml0 -0.5* Gam*(h-h0)*abs(h-h0)/h + A2/h, tmoml) 
+           tml=max(tml0 -0.5* Gam*(h-h0)*abs(h-h0)/h + A2/h, tmoml)
           endif
          else
            tml=tmoml
@@ -534,6 +541,6 @@
 
       end subroutine MLM1D
 
-      end module module_ocean 
+      end module module_ocean
 
 !=========================================

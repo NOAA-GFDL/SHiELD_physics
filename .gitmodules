@@ -1,0 +1,3 @@
+[submodule "COSP"]
+	path = COSP
+	url = https://github.com/linjiongzhou/COSPv2.0.git

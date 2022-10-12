@@ -187,9 +187,9 @@
       real (kind=kind_phys), parameter :: cp      = con_cp      ! con_cp  =1004.6
       real (kind=kind_phys), parameter :: cp1     = 1004.5      ! con_cp in sflx, canres
       real (kind=kind_phys), parameter :: cp2     = 1004.0      ! con_cp in htr
-!     real (kind=kind_phys), parameter :: cph2o   = con_cliq    ! con_cliq=4.1855e+3
+!     real (kind=kind_phys), parameter :: cph2o   = con_cliq    ! con_cliq=4.218e+3
       real (kind=kind_phys), parameter :: cph2o1  = 4.218e+3    ! con_cliq in penman, snopac
-      real (kind=kind_phys), parameter :: cph2o2  = 4.2e6       ! con_cliq in hrt *unit diff!
+      real (kind=kind_phys), parameter :: cph2o2  = 4.218e6     ! con_cliq in hrt *unit diff!
       real (kind=kind_phys), parameter :: cpice   = con_csol    ! con_csol=2.106e+3
       real (kind=kind_phys), parameter :: cpice1  = 2.106e6     ! con_csol in hrt *unit diff!
 !     real (kind=kind_phys), parameter :: sigma   = con_sbc     ! con_sbc=5.6704e-8

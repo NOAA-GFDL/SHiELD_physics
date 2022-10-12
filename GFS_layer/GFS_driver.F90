@@ -12,12 +12,12 @@ module GFS_driver
   use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
   use module_radlw_parameters,  only: topflw_type, sfcflw_type
   use funcphys,                 only: gfuncphys
-  use gfdl_cld_mp_mod,          only: gfdl_cld_mp_init
-#ifndef fvGFS_2017
-  use cld_eff_rad_mod,          only: cld_eff_rad_init
-#endif
+  use gfdl_cld_mp_mod,          only: gfdl_cld_mp_init, gfdl_cld_mp_end
   use myj_pbl_mod,              only: myj_pbl_init
   use myj_jsfc_mod,             only: myj_jsfc_init
+#ifdef USE_COSP
+  use cosp2_test,               only: cosp2_init, cosp2_end
+#endif
 
   implicit none
 
@@ -94,6 +94,7 @@ module GFS_driver
   public  GFS_radiation_driver        !< radiation_driver (was grrad)
   public  GFS_physics_driver          !< physics_driver (was gbphys)
   public  GFS_stochastic_driver       !< stochastic physics
+  public  GFS_physics_end             !< GFS physics end routine
 
 
   CONTAINS
@@ -216,11 +217,8 @@ module GFS_driver
     endif
 
     !--- initialize GFDL Cloud microphysics
-    if (.not. Model%do_inline_mp .and. Model%ncld == 5) then
-      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit)
-#ifndef fvGFS_2017
-      call cld_eff_rad_init (Model%input_nml_file, Init_parm%logunit)
-#endif
+    if (Model%ncld == 5) then
+      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Statein(1)%dycore_hydrostatic)
     endif
 
     !--- initialize ras
@@ -254,6 +252,20 @@ module GFS_driver
     !--- FV3GFS handles this as part of the IC ingest
     !--- this note is placed here alertng users to study
     !--- the FV3GFS_io.F90 module
+
+#ifdef USE_COSP
+!-----------------------------------------------------------------------
+! The CFMIP Observation Simulator Package (COSP)
+! Added by Linjiong Zhou
+! May 2021
+!-----------------------------------------------------------------------
+
+    if (Model%do_cosp) then
+       do nb = 1, nblks
+          call cosp2_init (size(Grid(nb)%xlon,1), Model%levs)
+       enddo
+    endif
+#endif
 
   end subroutine GFS_initialize
 
@@ -545,6 +557,31 @@ module GFS_driver
 
   end subroutine GFS_stochastic_driver
 
+!--------------
+! GFS physics end
+!--------------
+  subroutine GFS_physics_end (Model)
+
+    implicit none
+
+    !--- interface variables
+    type(GFS_control_type),   intent(inout) :: Model
+
+    call gfdl_cld_mp_end ()
+
+#ifdef USE_COSP
+!-----------------------------------------------------------------------
+! The CFMIP Observation Simulator Package (COSP)
+! Added by Linjiong Zhou
+! May 2021
+!-----------------------------------------------------------------------
+
+    if (Model%do_cosp) then
+        call cosp2_end ()
+    endif
+#endif
+
+  end subroutine GFS_physics_end
 
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
