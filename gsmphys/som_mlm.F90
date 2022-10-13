@@ -159,7 +159,7 @@
 
       if (restore_method == 3 .and. .not. Model%use_ext_sst) then
          write(6,*) ' som_mlm::ocean_init(): Cannot use restore_method == 3'
-         write(6,*) '                        unless external IC provided '
+         write(6,*) '                        unless external SST provided '
          write(6,*) '                        (use_ext_sst = .true.). Stop.'
          call abort
       endif

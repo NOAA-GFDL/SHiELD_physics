@@ -15,3 +15,4 @@ This release includes the following:
 - NOAH MP update
 - Introduce namelist parameter, Ts0, that is used to specify the surface temperature
 - Added option to fix solar declination for doubly periodic experiments
+- Diagnostic totprcp_ave has been renamed to totprcpb_ave
