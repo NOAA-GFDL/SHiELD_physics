@@ -6,15 +6,7 @@ module GFS_typedefs
        use ozne_def,                 only: levozp, oz_coeff
        use h2o_def,                  only: levh2o, h2o_coeff
        use gfdl_cld_mp_mod,          only: rhow
-#ifdef USE_COSP
-       use cosp2_test,               only: Ncolumns
-       use mod_cosp_config,          only: Nlvgrid, ntau, npres, nhgt, &
-                                           SR_BINS, PARASOL_NREFL, &
-                                           cloudsat_DBZE_BINS, &
-                                           numMODISReffLiqBins, &
-                                           numMODISReffIceBins, &
-                                           CFODD_NDBZE, CFODD_NICOD
-#endif
+
        implicit none
 
        !--- version of physics
@@ -1221,6 +1213,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: shum_wts(:,:)  => null()   !<
     real (kind=kind_phys), pointer :: zmtnblck(:)    => null()   !<mountain blocking level of dividing streamline
 
+    real (kind=kind_phys), pointer :: pfr (:,:)     => null()  !< rain
+    real (kind=kind_phys), pointer :: pfs (:,:)     => null()  !< snow
+    real (kind=kind_phys), pointer :: pfg (:,:)     => null()  !< graupel
+
 !
     real (kind=kind_phys), pointer :: netflxsfc     (:)    => null()   !net surface heat flux
     real (kind=kind_phys), pointer :: qflux_restore (:)    => null()   !restoring term for diagnosis only
@@ -1269,6 +1265,9 @@ module GFS_typedefs
          GFS_coupling_type
   public GFS_control_type,  GFS_grid_type,     GFS_tbd_type, &
          GFS_cldprop_type,  GFS_radtend_type,  GFS_diag_type
+#ifdef USE_COSP
+  public cosp_type
+#endif
 
 !*******************************************************************************************
   CONTAINS
@@ -3717,6 +3716,10 @@ module GFS_typedefs
     allocate (Diag%shum_wts(IM,Model%levs))
     allocate (Diag%zmtnblck(IM))
 
+    allocate (Diag%pfr(IM,Model%levs))
+    allocate (Diag%pfs(IM,Model%levs))
+    allocate (Diag%pfg(IM,Model%levs))
+
     !--- 3D diagnostics
     if (Model%ldiag3d) then
       allocate (Diag%du3dt  (IM,Model%levs,4))
@@ -3940,6 +3943,10 @@ module GFS_typedefs
     Diag%toticeb    = zero
     Diag%totsnwb    = zero
     Diag%totgrpb    = zero
+
+    Diag%pfr   = zero
+    Diag%pfs   = zero
+    Diag%pfg   = zero
 
     if (Model%do_ca) then
       Diag%ca_out   = zero

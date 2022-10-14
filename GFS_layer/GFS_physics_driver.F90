@@ -23,9 +23,6 @@ module module_physics_driver
   use wv_saturation,         only: estblf
   
   use module_sfc_drv,        only: sfc_drv
-#ifdef USE_COSP
-  use cosp2_test,            only: cosp2_driver
-#endif
   
   implicit none
 
@@ -3529,6 +3526,16 @@ module module_physics_driver
           endif
         enddo
 
+        if (Model%do_inline_mp) then       ! GFDL Cloud microphysics
+            Diag%pfr = Statein%prefluxr
+            Diag%pfs = Statein%prefluxs
+            Diag%pfg = Statein%prefluxg
+        else
+            Diag%pfr = prefluxr
+            Diag%pfs = prefluxs
+            Diag%pfg = prefluxg
+        endif
+
 #endif
       endif
 
@@ -3868,121 +3875,6 @@ module module_physics_driver
             dq3dt_initial, Diag%dq3dt, Statein%qgrs(:,:,1:nwat), Stateout%gq0(:,:,1:nwat), &
             final_dynamics_delp, im, levs, nwat, dtp)
       endif
-
-#ifdef USE_COSP
-!-----------------------------------------------------------------------
-! The CFMIP Observation Simulator Package (COSP)
-! Added by Linjiong Zhou
-! May 2021
-!-----------------------------------------------------------------------
-
-      if (Model%do_cosp) then
-
-        allocate (pfr(ix,levs))
-        allocate (pfs(ix,levs))
-        allocate (pfg(ix,levs))
-
-        if (Model%do_inline_mp) then       ! GFDL Cloud microphysics
-            pfr = Statein%prefluxr
-            pfs = Statein%prefluxs
-            pfg = Statein%prefluxg
-        else
-            pfr = prefluxr
-            pfs = prefluxs
-            pfg = prefluxg
-        endif
-
-        call cosp2_driver (im, levs, Stateout%gt0, Stateout%gq0(:,:,1), Stateout%gu0, &
-            Stateout%gv0, Statein%prsl, Statein%prsi, Statein%phil, Statein%phii, Sfcprop%tsfc, &
-            Stateout%gq0(:,:,Model%ntoz), 1-abs(Sfcprop%slmsk-1), Sfcprop%oro, &
-            Stateout%gq0(:,:,Model%ntclamt), Stateout%gq0(:,:,Model%ntcw), &
-            Stateout%gq0(:,:,Model%ntiw), pfr, pfs, pfg, model%ncld, diag%reff, &
-            Radtend%coszen, diag%ctau, &
-            Diag%cosp%cltisccp, &
-            Diag%cosp%meantbisccp, &
-            Diag%cosp%meantbclrisccp, &
-            Diag%cosp%pctisccp, &
-            Diag%cosp%tauisccp, &
-            Diag%cosp%albisccp, &
-            Diag%cosp%misr_meanztop, &
-            Diag%cosp%misr_cldarea, &
-            Diag%cosp%cltmodis, &
-            Diag%cosp%clwmodis, &
-            Diag%cosp%climodis, &
-            Diag%cosp%clhmodis, &
-            Diag%cosp%clmmodis, &
-            Diag%cosp%cllmodis, &
-            Diag%cosp%tautmodis, &
-            Diag%cosp%tauwmodis, &
-            Diag%cosp%tauimodis, &
-            Diag%cosp%tautlogmodis, &
-            Diag%cosp%tauwlogmodis, &
-            Diag%cosp%tauilogmodis, &
-            Diag%cosp%reffclwmodis, &
-            Diag%cosp%reffclimodis, &
-            Diag%cosp%pctmodis, &
-            Diag%cosp%lwpmodis, &
-            Diag%cosp%iwpmodis, &
-            Diag%cosp%cltlidarradar, &
-            Diag%cosp%cllcalipsoice, &
-            Diag%cosp%clmcalipsoice, &
-            Diag%cosp%clhcalipsoice, &
-            Diag%cosp%cltcalipsoice, &
-            Diag%cosp%cllcalipsoliq, &
-            Diag%cosp%clmcalipsoliq, &
-            Diag%cosp%clhcalipsoliq, &
-            Diag%cosp%cltcalipsoliq, &
-            Diag%cosp%cllcalipsoun, &
-            Diag%cosp%clmcalipsoun, &
-            Diag%cosp%clhcalipsoun, &
-            Diag%cosp%cltcalipsoun, &
-            Diag%cosp%cllcalipso, &
-            Diag%cosp%clmcalipso, &
-            Diag%cosp%clhcalipso, &
-            Diag%cosp%cltcalipso, &
-            Diag%cosp%clopaquecalipso, &
-            Diag%cosp%clthincalipso, &
-            Diag%cosp%clzopaquecalipso, &
-            Diag%cosp%clopaquetemp, &
-            Diag%cosp%clthintemp, &
-            Diag%cosp%clzopaquetemp, &
-            Diag%cosp%clopaquemeanz, &
-            Diag%cosp%clthinmeanz, &
-            Diag%cosp%clthinemis, &
-            Diag%cosp%clopaquemeanzse, &
-            Diag%cosp%clthinmeanzse, &
-            Diag%cosp%clzopaquecalipsose, &
-            Diag%cosp%cllgrLidar532, &
-            Diag%cosp%clmgrLidar532, &
-            Diag%cosp%clhgrLidar532, &
-            Diag%cosp%cltgrLidar532, &
-            Diag%cosp%cllatlid, &
-            Diag%cosp%clmatlid, &
-            Diag%cosp%clhatlid, &
-            Diag%cosp%cltatlid, &
-            Diag%cosp%ptcloudsatflag0, &
-            Diag%cosp%ptcloudsatflag1, &
-            Diag%cosp%ptcloudsatflag2, &
-            Diag%cosp%ptcloudsatflag3, &
-            Diag%cosp%ptcloudsatflag4, &
-            Diag%cosp%ptcloudsatflag5, &
-            Diag%cosp%ptcloudsatflag6, &
-            Diag%cosp%ptcloudsatflag7, &
-            Diag%cosp%ptcloudsatflag8, &
-            Diag%cosp%ptcloudsatflag9, &
-            Diag%cosp%cloudsatpia, &
-            Diag%cosp%cloudsat_tcc, &
-            Diag%cosp%cloudsat_tcc2, &
-            Diag%cosp%npdfcld, &
-            Diag%cosp%npdfdrz, &
-            Diag%cosp%npdfrain)
-      
-        deallocate (pfr)
-        deallocate (pfs)
-        deallocate (pfg)
-
-      endif
-#endif
 
       return
 !...................................
