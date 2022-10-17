@@ -488,6 +488,7 @@
       logical :: lhsw0  = .false.
       logical :: lflxprf= .false.
       logical :: lfdncmp= .false.
+      logical :: ltau067  = .false.
 
 
 !> those data will be set up only once by "rswinit"
@@ -588,7 +589,7 @@
      &       cosz,solcon,NDAY,idxday,                                   &
      &       npts, nlay, nlp1, lprnt,                                   &
      &       hswc,topflx,sfcflx,                                        &   !  ---  outputs
-     &       HSW0,HSWB,FLXPRF,FDNCMP                                    &   ! ---  optional
+     &       HSW0,HSWB,FLXPRF,FDNCMP,tau067                             &   ! ---  optional
      &     )
 
 !  ====================  defination of variables  ====================  !
@@ -802,6 +803,8 @@
      &       intent(out) :: flxprf
       type (cmpfsw_type),    dimension(npts),            optional,      &
      &       intent(out) :: fdncmp
+      real (kind=kind_phys), dimension(npts,nlay),       optional,      &
+     &       intent(out) :: tau067
 
 !  ---  locals:
       real (kind=kind_phys), dimension(nlay,ngptsw) :: cldfmc,          &
@@ -846,6 +849,7 @@
       lhsw0  = present ( hsw0 )
       lflxprf= present ( flxprf )
       lfdncmp= present ( fdncmp )
+      ltau067  = present ( tau067 )
 
 !> -# Compute solar constant adjustment factor (s0fac) according to solcon.
 !      ***  s0, the solar constant at toa in w/m**2, is hard-coded with
@@ -874,6 +878,10 @@
 
       if ( lhswb ) then
         hswb(:,:,:) = f_zero
+      endif
+
+      if ( ltau067 ) then
+        tau067(:,:) = f_zero
       endif
 
 !> -# Change random number seed value for each radiation invocation
@@ -1149,6 +1157,11 @@
             enddo
           enddo
         endif   ! end if_zcf1_block
+
+        if ( ltau067 ) then
+          ! 0.67micron optical depth for COSP, Linjiong Zhou
+          tau067(j1,:) = taucw(:,9)
+        endif
 
 !> -# Call setcoef() to compute various coefficients needed in
 !!    radiative transfer calculations.

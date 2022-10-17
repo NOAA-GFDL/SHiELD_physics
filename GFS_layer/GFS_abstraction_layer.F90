@@ -16,7 +16,8 @@ module physics_abstraction_layer
                              time_vary_step   =>  GFS_time_vary_step,   &
                              radiation_step1  =>  GFS_radiation_driver, &
                              physics_step1    =>  GFS_physics_driver,   &
-                             physics_step2    =>  GFS_stochastic_driver
+                             physics_step2    =>  GFS_stochastic_driver,&
+                             physics_end      =>  GFS_physics_end
 
 !----------------------
 !  public physics types
@@ -41,6 +42,7 @@ module physics_abstraction_layer
   public  radiation_step1
   public  physics_step1
   public  physics_step2
+  public  physics_end
 
 CONTAINS
 

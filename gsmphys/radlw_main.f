@@ -359,6 +359,7 @@
       logical :: lhlwb  = .false.
       logical :: lhlw0  = .false.
       logical :: lflxprf= .false.
+      logical :: ltau110= .false.
 
 !  ---  those data will be set up only once by "rlwinit"
 
@@ -456,7 +457,7 @@
      &       clouds,icseed,aerosols,sfemis,sfgtmp,                      &
      &       npts, nlay, nlp1, lprnt,                                   &
      &       hlwc,topflx,sfcflx,                                        &    !  ---  outputs
-     &       HLW0,HLWB,FLXPRF                                           &   !! ---  optional
+     &       HLW0,HLWB,FLXPRF,tau110                                    &   !! ---  optional
      &     )
 
 !  ====================  defination of variables  ====================  !
@@ -663,6 +664,8 @@
      &       intent(out) :: hlw0
       type (proflw_type),    dimension(npts,nlp1),       optional,      &
      &       intent(out) :: flxprf
+      real (kind=kind_phys), dimension(npts,nlay),       optional,      &
+     &       intent(out) :: tau110
 
 !  ---  locals:
       real (kind=kind_phys), dimension(0:nlp1) :: cldfrc
@@ -715,7 +718,12 @@
       lhlwb  = present ( hlwb )
       lhlw0  = present ( hlw0 )
       lflxprf= present ( flxprf )
+      ltau110= present ( tau110 )
  
+
+      if ( ltau110 ) then
+        tau110(:,:) = f_zero
+      endif
 
       colamt(:,:) = f_zero
 
@@ -1043,6 +1051,11 @@
         else
           cldfmc = f_zero
           taucld = f_zero
+        endif
+
+        if ( ltau110 ) then
+          ! 11micron emissivity for COSP, Linjiong Zhou
+          tau110(iplon,:) = 1.0 - exp(- taucld(6,:))
         endif
 
 !     if (lprnt) then

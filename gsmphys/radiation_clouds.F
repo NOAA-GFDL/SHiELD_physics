@@ -254,7 +254,7 @@
       real (kind=kind_phys), parameter :: gfac=1.0e5/con_g              &
      &,                                   gord=con_g/con_rd
 !> number of fields in cloud array
-      integer, parameter, public :: NF_CLDS = 9   
+      integer, parameter, public :: NF_CLDS = 11   
 !> number of cloud vertical domains
       integer, parameter, public :: NK_CLDS = 3  
 
@@ -2445,7 +2445,7 @@
 
 !  ---  inputs:
      &     ( plyr,plvl,tlyr,tvly,qlyr,qstl,rhly,clw,cnvw,cnvc,          &
-     &       xlat,xlon,qw,qr,qi,qs,qg,slmsk,snowd,cldtot,               &
+     &       xlat,xlon,qw,qr,qi,qs,qg,qa,slmsk,snowd,cldtot,            &
      &       IX, NLAY, NLP1,                                            &
 !  ---  outputs:
      &       clouds,clds,mtop,mbot                                      &
@@ -2524,7 +2524,7 @@
 #ifdef fvGFS_2017
       use gfdl_cloud_microphys_mod, only: cloud_diagnosis
 #else
-      use cld_eff_rad_mod, only: cld_eff_rad
+      use gfdl_cld_mp_mod, only: cld_eff_rad
 #endif
 !
       implicit none
@@ -2536,7 +2536,7 @@
      &       tlyr, tvly, qlyr, qstl, rhly, clw, cnvw, cnvc
 
       real (kind=kind_phys), dimension(:,:), intent(inout) ::           &
-     &       qw, qr, qi, qs, qg
+     &       qw, qr, qi, qs, qg, qa
       real (kind=kind_phys), dimension(:,:), intent(inout) :: cldtot
 
       real (kind=kind_phys), dimension(:),   intent(in) :: xlat, xlon,  &
@@ -2579,15 +2579,15 @@
 #else
 #ifdef GFS_CLOUD_OVERLAP
       call cld_eff_rad (1, IX, 1, NLAY, slmsk, plyr*100,                &
-     &                  abs(plvl(:,1:NLAY)-plvl(:,2:NLAY+1))*100,       &
-     &                  tlyr, qw, qi, qr, qs, qg, cwp, cip, crp,        &
+     &                  abs(plvl(:,1:NLAY)-plvl(:,2:NLAY+1))*100, tlyr, &
+     &                  qlyr, qw, qi, qr, qs, qg, qa, cwp, cip, crp,    &
      &                  csp, cgp, rew, rei, rer, res, reg, cldtot,      &
      &                  cldtot, snowd, cnvw=cnvw)
       cldcnv = cnvc
 #else
       call cld_eff_rad (1, IX, 1, NLAY, slmsk, plyr*100,                &
-     &                  abs(plvl(:,1:NLAY)-plvl(:,2:NLAY+1))*100,       &
-     &                  tlyr, qw, qi, qr, qs, qg, cwp, cip, crp,        &
+     &                  abs(plvl(:,1:NLAY)-plvl(:,2:NLAY+1))*100, tlyr, &
+     &                  qlyr, qw, qi, qr, qs, qg, qa, cwp, cip, crp,    &
      &                  csp, cgp, rew, rei, rer, res, reg, cldtot,      &
      &                  cldtot, snowd, cnvw=cnvw, cnvc=cnvc)
       cldcnv = 0.0
@@ -2620,6 +2620,8 @@
           clouds(i,k,7) = rer(i,k)
           clouds(i,k,8) = csp(i,k)
           clouds(i,k,9) = res(i,k)
+          clouds(i,k,10) = cgp(i,k)
+          clouds(i,k,11) = reg(i,k)
         enddo
       enddo
 

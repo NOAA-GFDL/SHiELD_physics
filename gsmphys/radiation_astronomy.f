@@ -825,6 +825,7 @@
 !-----------------------------------
       subroutine coszmn                                                 &
      &     ( xlon,sinlat,coslat,solhr, IM, me, daily_mean,              &     !  ---  inputs
+     &       fixed_sollat, sollat,                                      &     !  ---  inputs
      &       coszen, coszdg                                             &     !  ---  outputs
      &     )
 
@@ -841,6 +842,8 @@
 !    IM            - num of grids in horizontal dimension               !
 !    me            - print message control flag                         !
 !    daily_mean    - replace cosz with daily mean value                 !
+!    fixed_sollat  - fix solar latitude                                 !
+!    sollat        - latitude the solar position fixed to (-90. to 90.) !
 !                                                                       !
 !  outputs:                                                             !
 !    coszen(IM)    - average of cosz for daytime only in sw call interval
@@ -865,9 +868,9 @@
       integer, intent(in) :: IM, me
 
       real (kind=kind_phys), intent(in) :: sinlat(:), coslat(:),        &
-     &       xlon(:), solhr
+     &       xlon(:), solhr, sollat
 
-      logical, intent(in) :: daily_mean
+      logical, intent(in) :: daily_mean, fixed_sollat
 
 !  ---  outputs:
       real (kind=kind_phys), intent(out) :: coszen(:), coszdg(:)
@@ -892,8 +895,13 @@
         cns = solang + float(it-1)*anginc + sollag
 
         do i = 1, IM
-          ss  = sinlat(i) * sindec
-          cc  = coslat(i) * cosdec
+          if (fixed_sollat) then
+            ss  = sin(sollat * con_pi / 180.0) * sindec
+            cc  = cos(sollat * con_pi / 180.0) * cosdec
+          else
+            ss  = sinlat(i) * sindec
+            cc  = coslat(i) * cosdec
+          endif
 
           if (it .eq. 1) then
             ! compute daily mean cosine solar zenith angle

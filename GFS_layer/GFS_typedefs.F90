@@ -6,6 +6,15 @@ module GFS_typedefs
        use ozne_def,                 only: levozp, oz_coeff
        use h2o_def,                  only: levh2o, h2o_coeff
        use gfdl_cld_mp_mod,          only: rhow
+#ifdef USE_COSP
+       use cosp2_test,               only: Ncolumns
+       use mod_cosp_config,          only: Nlvgrid, ntau, npres, nhgt, &
+                                           SR_BINS, PARASOL_NREFL, &
+                                           cloudsat_DBZE_BINS, &
+                                           numMODISReffLiqBins, &
+                                           numMODISReffIceBins, &
+                                           CFODD_NDBZE, CFODD_NICOD
+#endif
        implicit none
 
        !--- version of physics
@@ -120,10 +129,18 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: exch_h (:,:)   => null()  !< 3D heat exchange coefficient
 
     !--- precipitation
+    real (kind=kind_phys), pointer :: prew (:)     => null()  !< water
     real (kind=kind_phys), pointer :: prer (:)     => null()  !< rain
     real (kind=kind_phys), pointer :: prei (:)     => null()  !< ice
     real (kind=kind_phys), pointer :: pres (:)     => null()  !< snow
     real (kind=kind_phys), pointer :: preg (:)     => null()  !< graupel
+
+    !--- precipitation flux
+    real (kind=kind_phys), pointer :: prefluxw (:,:)     => null()  !< water
+    real (kind=kind_phys), pointer :: prefluxr (:,:)     => null()  !< rain
+    real (kind=kind_phys), pointer :: prefluxi (:,:)     => null()  !< ice
+    real (kind=kind_phys), pointer :: prefluxs (:,:)     => null()  !< snow
+    real (kind=kind_phys), pointer :: prefluxg (:,:)     => null()  !< graupel
 
     !--- sea surface temperature
     real (kind=kind_phys), pointer :: sst (:)     => null()   !< sea surface temperature
@@ -489,6 +506,7 @@ module GFS_typedefs
     !--- radiation control parameters
     real(kind=kind_phys) :: fhswr           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr           !< frequency for longwave radiation (secs)
+    real(kind=kind_phys) :: sollat          !< latitude the solar position fixed to (-90. to 90.)
     integer              :: nsswr           !< integer trigger for shortwave radiation
     integer              :: nslwr           !< integer trigger for longwave  radiation
     integer              :: levr            !< number of vertical levels for radiation calculations
@@ -531,6 +549,7 @@ module GFS_typedefs
     logical              :: swhtr           !< flag to output sw heating rate (Radtend%swhc)
     logical              :: fixed_date      !< flag to fix astronomy (not solar angle) to initial date
     logical              :: fixed_solhr     !< flag to fix solar angle to initial time
+    logical              :: fixed_sollat    !< flag to fix solar latitude
     logical              :: daily_mean      !< flag to replace cosz with daily mean value
 
     !--- microphysical switch
@@ -538,6 +557,9 @@ module GFS_typedefs
 
     !--- GFDL microphysical parameters
     logical              :: do_inline_mp    !< flag for GFDL cloud microphysics
+
+    !--- The CFMIP Observation Simulator Package (COSP)
+    logical              :: do_cosp         !< flag for COSP
 
     !--- Z-C microphysical parameters
     logical              :: zhao_mic        !< flag for Zhao-Carr microphysics
@@ -565,6 +587,7 @@ module GFS_typedefs
     logical              :: mom4ice         !< flag controls mom4 sea ice
     logical              :: use_ufo         !< flag for gcycle surface option
     real(kind=kind_phys) :: czil_sfc        !< Zilintkinivich constant
+    real(kind=kind_phys) :: Ts0             !< constant surface temp. if surface data not found 
 
     ! -- the Noah MP options
 
@@ -791,6 +814,7 @@ module GFS_typedefs
     integer              :: ntrw            !< tracer index for rain water
     integer              :: ntsw            !< tracer index for snow water
     integer              :: ntgl            !< tracer index for graupel
+    integer              :: ntal            !< tracer index for aerosol
     integer              :: ntclamt         !< tracer index for cloud amount
     integer              :: ntlnc           !< tracer index for liquid number concentration
     integer              :: ntinc           !< tracer index for ice    number concentration
@@ -995,6 +1019,92 @@ module GFS_typedefs
       procedure :: create  => radtend_create   !<   allocate array data
   end type GFS_radtend_type
 
+#ifdef USE_COSP
+!----------------------------------------------------------------
+! cosp_type, Linjiong Zhou
+!----------------------------------------------------------------
+  type cosp_type
+    real (kind=kind_phys), pointer :: cltisccp                           (:)   => null()
+    real (kind=kind_phys), pointer :: meantbisccp                        (:)   => null()
+    real (kind=kind_phys), pointer :: meantbclrisccp                     (:)   => null()
+    real (kind=kind_phys), pointer :: pctisccp                           (:)   => null()
+    real (kind=kind_phys), pointer :: tauisccp                           (:)   => null()
+    real (kind=kind_phys), pointer :: albisccp                           (:)   => null()
+    real (kind=kind_phys), pointer :: misr_meanztop                      (:)   => null()
+    real (kind=kind_phys), pointer :: misr_cldarea                       (:)   => null()
+    real (kind=kind_phys), pointer :: cltmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: clwmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: climodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: clhmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: clmmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: cllmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: tautmodis                          (:)   => null()
+    real (kind=kind_phys), pointer :: tauwmodis                          (:)   => null()
+    real (kind=kind_phys), pointer :: tauimodis                          (:)   => null()
+    real (kind=kind_phys), pointer :: tautlogmodis                       (:)   => null()
+    real (kind=kind_phys), pointer :: tauwlogmodis                       (:)   => null()
+    real (kind=kind_phys), pointer :: tauilogmodis                       (:)   => null()
+    real (kind=kind_phys), pointer :: reffclwmodis                       (:)   => null()
+    real (kind=kind_phys), pointer :: reffclimodis                       (:)   => null()
+    real (kind=kind_phys), pointer :: pctmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: lwpmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: iwpmodis                           (:)   => null()
+    real (kind=kind_phys), pointer :: cltlidarradar                      (:)   => null()
+    real (kind=kind_phys), pointer :: cllcalipsoice                      (:)   => null()
+    real (kind=kind_phys), pointer :: clmcalipsoice                      (:)   => null()
+    real (kind=kind_phys), pointer :: clhcalipsoice                      (:)   => null()
+    real (kind=kind_phys), pointer :: cltcalipsoice                      (:)   => null()
+    real (kind=kind_phys), pointer :: cllcalipsoliq                      (:)   => null()
+    real (kind=kind_phys), pointer :: clmcalipsoliq                      (:)   => null()
+    real (kind=kind_phys), pointer :: clhcalipsoliq                      (:)   => null()
+    real (kind=kind_phys), pointer :: cltcalipsoliq                      (:)   => null()
+    real (kind=kind_phys), pointer :: cllcalipsoun                       (:)   => null()
+    real (kind=kind_phys), pointer :: clmcalipsoun                       (:)   => null()
+    real (kind=kind_phys), pointer :: clhcalipsoun                       (:)   => null()
+    real (kind=kind_phys), pointer :: cltcalipsoun                       (:)   => null()
+    real (kind=kind_phys), pointer :: cllcalipso                         (:)   => null()
+    real (kind=kind_phys), pointer :: clmcalipso                         (:)   => null()
+    real (kind=kind_phys), pointer :: clhcalipso                         (:)   => null()
+    real (kind=kind_phys), pointer :: cltcalipso                         (:)   => null()
+    real (kind=kind_phys), pointer :: clopaquecalipso                    (:)   => null()
+    real (kind=kind_phys), pointer :: clthincalipso                      (:)   => null()
+    real (kind=kind_phys), pointer :: clzopaquecalipso                   (:)   => null()
+    real (kind=kind_phys), pointer :: clopaquetemp                       (:)   => null()
+    real (kind=kind_phys), pointer :: clthintemp                         (:)   => null()
+    real (kind=kind_phys), pointer :: clzopaquetemp                      (:)   => null()
+    real (kind=kind_phys), pointer :: clopaquemeanz                      (:)   => null()
+    real (kind=kind_phys), pointer :: clthinmeanz                        (:)   => null()
+    real (kind=kind_phys), pointer :: clthinemis                         (:)   => null()
+    real (kind=kind_phys), pointer :: clopaquemeanzse                    (:)   => null()
+    real (kind=kind_phys), pointer :: clthinmeanzse                      (:)   => null()
+    real (kind=kind_phys), pointer :: clzopaquecalipsose                 (:)   => null()
+    real (kind=kind_phys), pointer :: cllgrLidar532                      (:)   => null()
+    real (kind=kind_phys), pointer :: clmgrLidar532                      (:)   => null()
+    real (kind=kind_phys), pointer :: clhgrLidar532                      (:)   => null()
+    real (kind=kind_phys), pointer :: cltgrLidar532                      (:)   => null()
+    real (kind=kind_phys), pointer :: cllatlid                           (:)   => null()
+    real (kind=kind_phys), pointer :: clmatlid                           (:)   => null()
+    real (kind=kind_phys), pointer :: clhatlid                           (:)   => null()
+    real (kind=kind_phys), pointer :: cltatlid                           (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag0                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag1                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag2                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag3                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag4                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag5                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag6                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag7                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag8                    (:)   => null()
+    real (kind=kind_phys), pointer :: ptcloudsatflag9                    (:)   => null()
+    real (kind=kind_phys), pointer :: cloudsatpia                        (:)   => null()
+    real (kind=kind_phys), pointer :: cloudsat_tcc                       (:)   => null()
+    real (kind=kind_phys), pointer :: cloudsat_tcc2                      (:)   => null()
+    real (kind=kind_phys), pointer :: npdfcld                            (:)   => null()
+    real (kind=kind_phys), pointer :: npdfdrz                            (:)   => null()
+    real (kind=kind_phys), pointer :: npdfrain                           (:)   => null()
+  end type cosp_type
+#endif
+
 !----------------------------------------------------------------
 ! GFS_diag_type
 !  internal diagnostic type used as arguments to gbphys and grrad
@@ -1006,6 +1116,8 @@ module GFS_typedefs
                                                                 !< hardcoded field indices, opt. includes aerosols!
     real (kind=kind_phys), pointer :: cloud (:,:,:) => null()   !< to save time accumulated 3-d fields defined as:!
                                                                 !< hardcoded field indices
+    real (kind=kind_phys), pointer :: reff(:,:,:)   => null()   !< to save cloud effective radii
+    real (kind=kind_phys), pointer :: ctau(:,:,:)   => null()   !< to save cloud optical depth and emissivity
     type (topfsw_type),    pointer :: topfsw(:)     => null()   !< sw radiation fluxes at toa, components:
                                                !       %upfxc    - total sky upward sw flux at toa (w/m**2)
                                                !       %dnfxc    - total sky downward sw flux at toa (w/m**2)
@@ -1013,6 +1125,9 @@ module GFS_typedefs
     type (topflw_type),    pointer :: topflw(:)     => null()   !< lw radiation fluxes at top, component:
                                                !       %upfxc    - total sky upward lw flux at toa (w/m**2)
                                                !       %upfx0    - clear sky upward lw flux at toa (w/m**2)
+#ifdef USE_COSP
+    type (cosp_type)               :: cosp                      !< cosp output
+#endif
 
     ! Input/output - used by physics
     real (kind=kind_phys), pointer :: srunoff(:)    => null()   !< surface water runoff (from lsm)
@@ -1212,15 +1327,29 @@ module GFS_typedefs
     endif
 
 
+    allocate (Statein%prew(IM))
     allocate (Statein%prer(IM))
     allocate (Statein%prei(IM))
     allocate (Statein%pres(IM))
     allocate (Statein%preg(IM))
 
+    Statein%prew = clear_val
     Statein%prer = clear_val
     Statein%prei = clear_val
     Statein%pres = clear_val
     Statein%preg = clear_val
+
+    allocate (Statein%prefluxw(IM,Model%levs))
+    allocate (Statein%prefluxr(IM,Model%levs))
+    allocate (Statein%prefluxi(IM,Model%levs))
+    allocate (Statein%prefluxs(IM,Model%levs))
+    allocate (Statein%prefluxg(IM,Model%levs))
+
+    Statein%prefluxw = clear_val
+    Statein%prefluxr = clear_val
+    Statein%prefluxi = clear_val
+    Statein%prefluxs = clear_val
+    Statein%prefluxg = clear_val
 
     allocate (Statein%sst(IM))
     allocate (Statein%ci(IM))
@@ -1882,6 +2011,7 @@ module GFS_typedefs
     !--- radiation parameters
     real(kind=kind_phys) :: fhswr          = 3600.           !< frequency for shortwave radiation (secs)
     real(kind=kind_phys) :: fhlwr          = 3600.           !< frequency for longwave radiation (secs)
+    real(kind=kind_phys) :: sollat         = 0.              !< latitude the solar position fixed to (-90. to 90.)
     integer              :: levr           = -99             !< number of vertical levels for radiation calculations
     integer              :: nfxr           = 39              !< second dimension of input/output array fluxr
     integer              :: nkld           = 8               !< second dimension of input/output array fluxr
@@ -1919,10 +2049,14 @@ module GFS_typedefs
     logical              :: swhtr          = .true.          !< flag to output sw heating rate (Radtend%swhc)
     logical              :: fixed_date     = .false.         !< flag to fix astronomy (not solar angle) to initial date
     logical              :: fixed_solhr    = .false.         !< flag to fix solar angle to initial time
+    logical              :: fixed_sollat   = .false.         !< flag to fix solar latitude
     logical              :: daily_mean     = .false.         !< flag to replace cosz with daily mean value
 
     !--- GFDL microphysical parameters
     logical              :: do_inline_mp = .false.           !< flag for GFDL cloud microphysics
+
+    !--- The CFMIP Observation Simulator Package (COSP)
+    logical              :: do_cosp = .false.                !< flag for COSP
 
     !--- Z-C microphysical parameters
     integer              :: ncld           =  1                 !< cnoice of cloud scheme
@@ -1949,6 +2083,7 @@ module GFS_typedefs
     logical              :: mom4ice        = .false.         !< flag controls mom4 sea ice
     logical              :: use_ufo        = .false.         !< flag for gcycle surface option
     real(kind=kind_phys) :: czil_sfc       = 0.8             !< Zilintkivitch constant
+    real(kind=kind_phys) :: Ts0            = 300.            !< constant surface temp. if surface data not found 
 
     ! -- to use Noah MP, lsm needs to be set to 2 and both ivegsrc and isot are set
     ! to 1 - MODIS IGBP and STATSGO - the defaults are the same as in the
@@ -2198,12 +2333,12 @@ module GFS_typedefs
                                fhswr, fhlwr, levr, nfxr, aero_in, iflip, isol, ico2, ialb,  &
                                isot, iems,  iaer, iovr_sw, iovr_lw, ictm, isubc_sw,         &
                                isubc_lw, crick_proof, ccnorm, lwhtr, swhtr, nkld,           &
-                               fixed_date, fixed_solhr, daily_mean,                         &
+                               fixed_date, fixed_solhr, fixed_sollat, daily_mean, sollat,   &
                           !--- microphysical parameterizations
                                ncld, do_inline_mp, zhao_mic, psautco, prautco, evpco,       &
-                               wminco, fprcp, mg_dcs, mg_qcvar, mg_ts_auto_ice,             &
+                               do_cosp, wminco, fprcp, mg_dcs, mg_qcvar, mg_ts_auto_ice,    &
                           !--- land/surface model control
-                               lsm, lsoil, nmtvr, ivegsrc, mom4ice, use_ufo, czil_sfc,      &
+                               lsm, lsoil, nmtvr, ivegsrc, mom4ice, use_ufo, czil_sfc, Ts0, &
                           !    Noah MP options
                                iopt_dveg,iopt_crs,iopt_btr,iopt_run,iopt_sfc, iopt_frz,     &
                                iopt_inf, iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc,     &
@@ -2341,6 +2476,7 @@ module GFS_typedefs
     !--- radiation control parameters
     Model%fhswr            = fhswr
     Model%fhlwr            = fhlwr
+    Model%sollat           = sollat
     Model%nsswr            = nint(fhswr/Model%dtp)
     Model%nslwr            = nint(fhlwr/Model%dtp)
     if (levr < 0) then
@@ -2368,12 +2504,15 @@ module GFS_typedefs
     Model%swhtr            = swhtr
     Model%fixed_date       = fixed_date
     Model%fixed_solhr      = fixed_solhr
+    Model%fixed_sollat     = fixed_sollat
     Model%daily_mean       = daily_mean
 
     !--- microphysical switch
     Model%ncld             = ncld
     !--- GFDL microphysical parameters
     Model%do_inline_mp     = do_inline_mp
+    !--- The CFMIP Observation Simulator Package (COSP)
+    Model%do_cosp          = do_cosp
     !--- Zhao-Carr MP parameters
     Model%zhao_mic         = zhao_mic
     Model%psautco          = psautco
@@ -2394,6 +2533,7 @@ module GFS_typedefs
     Model%mom4ice          = mom4ice
     Model%use_ufo          = use_ufo
     Model%czil_sfc         = czil_sfc
+    Model%Ts0              = Ts0
 
 ! Noah MP options from namelist
 !
@@ -2592,6 +2732,7 @@ module GFS_typedefs
     Model%ntrw             = get_tracer_index(Model%tracer_names, 'rainwat',  Model%me, Model%master, Model%debug)
     Model%ntsw             = get_tracer_index(Model%tracer_names, 'snowwat',  Model%me, Model%master, Model%debug)
     Model%ntgl             = get_tracer_index(Model%tracer_names, 'graupel',  Model%me, Model%master, Model%debug)
+    Model%ntal             = get_tracer_index(Model%tracer_names, 'aerosol',  Model%me, Model%master, Model%debug)
     Model%ntclamt          = get_tracer_index(Model%tracer_names, 'cld_amt',  Model%me, Model%master, Model%debug)
     Model%ntlnc            = get_tracer_index(Model%tracer_names, 'water_nc', Model%me, Model%master, Model%debug)
     Model%ntinc            = get_tracer_index(Model%tracer_names, 'ice_nc',   Model%me, Model%master, Model%debug)
@@ -2805,6 +2946,7 @@ module GFS_typedefs
                  print *,' scale & aerosol-aware mass-flux deep conv scheme'
               endif
            else
+              Model%imfdeepcnv = -1
               print*, ' Deep convection scheme disabled'
            endif
         endif
@@ -3006,6 +3148,7 @@ module GFS_typedefs
       print *, 'radiation control parameters'
       print *, ' fhswr             : ', Model%fhswr
       print *, ' fhlwr             : ', Model%fhlwr
+      print *, ' sollat            : ', Model%sollat
       print *, ' nsswr             : ', Model%nsswr
       print *, ' nslwr             : ', Model%nslwr
       print *, ' levr              : ', Model%levr
@@ -3033,12 +3176,15 @@ module GFS_typedefs
       print *, ' swhtr             : ', Model%swhtr
       print *, ' fixed_date        : ', Model%fixed_date
       print *, ' fixed_solhr       : ', Model%fixed_solhr
+      print *, ' fixed_sollat      : ', Model%fixed_sollat
       print *, ' daily_mean        : ', Model%daily_mean
       print *, ' '
       print *, 'microphysical switch'
       print *, ' ncld              : ', Model%ncld
       print *, ' GFDL microphysical parameters'
       print *, ' do_inline_mp      : ', Model%do_inline_mp
+      print *, ' The CFMIP Observation Simulator Package (COSP)'
+      print *, ' do_cosp           : ', Model%do_cosp
       print *, ' Z-C microphysical parameters'
       print *, ' zhao_mic          : ', Model%zhao_mic
       print *, ' psautco           : ', Model%psautco
@@ -3059,6 +3205,7 @@ module GFS_typedefs
       print *, ' mom4ice           : ', Model%mom4ice
       print *, ' use_ufo           : ', Model%use_ufo
       print *, ' czil_sfc          : ', Model%czil_sfc
+      print *, ' Ts0               : ', Model%Ts0
 
       if (Model%lsm == Model%lsm_noahmp) then
       print *, ' Noah MP LSM is used, the options are'
@@ -3229,6 +3376,7 @@ module GFS_typedefs
       print *, ' ntrw              : ', Model%ntrw
       print *, ' ntsw              : ', Model%ntsw
       print *, ' ntgl              : ', Model%ntgl
+      print *, ' ntal              : ', Model%ntal
       print *, ' ntclamt           : ', Model%ntclamt
       print *, ' ntlnc             : ', Model%ntlnc
       print *, ' ntinc             : ', Model%ntinc
@@ -3474,6 +3622,8 @@ module GFS_typedefs
     !--- Radiation
     allocate (Diag%fluxr   (IM,Model%nfxr))
     allocate (Diag%cloud   (IM,Model%levs,Model%nkld))
+    allocate (Diag%reff    (IM,Model%levs,Model%ncld))
+    allocate (Diag%ctau    (IM,Model%levs,2))
     allocate (Diag%topfsw  (IM))
     allocate (Diag%topflw  (IM))
     !--- Physics
@@ -3586,6 +3736,88 @@ module GFS_typedefs
       allocate (Diag%det_mf (IM,Model%levs))
       allocate (Diag%cldcov (IM,Model%levs))
     endif
+#ifdef USE_COSP
+    if (Model%do_cosp) then
+      allocate (Diag%cosp%cltisccp                           (IM))
+      allocate (Diag%cosp%meantbisccp                        (IM))
+      allocate (Diag%cosp%meantbclrisccp                     (IM))
+      allocate (Diag%cosp%pctisccp                           (IM))
+      allocate (Diag%cosp%tauisccp                           (IM))
+      allocate (Diag%cosp%albisccp                           (IM))
+      allocate (Diag%cosp%misr_meanztop                      (IM))
+      allocate (Diag%cosp%misr_cldarea                       (IM))
+      allocate (Diag%cosp%cltmodis                           (IM))
+      allocate (Diag%cosp%clwmodis                           (IM))
+      allocate (Diag%cosp%climodis                           (IM))
+      allocate (Diag%cosp%clhmodis                           (IM))
+      allocate (Diag%cosp%clmmodis                           (IM))
+      allocate (Diag%cosp%cllmodis                           (IM))
+      allocate (Diag%cosp%tautmodis                          (IM))
+      allocate (Diag%cosp%tauwmodis                          (IM))
+      allocate (Diag%cosp%tauimodis                          (IM))
+      allocate (Diag%cosp%tautlogmodis                       (IM))
+      allocate (Diag%cosp%tauwlogmodis                       (IM))
+      allocate (Diag%cosp%tauilogmodis                       (IM))
+      allocate (Diag%cosp%reffclwmodis                       (IM))
+      allocate (Diag%cosp%reffclimodis                       (IM))
+      allocate (Diag%cosp%pctmodis                           (IM))
+      allocate (Diag%cosp%lwpmodis                           (IM))
+      allocate (Diag%cosp%iwpmodis                           (IM))
+      allocate (Diag%cosp%cltlidarradar                      (IM))
+      allocate (Diag%cosp%cllcalipsoice                      (IM))
+      allocate (Diag%cosp%clmcalipsoice                      (IM))
+      allocate (Diag%cosp%clhcalipsoice                      (IM))
+      allocate (Diag%cosp%cltcalipsoice                      (IM))
+      allocate (Diag%cosp%cllcalipsoliq                      (IM))
+      allocate (Diag%cosp%clmcalipsoliq                      (IM))
+      allocate (Diag%cosp%clhcalipsoliq                      (IM))
+      allocate (Diag%cosp%cltcalipsoliq                      (IM))
+      allocate (Diag%cosp%cllcalipsoun                       (IM))
+      allocate (Diag%cosp%clmcalipsoun                       (IM))
+      allocate (Diag%cosp%clhcalipsoun                       (IM))
+      allocate (Diag%cosp%cltcalipsoun                       (IM))
+      allocate (Diag%cosp%cllcalipso                         (IM))
+      allocate (Diag%cosp%clmcalipso                         (IM))
+      allocate (Diag%cosp%clhcalipso                         (IM))
+      allocate (Diag%cosp%cltcalipso                         (IM))
+      allocate (Diag%cosp%clopaquecalipso                    (IM))
+      allocate (Diag%cosp%clthincalipso                      (IM))
+      allocate (Diag%cosp%clzopaquecalipso                   (IM))
+      allocate (Diag%cosp%clopaquetemp                       (IM))
+      allocate (Diag%cosp%clthintemp                         (IM))
+      allocate (Diag%cosp%clzopaquetemp                      (IM))
+      allocate (Diag%cosp%clopaquemeanz                      (IM))
+      allocate (Diag%cosp%clthinmeanz                        (IM))
+      allocate (Diag%cosp%clthinemis                         (IM))
+      allocate (Diag%cosp%clopaquemeanzse                    (IM))
+      allocate (Diag%cosp%clthinmeanzse                      (IM))
+      allocate (Diag%cosp%clzopaquecalipsose                 (IM))
+      allocate (Diag%cosp%cllgrLidar532                      (IM))
+      allocate (Diag%cosp%clmgrLidar532                      (IM))
+      allocate (Diag%cosp%clhgrLidar532                      (IM))
+      allocate (Diag%cosp%cltgrLidar532                      (IM))
+      allocate (Diag%cosp%cllatlid                           (IM))
+      allocate (Diag%cosp%clmatlid                           (IM))
+      allocate (Diag%cosp%clhatlid                           (IM))
+      allocate (Diag%cosp%cltatlid                           (IM))
+      allocate (Diag%cosp%ptcloudsatflag0                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag1                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag2                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag3                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag4                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag5                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag6                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag7                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag8                    (IM))
+      allocate (Diag%cosp%ptcloudsatflag9                    (IM))
+      allocate (Diag%cosp%cloudsatpia                        (IM))
+      allocate (Diag%cosp%cloudsat_tcc                       (IM))
+      allocate (Diag%cosp%cloudsat_tcc2                      (IM))
+      allocate (Diag%cosp%npdfcld                            (IM))
+      allocate (Diag%cosp%npdfdrz                            (IM))
+      allocate (Diag%cosp%npdfrain                           (IM))
+    endif
+#endif
 
     allocate (Diag%ps_dt(IM))
 
@@ -3603,6 +3835,8 @@ module GFS_typedefs
 
     Diag%fluxr        = zero
     Diag%cloud        = zero
+    Diag%reff         = zero
+    Diag%ctau         = zero
     Diag%topfsw%upfxc = zero
     Diag%topfsw%dnfxc = zero
     Diag%topfsw%upfx0 = zero
@@ -3735,7 +3969,7 @@ module GFS_typedefs
     if (present(linit) ) set_totprcp = linit
     if (present(iauwindow_center) ) set_totprcp = iauwindow_center
     if (set_totprcp) then
-      if (Model%me == 0) print *,'set_totprcp T kdt=', Model%kdt
+      !if (Model%me == 0) print *,'set_totprcp T kdt=', Model%kdt
       Diag%totprcp = zero
       Diag%cnvprcp = zero
       Diag%totice  = zero

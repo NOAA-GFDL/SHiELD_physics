@@ -1,5 +1,7 @@
 # SHiELD_physics
 
+The source contained herein reflects the 202210 release of the SHiELD_physics from GFDL.
+
 SHiELD_physics contains the infrastructure and physical parameterizations used within the SHiELD atmosphere model.
 
 More information is available on the [GFDL SHiELD page](https://www.gfdl.noaa.gov/shield/).
