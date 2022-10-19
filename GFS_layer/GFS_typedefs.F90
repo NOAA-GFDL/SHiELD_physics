@@ -736,6 +736,11 @@ module GFS_typedefs
     real(kind=kind_phys) :: clam_shal       !< c_e for shallow convection (Han and Pan, 2011, eq(6))
     real(kind=kind_phys) :: c0s_shal        !< conversion parameter of detrainment from liquid water into convetive precipitaiton
     real(kind=kind_phys) :: c1_shal         !< conversion parameter of detrainment from liquid water into grid-scale cloud water
+    real(kind=kind_phys) :: cthk_shal       !< max cloud depth for shallow convection 
+    real(kind=kind_phys) :: top_shal        !< max cloud height for shallow convection (P/Ps < top_shal)
+    real(kind=kind_phys) :: betaw_shal      !< ratio between cloud base mass flux and mean updraft (eq 6 in Han et al 2017)
+    real(kind=kind_phys) :: dxcrt_shal      !< critical resolution for calculating scale-aware cloud base mass flux
+
     real(kind=kind_phys) :: pgcon_shal      !< control the reduction in momentum transport
                                             !< 0.7 : Gregory et al. (1997, QJRMS)
                                             !< 0.55: Zhang & Wu (2003, JAS)
@@ -1176,6 +1181,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hpbl   (:)    => null()   !< pbl height (m)
     real (kind=kind_phys), pointer :: hgamt  (:)    => null()   !< ysu counter-gradient flux
     real (kind=kind_phys), pointer :: hfxpbl (:)    => null()   !< ysu entrainment flux
+    real (kind=kind_phys), pointer :: xmb_shal(:)   => null()   !< cloud base mass flux from shal cnv 
+    real (kind=kind_phys), pointer :: tfac_shal(:)  => null()   !< Tadv/Tcnv factor from shal cnv
+    real (kind=kind_phys), pointer :: sigma_shal(:) => null()   !< updraft fractional area from shal cnv
     real (kind=kind_phys), pointer :: pwat   (:)    => null()   !< precipitable water
     real (kind=kind_phys), pointer :: t1     (:)    => null()   !< layer 1 temperature (K)
     real (kind=kind_phys), pointer :: q1     (:)    => null()   !< layer 1 specific humidity (kg/kg)
@@ -1244,6 +1252,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dkt   (:,:)   => null()
     real (kind=kind_phys), pointer :: flux_cg(:,:)  => null()
     real (kind=kind_phys), pointer :: flux_en(:,:)  => null()
+    real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
+    real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
 
     !--- accumulated quantities for 3D diagnostics
     real (kind=kind_phys), pointer :: upd_mf (:,:)   => null()  !< instantaneous convective updraft mass flux
@@ -2235,6 +2245,10 @@ module GFS_typedefs
     real(kind=kind_phys) :: clam_shal      = 0.3             !< c_e for shallow convection (Han and Pan, 2011, eq(6))
     real(kind=kind_phys) :: c0s_shal       = 0.002           !< conversion parameter of detrainment from liquid water into convetive precipitaiton
     real(kind=kind_phys) :: c1_shal        = 5.e-4           !< conversion parameter of detrainment from liquid water into grid-scale cloud water
+    real(kind=kind_phys) :: cthk_shal      = 200             !< max cloud top for shallow convection
+    real(kind=kind_phys) :: top_shal       = 0.7             !< max cloud height for shallow convection (P/Ps < top_shal)
+    real(kind=kind_phys) :: betaw_shal     = 0.03            !< ratio between cloud base mass flux and mean updraft (eq 6 in Han et al 2017)
+    real(kind=kind_phys) :: dxcrt_shal     = 15.e3           !< critical resolution for calculating scale-aware cloud base mass flux
     real(kind=kind_phys) :: pgcon_shal     = 0.55            !< control the reduction in momentum transport
                                                              !< 0.7 : Gregory et al. (1997, QJRMS)
                                                              !< 0.55: Zhang & Wu (2003, JAS)
@@ -2367,7 +2381,8 @@ module GFS_typedefs
                                betas_deep, evfact_deep, evfactl_deep, pgcon_deep,           &
                                asolfac_deep, ext_rain_deep,                                 &
                           !--- mass flux shallow convection
-                               clam_shal, c0s_shal, c1_shal, pgcon_shal, asolfac_shal,      &
+                               clam_shal, c0s_shal, c1_shal, cthk_shal, top_shal,           &
+                               betaw_shal, dxcrt_shal, pgcon_shal, asolfac_shal,            &
                                ext_rain_shal, evfact_shal, evfactl_shal,                    &
                           !--- near surface temperature model
                                nst_anl, lsea, nstf_name,                                    &
@@ -2661,6 +2676,10 @@ module GFS_typedefs
     Model%clam_shal        = clam_shal
     Model%c0s_shal         = c0s_shal
     Model%c1_shal          = c1_shal
+    Model%cthk_shal        = cthk_shal
+    Model%top_shal         = top_shal
+    Model%betaw_shal       = betaw_shal
+    Model%dxcrt_shal       = dxcrt_shal
     Model%pgcon_shal       = pgcon_shal
     Model%asolfac_shal     = asolfac_shal
     Model%evfact_shal      = evfact_shal
@@ -3335,6 +3354,10 @@ module GFS_typedefs
       print *, ' clam_shal         : ', Model%clam_shal
       print *, ' c0s_shal          : ', Model%c0s_shal
       print *, ' c1_shal           : ', Model%c1_shal
+      print *, ' cthk_shal         : ', Model%cthk_shal
+      print *, ' top_shal          : ', Model%top_shal
+      print *, ' betaw_shal        : ', Model%betaw_shal
+      print *, ' dxcrt_shal        : ', Model%dxcrt_shal
       print *, ' pgcon_shal        : ', Model%pgcon_shal
       print *, ' asolfac_shal      : ', Model%asolfac_shal
       print *, ' evfact_shal       : ', Model%evfact_shal
@@ -3687,6 +3710,9 @@ module GFS_typedefs
     allocate (Diag%hpbl    (IM))
     allocate (Diag%hgamt   (IM))
     allocate (Diag%hfxpbl  (IM))
+    allocate (Diag%xmb_shal(IM))
+    allocate (Diag%tfac_shal(IM))
+    allocate (Diag%sigma_shal(IM))
     allocate (Diag%pwat    (IM))
     allocate (Diag%t1      (IM))
     allocate (Diag%q1      (IM))
@@ -3733,6 +3759,9 @@ module GFS_typedefs
       allocate (Diag%dkt    (IM,Model%levs))
       allocate (Diag%flux_cg(IM,Model%levs))
       allocate (Diag%flux_en(IM,Model%levs))
+      allocate (Diag%wu2_shal(IM,Model%levs))
+      allocate (Diag%eta_shal(IM,Model%levs))
+
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))
       allocate (Diag%dwn_mf (IM,Model%levs))
@@ -3911,6 +3940,9 @@ module GFS_typedefs
     Diag%hpbl    = zero
     Diag%hgamt   = zero
     Diag%hfxpbl  = zero
+    Diag%xmb_shal  = zero
+    Diag%tfac_shal = zero
+    Diag%sigma_shal= zero
     Diag%pwat    = zero
     Diag%t1      = zero
     Diag%q1      = zero
@@ -3965,6 +3997,8 @@ module GFS_typedefs
       Diag%dkt     = zero
       Diag%flux_cg = zero
       Diag%flux_en = zero
+      Diag%wu2_shal= zero
+      Diag%eta_shal= zero
       Diag%upd_mf  = zero
       Diag%dwn_mf  = zero
       Diag%det_mf  = zero

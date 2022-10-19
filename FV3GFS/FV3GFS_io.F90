@@ -4431,6 +4431,39 @@ module FV3GFS_io_mod
 
     idx = idx + 1
     Diag(idx)%axes = 2
+    Diag(idx)%name = 'xmb_shal'
+    Diag(idx)%desc = 'cloud base mass flux from mass-flux shal cnv'
+    Diag(idx)%unit = 'XXX'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%xmb_shal(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'tfac_shal'
+    Diag(idx)%desc = 'Tadv/Tcnv factor from  mass-flux shal cnv'
+    Diag(idx)%unit = 'XXX'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%tfac_shal(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'sigma_shal'
+    Diag(idx)%desc = 'updraft fractional area from mass-flux shal cnv'
+    Diag(idx)%unit = 'XXX'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%sigma_shal(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
     Diag(idx)%name = 'pwat'
     Diag(idx)%desc = 'atmos column precipitable water [kg/m**2]'
     Diag(idx)%unit = 'kg/m**2'
@@ -5688,6 +5721,28 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
        Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%flux_en(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'wu2_shal'
+    Diag(idx)%desc = 'updraft velocity square from shallow convection'
+    Diag(idx)%unit = 'm**2/s**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%wu2_shal(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'eta_shal'
+    Diag(idx)%desc = 'normalized mass flux from shallow convection'
+    Diag(idx)%unit = 'non-dim'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%eta_shal(:,:)
     enddo
 
 !    idx = idx + 1
