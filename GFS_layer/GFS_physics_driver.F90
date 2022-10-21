@@ -506,7 +506,7 @@ module module_physics_driver
           pcg, edg, oeg, rrg, tvg,                                      &
           prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
           sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
-          wu2_shal,  eta_shal                                           &
+          wu2_shal,  eta_shal 
 
       real(kind=kind_phys), allocatable ::                              &
            pfr(:,:), pfs(:,:), pfg(:,:)
