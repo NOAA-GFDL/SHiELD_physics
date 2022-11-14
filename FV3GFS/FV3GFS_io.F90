@@ -4707,7 +4707,7 @@ module FV3GFS_io_mod
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%sr(:)
     enddo
 
-#ifdef USE_COSP
+#if defined (USE_COSP)
 !--- 2D diagnostic variables from the CFMIP Observation Simulator Package (COSP), Linjiong Zhou
 
     idx = idx + 1
@@ -5567,6 +5567,374 @@ module FV3GFS_io_mod
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%npdfrain(:)
     enddo
+#endif
+
+#if defined (COSP_OFFLINE)
+!--- 2D/3D variables for the offline CFMIP Observation Simulator Package (COSP), Linjiong Zhou
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'skt'
+    Diag(idx)%desc = 'Skin temperature'
+    Diag(idx)%unit = 'K'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%skt(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'surfelev'
+    Diag(idx)%desc = 'Surface Elevation'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%surfelev(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'landmask'
+    Diag(idx)%desc = 'Land/sea mask'
+    Diag(idx)%unit = '0/1'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%landmask(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'sunlit'
+    Diag(idx)%desc = 'Sunlit flag'
+    Diag(idx)%unit = 'none'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%sunlit(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'p'
+    Diag(idx)%desc = 'Model pressure levels'
+    Diag(idx)%unit = 'pa'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%p(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'ph'
+    Diag(idx)%desc = 'Moddel pressure at half levels'
+    Diag(idx)%unit = 'pa'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%ph(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'zlev'
+    Diag(idx)%desc = 'Model level height'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%zlev(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'zlev_half'
+    Diag(idx)%desc = 'Model level height at half-levels'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%zlev_half(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'T'
+    Diag(idx)%desc = 'Temperature'
+    Diag(idx)%unit = 'K'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%T(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'sh'
+    Diag(idx)%desc = 'Specific humidity'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%sh(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'tca'
+    Diag(idx)%desc = 'Total cloud fraction'
+    Diag(idx)%unit = '1'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%tca(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'cca'
+    Diag(idx)%desc = 'Convective cloud fraction'
+    Diag(idx)%unit = '1'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%cca(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'u_wind'
+    Diag(idx)%desc = 'U-component of wind'
+    Diag(idx)%unit = 'm/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%u_wind(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'v_wind'
+    Diag(idx)%desc = 'V-component of wind'
+    Diag(idx)%unit = 'm/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%v_wind(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'mr_lsliq'
+    Diag(idx)%desc = 'Mass mixing ratio for stratiform cloud liquid'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_lsliq(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'mr_lsice'
+    Diag(idx)%desc = 'Mass mixing ratio for stratiform cloud ice'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_lsice(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'mr_ccliq'
+    Diag(idx)%desc = 'Mass mixing ratio for convective cloud liquid'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ccliq(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'mr_ccice'
+    Diag(idx)%desc = 'Mass mixing ratio for convective cloud ice'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ccice(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'mr_ozone'
+    Diag(idx)%desc = 'Mass mixing ratio for ozone'
+    Diag(idx)%unit = 'kg/kg'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ozone(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'fl_lsrain'
+    Diag(idx)%desc = 'Precipitation flux (rain) for stratiform cloud'
+    Diag(idx)%unit = 'kg/m^2/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lsrain(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'fl_lssnow'
+    Diag(idx)%desc = 'Precipitation flux (snow) for stratiform cloud'
+    Diag(idx)%unit = 'kg/m^2/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lssnow(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'fl_lsgrpl'
+    Diag(idx)%desc = 'Precipitation flux (groupel) for stratiform cloud'
+    Diag(idx)%unit = 'kg/m^2/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lsgrpl(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'fl_ccrain'
+    Diag(idx)%desc = 'Precipitation flux (rain) for convective cloud'
+    Diag(idx)%unit = 'kg/m^2/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_ccrain(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'fl_ccsnow'
+    Diag(idx)%desc = 'Precipitation flux (snow) for convective cloud'
+    Diag(idx)%unit = 'kg/m^2/s'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_ccsnow(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'dtau_s'
+    Diag(idx)%desc = '0.67micron optical depth (stratiform cloud)'
+    Diag(idx)%unit = '1'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dtau_s(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'dtau_c'
+    Diag(idx)%desc = '0.67micron optical depth (convective cloud)'
+    Diag(idx)%unit = '1'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dtau_c(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'dem_s'
+    Diag(idx)%desc = '11micron emissivity (stratiform cloud)'
+    Diag(idx)%unit = 'none'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dem_s(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'dem_c'
+    Diag(idx)%desc = '11microm emissivity (convective cloud)'
+    Diag(idx)%unit = 'none'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dem_c(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'Reff_LSCLIQ'
+    Diag(idx)%desc = 'Subcolumn effective radius for stratiform cloud liquid'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSCLIQ(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'Reff_LSCICE'
+    Diag(idx)%desc = 'Subcolumn effective radius for stratiform cloud ice'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSCICE(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'Reff_LSRAIN'
+    Diag(idx)%desc = 'Subcolumn effective radius for stratiform rain'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSRAIN(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'Reff_LSSNOW'
+    Diag(idx)%desc = 'Subcolumn effective radius for stratiform snow'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSSNOW(:,:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 3
+    Diag(idx)%name = 'Reff_LSGRPL'
+    Diag(idx)%desc = 'Subcolumn effective radius for stratiform graupel'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'cosp'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSGRPL(:,:)
+    enddo
+
 #endif
 
 !    idx = idx + 1

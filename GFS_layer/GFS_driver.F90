@@ -15,7 +15,7 @@ module GFS_driver
   use gfdl_cld_mp_mod,          only: gfdl_cld_mp_init, gfdl_cld_mp_end
   use myj_pbl_mod,              only: myj_pbl_init
   use myj_jsfc_mod,             only: myj_jsfc_init
-#ifdef USE_COSP
+#if defined (USE_COSP)
   use cosp2_test,               only: cosp2_init, cosp2_end
 #endif
 
@@ -253,7 +253,7 @@ module GFS_driver
     !--- this note is placed here alertng users to study
     !--- the FV3GFS_io.F90 module
 
-#ifdef USE_COSP
+#if defined (USE_COSP)
 !-----------------------------------------------------------------------
 ! The CFMIP Observation Simulator Package (COSP)
 ! Added by Linjiong Zhou
@@ -569,7 +569,7 @@ module GFS_driver
 
     call gfdl_cld_mp_end ()
 
-#ifdef USE_COSP
+#if defined (USE_COSP)
 !-----------------------------------------------------------------------
 ! The CFMIP Observation Simulator Package (COSP)
 ! Added by Linjiong Zhou
