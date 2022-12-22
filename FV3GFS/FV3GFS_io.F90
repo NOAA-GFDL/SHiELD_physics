@@ -729,7 +729,7 @@ module FV3GFS_io_mod
         call register_variable_attribute(Sfc_restart, 'zaxis_2', 'cartesian_axis', 'Z', str_len=1)
         allocate( buffer(3) )
         do lsoil=-2,0
-           buffer(lsoil) = lsoil
+           buffer(lsoil+3) = lsoil
         end do
         call write_data(Sfc_restart, 'zaxis_2', buffer)
         deallocate(buffer)
@@ -739,7 +739,7 @@ module FV3GFS_io_mod
         call register_variable_attribute(Sfc_restart, 'zaxis_3', 'cartesian_axis', 'Z', str_len=1)
         allocate( buffer(7) )
         do lsoil=-2,4
-           buffer(lsoil) = lsoil
+           buffer(lsoil+3) = lsoil
         end do
         call write_data(Sfc_restart, 'zaxis_3', buffer)
         deallocate(buffer)
