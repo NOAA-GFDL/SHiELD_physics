@@ -579,7 +579,7 @@ module GFS_typedefs
     logical              :: mom4ice         !< flag controls mom4 sea ice
     logical              :: use_ufo         !< flag for gcycle surface option
     real(kind=kind_phys) :: czil_sfc        !< Zilintkinivich constant
-    real(kind=kind_phys) :: Ts0             !< constant surface temp. if surface data not found 
+    real(kind=kind_phys) :: Ts0             !< constant surface temp. if surface data not found
 
     ! -- the Noah MP options
 
@@ -737,7 +737,7 @@ module GFS_typedefs
     real(kind=kind_phys) :: clam_shal       !< c_e for shallow convection (Han and Pan, 2011, eq(6))
     real(kind=kind_phys) :: c0s_shal        !< conversion parameter of detrainment from liquid water into convetive precipitaiton
     real(kind=kind_phys) :: c1_shal         !< conversion parameter of detrainment from liquid water into grid-scale cloud water
-    real(kind=kind_phys) :: cthk_shal       !< max cloud depth for shallow convection 
+    real(kind=kind_phys) :: cthk_shal       !< max cloud depth for shallow convection
     real(kind=kind_phys) :: top_shal        !< max cloud height for shallow convection (P/Ps < top_shal)
     real(kind=kind_phys) :: betaw_shal      !< ratio between cloud base mass flux and mean updraft (eq 6 in Han et al 2017)
     real(kind=kind_phys) :: dxcrt_shal      !< critical resolution for calculating scale-aware cloud base mass flux
@@ -1223,7 +1223,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: hpbl   (:)    => null()   !< pbl height (m)
     real (kind=kind_phys), pointer :: hgamt  (:)    => null()   !< ysu counter-gradient flux
     real (kind=kind_phys), pointer :: hfxpbl (:)    => null()   !< ysu entrainment flux
-    real (kind=kind_phys), pointer :: xmb_shal(:)   => null()   !< cloud base mass flux from shal cnv 
+    real (kind=kind_phys), pointer :: xmb_shal(:)   => null()   !< cloud base mass flux from shal cnv
     real (kind=kind_phys), pointer :: tfac_shal(:)  => null()   !< Tadv/Tcnv factor from shal cnv
     real (kind=kind_phys), pointer :: sigma_shal(:) => null()   !< updraft fractional area from shal cnv
     real (kind=kind_phys), pointer :: pwat   (:)    => null()   !< precipitable water
@@ -1397,7 +1397,7 @@ module GFS_typedefs
        allocate (Statein%prefluxi(IM,Model%levs))
        allocate (Statein%prefluxs(IM,Model%levs))
        allocate (Statein%prefluxg(IM,Model%levs))
-     
+
        Statein%prefluxw = clear_val
        Statein%prefluxr = clear_val
        Statein%prefluxi = clear_val
@@ -2138,7 +2138,7 @@ module GFS_typedefs
     logical              :: mom4ice        = .false.         !< flag controls mom4 sea ice
     logical              :: use_ufo        = .false.         !< flag for gcycle surface option
     real(kind=kind_phys) :: czil_sfc       = 0.8             !< Zilintkivitch constant
-    real(kind=kind_phys) :: Ts0            = 300.            !< constant surface temp. if surface data not found 
+    real(kind=kind_phys) :: Ts0            = 300.            !< constant surface temp. if surface data not found
 
     ! -- to use Noah MP, lsm needs to be set to 2 and both ivegsrc and isot are set
     ! to 1 - MODIS IGBP and STATSGO - the defaults are the same as in the
@@ -2824,6 +2824,15 @@ module GFS_typedefs
         n = get_tracer_index(Model%tracer_names, 'msa', Model%me, Model%master, Model%debug) - Model%ntchs + 1
         if (n > 0) Model%ntdiag(n) = .false.
       endif
+    endif
+
+    ! -- CHECK for ntke if using satmedmf
+    if (Model%satmedmf) then
+       if (Model%ntke < 1 .or. Model%ntke > Model%ntrac) then
+          write(*,*) ' FATAL GFS_typedefs: TKE PBL scheme enabled (satmedmf) but TKE tracer not found in field_table.'
+          write(*,*) ' Stopping execution.'
+          stop 999
+       endif
     endif
 
     ! -- setup aerosol scavenging factors
@@ -4094,7 +4103,6 @@ module GFS_typedefs
     if (present(linit) ) set_totprcp = linit
     if (present(iauwindow_center) ) set_totprcp = iauwindow_center
     if (set_totprcp) then
-      !if (Model%me == 0) print *,'set_totprcp T kdt=', Model%kdt
       Diag%totprcp = zero
       Diag%cnvprcp = zero
       Diag%totice  = zero

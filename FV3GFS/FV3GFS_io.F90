@@ -111,16 +111,16 @@ module FV3GFS_io_mod
   !--- data type definition for use with GFDL FMS diagnostic manager until write component is working
   type gfdl_diag_type
     private
-    integer :: id
-    integer :: axes
-    logical :: time_avg
-    character(len=64)    :: time_avg_kind
-    character(len=64)    :: mod_name
-    character(len=128)   :: name
-    character(len=128)   :: desc
-    character(len=64)    :: unit
-    character(len=64)    :: mask
-    character(len=64)    :: intpl_method
+    integer :: id = -1
+    integer :: axes = -1
+    logical :: time_avg = .false.
+    character(len=64)    :: time_avg_kind = ''
+    character(len=64)    :: mod_name = ''
+    character(len=128)   :: name = ''
+    character(len=128)   :: desc = ''
+    character(len=64)    :: unit = ''
+    character(len=64)    :: mask = ''
+    character(len=64)    :: intpl_method = ''
     real(kind=kind_phys) :: cnvfac
     type(data_subtype), dimension(:), allocatable :: data
 
