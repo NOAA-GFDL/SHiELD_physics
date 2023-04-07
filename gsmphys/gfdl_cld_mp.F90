@@ -78,7 +78,7 @@ module gfdl_cld_mp_mod
     public :: gfdl_cld_mp_init
     public :: gfdl_cld_mp_driver
     public :: gfdl_cld_mp_end
-    public :: fast_sat_adj, cld_eff_rad, rad_ref
+    public :: cld_sat_adj, cld_eff_rad, rad_ref
     public :: qs_init, wqs, mqs, mqs3d
     public :: c_liq, c_ice, rhow, wet_bulb
     public :: cv_air, cv_vap, mtetw
@@ -325,6 +325,8 @@ module gfdl_cld_mp_mod
 
     logical :: delay_cond_evap = .false. ! do condensation evaporation only at the last time step
 
+    logical :: do_subgrid_proc = .true. ! do temperature sentive high vertical resolution processes
+
     real :: mp_time = 150.0 ! maximum microphysics time step (s)
 
     real :: n0w_sig = 1.1 ! intercept parameter (significand) of cloud water (Lin et al. 1983) (1/m^4) (Martin et al. 1994)
@@ -534,7 +536,7 @@ module gfdl_cld_mp_mod
         alinw, alini, alinr, alins, aling, alinh, blinw, blini, blinr, blins, bling, blinh, &
         do_new_acc_water, do_new_acc_ice, is_fac, ss_fac, gs_fac, rh_fac_evap, rh_fac_cond, &
         snow_grauple_combine, do_psd_water_num, do_psd_ice_num, vdiffflag, rewfac, reifac, &
-        cp_heating, nconds, do_evap_timescale, delay_cond_evap
+        cp_heating, nconds, do_evap_timescale, delay_cond_evap, do_subgrid_proc
 
 contains
 
@@ -1400,7 +1402,7 @@ subroutine mpdrv (hydrostatic, ua, va, wa, delp, pt, qv, ql, qr, qi, qs, qg, &
 
             call mp_fast (ks, ke, tz, qvz, qlz, qrz, qiz, qsz, qgz, dtm, dp, den, &
                 ccn, cin, condensation (i), deposition (i), evaporation (i), &
-                sublimation (i), convt, last_step)
+                sublimation (i), denfac, convt, last_step)
 
         endif
 
@@ -1925,17 +1927,21 @@ subroutine mp_full (ks, ke, ntimes, tz, qv, ql, qr, qi, qs, qg, dp, dz, u, v, w,
         call ice_cloud (ks, ke, tz, qv, ql, qr, qi, qs, qg, den, &
             denfac, vtw, vtr, vti, vts, vtg, dts, h_var)
 
-        ! -----------------------------------------------------------------------
-        ! temperature sentive high vertical resolution processes
-        ! -----------------------------------------------------------------------
+        if (do_subgrid_proc) then
 
-        call subgrid_z_proc (ks, ke, den, denfac, dts, rh_adj, tz, qv, ql, &
-            qr, qi, qs, qg, dp, ccn, cin, cond, dep, reevap, sub, last_step)
+            ! -----------------------------------------------------------------------
+            ! temperature sentive high vertical resolution processes
+            ! -----------------------------------------------------------------------
+         
+            call subgrid_z_proc (ks, ke, den, denfac, dts, rh_adj, tz, qv, ql, &
+                qr, qi, qs, qg, dp, ccn, cin, cond, dep, reevap, sub, last_step)
+         
+            condensation = condensation + cond * convt
+            deposition = deposition + dep * convt
+            evaporation = evaporation + reevap * convt
+            sublimation = sublimation + sub * convt
 
-        condensation = condensation + cond * convt
-        deposition = deposition + dep * convt
-        evaporation = evaporation + reevap * convt
-        sublimation = sublimation + sub * convt
+        endif
 
     enddo
 
@@ -1947,7 +1953,7 @@ end subroutine mp_full
 
 subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
         ccn, cin, condensation, deposition, evaporation, sublimation, &
-        convt, last_step)
+        denfac, convt, last_step)
 
     implicit none
 
@@ -1961,7 +1967,7 @@ subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
 
     real, intent (in) :: dtm, convt
 
-    real, intent (in), dimension (ks:ke) :: dp, den
+    real, intent (in), dimension (ks:ke) :: dp, den, denfac
 
     real, intent (inout), dimension (ks:ke) :: qv, ql, qr, qi, qs, qg, ccn, cin
 
@@ -2100,6 +2106,20 @@ subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
         ! -----------------------------------------------------------------------
 
         call psaut_simp (ks, ke, dtm, qv, ql, qr, qi, qs, qg, tz, den)
+
+        ! -----------------------------------------------------------------------
+        ! snow deposition and sublimation
+        ! -----------------------------------------------------------------------
+
+        call psdep_pssub (ks, ke, dtm, qv, ql, qr, qi, qs, qg, tz, dp, cvm, te8, den, &
+            denfac, lcpk, icpk, tcpk, tcp3, dep, sub)
+
+        ! -----------------------------------------------------------------------
+        ! graupel deposition and sublimation
+        ! -----------------------------------------------------------------------
+
+        call pgdep_pgsub (ks, ke, dtm, qv, ql, qr, qi, qs, qg, tz, dp, cvm, te8, den, &
+            denfac, lcpk, icpk, tcpk, tcp3, dep, sub)
 
     endif
 
@@ -5612,7 +5632,7 @@ end subroutine sedi_heat
 ! fast saturation adjustments
 ! =======================================================================
 
-subroutine fast_sat_adj (dtm, is, ie, ks, ke, hydrostatic, consv_te, &
+subroutine cld_sat_adj (dtm, is, ie, ks, ke, hydrostatic, consv_te, &
         adj_vmr, te, dte, qv, ql, qr, qi, qs, qg, qa, qnl, qni, hs, delz, &
         pt, delp, q_con, cappa, gsize, last_step, do_sat_adj)
 
@@ -5676,9 +5696,9 @@ subroutine fast_sat_adj (dtm, is, ie, ks, ke, hydrostatic, consv_te, &
     call mpdrv (hydrostatic, ua, va, wa, delp, pt, qv, ql, qr, qi, qs, qg, qa, &
         qnl, qni, delz, is, ie, ks, ke, dtm, water, rain, ice, snow, graupel, &
         gsize, hs, q_con, cappa, consv_te, adj_vmr, te, dte, prefluxw, prefluxr, &
-        prefluxi, prefluxs, prefluxg, last_step, .true., do_sat_adj, .false.)
+        prefluxi, prefluxs, prefluxg, last_step, .false., do_sat_adj, .false.)
 
-end subroutine fast_sat_adj
+end subroutine cld_sat_adj
 
 ! =======================================================================
 ! rain freezing to form graupel, simple version

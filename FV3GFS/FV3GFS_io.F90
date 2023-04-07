@@ -82,15 +82,18 @@ module FV3GFS_io_mod
   character(len=32)  :: fn_oro = 'oro_data.nc'
   character(len=32)  :: fn_srf = 'sfc_data.nc'
   character(len=32)  :: fn_phy = 'phy_data.nc'
+  character(len=32)  :: fn_ifsSST = 'ifs_sst_data.nc'
 
   !--- GFDL FMS netcdf restart data types
   type(FmsNetcdfDomainFile_t) :: Oro_restart
   type(FmsNetcdfDomainFile_t) :: Sfc_restart
   type(FmsNetcdfDomainFile_t) :: Phy_restart
+  type(FmsNetcdfDomainFile_t) :: ifsSST_restart
 
   !--- GFDL FMS restart containers
   character(len=32),    allocatable,         dimension(:)       :: oro_name2, sfc_name2, sfc_name3
   real(kind=kind_phys), allocatable, target, dimension(:,:,:)   :: oro_var2, sfc_var2, phy_var2
+  real(kind=kind_phys), allocatable, target, dimension(:,:)     :: ifsSST
   real(kind=kind_phys), allocatable, target, dimension(:,:,:,:) :: sfc_var3, phy_var3
   !--- Noah MP restart containers
   real(kind=kind_phys), allocatable, target, dimension(:,:,:,:) :: sfc_var3sn,sfc_var3eq,sfc_var3zn
@@ -526,6 +529,10 @@ module FV3GFS_io_mod
       nvar_s3mp = 0        !mp 3D
     endif
 
+    if (Model%use_ifs_ini_sst) then
+      allocate(ifsSST(nx,ny))
+    endif
+
     if (.not. allocated(sfc_name2)) then
       !--- allocate the various containers needed for restarts
       allocate(sfc_name2(nvar_s2m+nvar_s2o+nvar_s2mp))
@@ -758,6 +765,14 @@ module FV3GFS_io_mod
       call mpp_error(FATAL,"FV3GFS_io::register_sfc_prop_restart_vars action not found")
 
     endif  ! end of if (read)
+
+    !--- register IFS SST
+    if (Model%use_ifs_ini_sst) then
+      var2_p => ifsSST
+      opt = .false.
+      call register_restart_field(ifsSST_restart, 'sst', var2_p, dim_names_2d, is_optional=opt)
+      nullify(var2_p)
+    endif
 
     !--- register the 2D fields
     do num = 1,nvar_s2m
@@ -996,6 +1011,19 @@ module FV3GFS_io_mod
 
     endif
 
+    if (Model%use_ifs_ini_sst) then
+      !--- Open the restart file and associate it with the ifsSST_restart fileobject
+      fname='INPUT/'//trim(fn_ifsSST)
+      if (open_file(ifsSST_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+        !--- read the IFS SST restart/data
+        call mpp_error(NOTE,'reading ifs SST data from INPUT/ifsSST_data.tile*.nc')
+        call read_restart(ifsSST_restart, ignore_checksum=enforce_rst_cksum)
+        call close_file(ifsSST_restart)
+      else
+        call mpp_error(FATAL,'No ifs SST data.')
+      endif
+    endif
+
     !--- Open the restart file and associate it with the Sfc_restart fileobject
     fname='INPUT/'//trim(fn_srf)
     if (open_file(Sfc_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
@@ -1017,7 +1045,11 @@ module FV3GFS_io_mod
 !--- 2D variables
 !    ------------
            Sfcprop(nb)%slmsk(ix)  = sfc_var2(i,j,1)    !--- slmsk
-           Sfcprop(nb)%tsfco(ix)  = sfc_var2(i,j,2)    !--- tsfc (tsea in sfc file)
+           if (Model%use_ifs_ini_sst) then
+              Sfcprop(nb)%tsfco(ix)  = ifsSST(i,j)    !--- tsfc (sst in ifsSST file)
+           else
+              Sfcprop(nb)%tsfco(ix)  = sfc_var2(i,j,2)    !--- tsfc (tsea in sfc file)
+           endif
            Sfcprop(nb)%weasd(ix)  = sfc_var2(i,j,3)    !--- weasd (sheleg in sfc file)
            Sfcprop(nb)%tg3(ix)    = sfc_var2(i,j,4)    !--- tg3
            Sfcprop(nb)%zorlo(ix)  = sfc_var2(i,j,5)    !--- zorl on ocean
@@ -1150,6 +1182,8 @@ module FV3GFS_io_mod
 
         enddo   !ix
       enddo    !nb
+
+      if (Model%use_ifs_ini_sst) deallocate (ifsSST)
 
       call mpp_error(NOTE, 'gfs_driver:: - after put to container ')
 ! so far: At cold start everything is 9999.0, warm start snowxy has values
