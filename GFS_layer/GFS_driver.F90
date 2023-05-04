@@ -218,7 +218,7 @@ module GFS_driver
 
     !--- initialize GFDL Cloud microphysics
     if (Model%ncld == 5) then
-      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Statein(1)%dycore_hydrostatic)
+      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Model%dycore_hydrostatic)
     endif
 
     !--- initialize ras

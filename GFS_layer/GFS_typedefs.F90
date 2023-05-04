@@ -145,7 +145,6 @@ module GFS_typedefs
     !--- sea surface temperature
     real (kind=kind_phys), pointer :: sst (:)     => null()   !< sea surface temperature
     real (kind=kind_phys), pointer :: ci (:)      => null()   !< sea ice fraction
-    logical, pointer :: dycore_hydrostatic        => null()  !< whether the dynamical core is hydrostatic
     integer, pointer :: nwat                      => null()  !< number of water species used in the model
     contains
       procedure :: create  => statein_create  !<   allocate array data
@@ -554,6 +553,9 @@ module GFS_typedefs
 
     !--- microphysical switch
     integer              :: ncld            !< cnoice of cloud scheme
+
+    !--- dynamical core parameters
+    logical              :: dycore_hydrostatic !< whether the dynamical core is hydrostatic
 
     !--- GFDL microphysical parameters
     logical              :: do_inline_mp    !< flag for GFDL cloud microphysics
@@ -1357,9 +1359,6 @@ module GFS_typedefs
     Statein%sst = clear_val
     Statein%ci = -999. ! if below zero it is empty so don't use it
 
-    allocate(Statein%dycore_hydrostatic)
-    Statein%dycore_hydrostatic = .true.
-
     allocate(Statein%nwat)
     Statein%nwat = 6
 
@@ -2052,6 +2051,9 @@ module GFS_typedefs
     logical              :: fixed_sollat   = .false.         !< flag to fix solar latitude
     logical              :: daily_mean     = .false.         !< flag to replace cosz with daily mean value
 
+    !--- dynamical core parameters
+    logical              :: dycore_hydrostatic  = .true.     !< whether the dynamical core is hydrostatic
+
     !--- GFDL microphysical parameters
     logical              :: do_inline_mp = .false.           !< flag for GFDL cloud microphysics
 
@@ -2335,8 +2337,8 @@ module GFS_typedefs
                                isubc_lw, crick_proof, ccnorm, lwhtr, swhtr, nkld,           &
                                fixed_date, fixed_solhr, fixed_sollat, daily_mean, sollat,   &
                           !--- microphysical parameterizations
-                               ncld, do_inline_mp, zhao_mic, psautco, prautco, evpco,       &
-                               do_cosp, wminco, fprcp, mg_dcs, mg_qcvar, mg_ts_auto_ice,    &
+                               ncld, zhao_mic, psautco, prautco, evpco,       &
+                               wminco, fprcp, mg_dcs, mg_qcvar, mg_ts_auto_ice,    &
                           !--- land/surface model control
                                lsm, lsoil, nmtvr, ivegsrc, mom4ice, use_ufo, czil_sfc, Ts0, &
                           !    Noah MP options
@@ -2510,9 +2512,6 @@ module GFS_typedefs
     !--- microphysical switch
     Model%ncld             = ncld
     !--- GFDL microphysical parameters
-    Model%do_inline_mp     = do_inline_mp
-    !--- The CFMIP Observation Simulator Package (COSP)
-    Model%do_cosp          = do_cosp
     !--- Zhao-Carr MP parameters
     Model%zhao_mic         = zhao_mic
     Model%psautco          = psautco
@@ -3181,6 +3180,8 @@ module GFS_typedefs
       print *, ' '
       print *, 'microphysical switch'
       print *, ' ncld              : ', Model%ncld
+      print *, ' dynamical core parameters'
+      print *, ' dycore_hydrostatic: ', Model%dycore_hydrostatic
       print *, ' GFDL microphysical parameters'
       print *, ' do_inline_mp      : ', Model%do_inline_mp
       print *, ' The CFMIP Observation Simulator Package (COSP)'
