@@ -3888,7 +3888,7 @@ module module_physics_driver
         ! consistent with how those tendencies are applied in the dynamical core.
         nwat = Statein%nwat
 
-        if (Statein%dycore_hydrostatic) then
+        if (Model%dycore_hydrostatic) then
           call moist_cp_nwat6(Statein%qgrs(1:im,1:levs,1:nwat), Stateout%gq0(1:im,1:levs,1:nwat), &
               Statein%prsi(1:im,1:levs+1), im, levs, nwat, 1, Model%ntcw, Model%ntiw, &
               Model%ntrw, Model%ntsw, Model%ntgl, specific_heat)
