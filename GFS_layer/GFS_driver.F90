@@ -567,7 +567,10 @@ module GFS_driver
     !--- interface variables
     type(GFS_control_type),   intent(inout) :: Model
 
-    call gfdl_cld_mp_end ()
+    !--- End GFDL Cloud microphysics
+    if (Model%ncld == 5) then
+      call gfdl_cld_mp_end ()
+    endif
 
 #if defined (USE_COSP)
 !-----------------------------------------------------------------------
