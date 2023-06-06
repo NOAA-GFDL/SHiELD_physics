@@ -15,7 +15,7 @@ module GFS_driver
   use gfdl_cld_mp_mod,          only: gfdl_cld_mp_init, gfdl_cld_mp_end
   use myj_pbl_mod,              only: myj_pbl_init
   use myj_jsfc_mod,             only: myj_jsfc_init
-#ifdef USE_COSP
+#if defined (USE_COSP)
   use cosp2_test,               only: cosp2_init, cosp2_end
 #endif
 
@@ -218,7 +218,7 @@ module GFS_driver
 
     !--- initialize GFDL Cloud microphysics
     if (Model%ncld == 5) then
-      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Statein(1)%dycore_hydrostatic)
+      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Model%dycore_hydrostatic)
     endif
 
     !--- initialize ras
@@ -253,7 +253,7 @@ module GFS_driver
     !--- this note is placed here alertng users to study
     !--- the FV3GFS_io.F90 module
 
-#ifdef USE_COSP
+#if defined (USE_COSP)
 !-----------------------------------------------------------------------
 ! The CFMIP Observation Simulator Package (COSP)
 ! Added by Linjiong Zhou
@@ -567,9 +567,12 @@ module GFS_driver
     !--- interface variables
     type(GFS_control_type),   intent(inout) :: Model
 
-    call gfdl_cld_mp_end ()
+    !--- End GFDL Cloud microphysics
+    if (Model%ncld == 5) then
+      call gfdl_cld_mp_end ()
+    endif
 
-#ifdef USE_COSP
+#if defined (USE_COSP)
 !-----------------------------------------------------------------------
 ! The CFMIP Observation Simulator Package (COSP)
 ! Added by Linjiong Zhou
