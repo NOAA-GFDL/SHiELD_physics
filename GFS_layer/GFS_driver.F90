@@ -152,7 +152,8 @@ module GFS_driver
                      Init_parm%iau_offset,                         &
                      Init_parm%tracer_names,                       &
                      Init_parm%input_nml_file, Init_parm%tile_num, &
-                     Init_parm%blksz)
+                     Init_parm%blksz, Init_parm%hydro,             &
+                     Init_parm%do_inline_mp, Init_parm%do_cosp)
 
 
     call read_o3data  (Model%ntoz, Model%me, Model%master)
@@ -218,7 +219,7 @@ module GFS_driver
 
     !--- initialize GFDL Cloud microphysics
     if (Model%ncld == 5) then
-      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Model%dycore_hydrostatic)
+      call gfdl_cld_mp_init (Model%input_nml_file, Init_parm%logunit, Init_parm%hydro)
     endif
 
     !--- initialize ras
