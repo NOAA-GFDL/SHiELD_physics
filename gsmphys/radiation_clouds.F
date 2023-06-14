@@ -1845,10 +1845,10 @@
 
 !  ---  inputs:
      &     ( plyr,plvl,tlyr,tvly,qlyr,qstl,rhly,clw,                    &
-     &       xlat,xlon,slmsk,cldtot,                                    &
+     &       xlat,xlon,slmsk,cldtot, dz                                 &
      &       IX, NLAY, NLP1,                                            &
 !  ---  outputs:
-     &       clouds,clds,mtop,mbot                                      &
+     &       clouds,clds,mtop,mbot,de_lgth                              &
      &      )
 
 ! =================   subprogram documentation block   ================ !
@@ -1887,6 +1887,7 @@
 !                     range, otherwise see in-line comment              !
 !   xlon  (IX)      : grid longitude in radians  (not used)             !
 !   slmsk (IX)      : sea/land mask array (sea:0,land:1,sea-ice:2)      !
+!   dz    (ix,nlay) : layer thickness (km)                              !
 !   IX              : horizontal dimention                              !
 !   NLAY,NLP1       : vertical layer/level dimensions                   !
 !                                                                       !
@@ -1905,6 +1906,7 @@
 !   clds  (IX,5)    : fraction of clouds for low, mid, hi, tot, bl      !
 !   mtop  (IX,3)    : vertical indices for low, mid, hi cloud tops      !
 !   mbot  (IX,3)    : vertical indices for low, mid, hi cloud bases     !
+!   de_lgth(ix)     : clouds decorrelation length (km)                  !
 !                                                                       !
 ! module variables:                                                     !
 !   ivflip          : control flag of vertical index direction          !
@@ -1926,7 +1928,7 @@
       integer,  intent(in) :: IX, NLAY, NLP1
 
       real (kind=kind_phys), dimension(:,:), intent(in) :: plvl, plyr,  &
-     &       tlyr, tvly, qlyr, qstl, rhly, clw, cldtot
+     &       tlyr, tvly, qlyr, qstl, rhly, clw, cldtot, dz
 
       real (kind=kind_phys), dimension(:),   intent(in) :: xlat, xlon,  &
      &       slmsk
@@ -1935,14 +1937,14 @@
       real (kind=kind_phys), dimension(:,:,:), intent(out) :: clouds
 
       real (kind=kind_phys), dimension(:,:),   intent(out) :: clds
-
+      real (kind=kind_phys), dimension(:),     intent(out) :: de_lgth
       integer,               dimension(:,:),   intent(out) :: mtop,mbot
 
 !  ---  local variables:
       real (kind=kind_phys), dimension(IX,NLAY) :: cldcnv,              &
      &       cwp, cip, crp, csp, rew, rei, res, rer, delp, tem2d, clwf
 
-      real (kind=kind_phys) :: ptop1(IX,NK_CLDS+1)
+      real (kind=kind_phys) :: ptop1(IX,NK_CLDS+1), rxlat(ix)
 
       real (kind=kind_phys) :: clwmin, clwm, clwt, onemrh, value,       &
      &       tem1, tem2, tem3
@@ -1998,6 +2000,11 @@
 !  ---  find top pressure for each cloud domain for given latitude
 !       ptopc(k,i): top presure of each cld domain (k=1-4 are sfc,L,m,h;
 !  ---  i=1,2 are low-lat (<45 degree) and pole regions)
+
+      do i =1, IX
+        rxlat(i) = abs( xlat(i) / con_pi )      ! if xlat in pi/2 -> -pi/2 range
+!       rxlat(i) = abs(0.5 - xlat(i)/con_pi)    ! if xlat in 0 -> pi range
+      enddo
 
       do id = 1, 4
         tem1 = ptopc(id,2) - ptopc(id,1)
@@ -2107,7 +2114,14 @@
           clouds(i,k,9) = rei(i,k)
         enddo
       enddo
-
+	
+!  --- ...  estimate clouds decorrelation length in km
+!           this is only a tentative test, need to consider change later
+      if ( iovr == 3 ) then
+        do i = 1, ix
+          de_lgth(i) = max( 0.6, 2.78-4.6*rxlat(i) )
+        enddo
+      endif
 
 !  ---  compute low, mid, high, total, and boundary layer cloud fractions
 !       and clouds top/bottom layer indices for low, mid, and high clouds.
@@ -2117,7 +2131,7 @@
 
       call gethml                                                       &
 !  ---  inputs:
-     &     ( plyr, ptop1, cldtot, cldcnv,                               &
+     &     ( plyr, ptop1, cldtot, cldcnv, dz, de_lgth,                  &
      &       IX,NLAY,                                                   &
 !  ---  outputs:
      &       clds, mtop, mbot                                           &
@@ -3611,6 +3625,8 @@
 !!                    (sfc,low,mid,high) in mb (100Pa)
 !> \param cldtot  (IX,NLAY), total or stratiform cloud profile in fraction
 !> \param cldcnv  (IX,NLAY), convective cloud (for diagnostic scheme only)
+!> \param dz      (IX,NLAY), layer thickness (km)
+!> \param de_lgth (IX),  clouds decorrelation length (km)
 !> \param IX      horizontal dimension
 !> \param NLAY    vertical layer dimensions
 !> \param clds   (IX,5), fraction of clouds for low, mid, hi, tot, bl 
@@ -3621,7 +3637,7 @@
 !! @{
 !-----------------------------------                                    !
       subroutine gethml                                                 &
-     &     ( plyr, ptop1, cldtot, cldcnv,                               &       !  ---  inputs:
+     &     ( plyr, ptop1, cldtot, cldcnv, dz, de_lgth,                  &       !  ---  inputs:
      &       IX, NLAY,                                                  &
      &       clds, mtop, mbot                                           &       !  ---  outputs:
      &     )
@@ -3651,6 +3667,8 @@
 !                     (sfc,low,mid,high) in mb (100Pa)                  !
 !   cldtot(IX,NLAY) : total or straiform cloud profile in fraction      !
 !   cldcnv(IX,NLAY) : convective cloud (for diagnostic scheme only)     !
+!   dz    (ix,nlay) : layer thickness (km)                              !
+!   de_lgth(ix)     : clouds vertical de-correlation length (km)        !
 !   IX              : horizontal dimention                              !
 !   NLAY            : vertical layer dimensions                         !
 !                                                                       !
@@ -3668,6 +3686,7 @@
 !   iovr            : control flag for cloud overlap                    !
 !                     =0 random overlapping clouds                      !
 !                     =1 max/ran overlapping clouds                     !
+!                     =3 decorr-length ovlp   ( for mcica only )        !
 !                                                                       !
 !                                                                       !
 !  ====================    end of description    =====================  !
@@ -3678,7 +3697,8 @@
       integer, intent(in) :: IX, NLAY
 
       real (kind=kind_phys), dimension(:,:), intent(in) :: plyr, ptop1, &
-     &       cldtot, cldcnv
+     &       cldtot, cldcnv, dz
+      real (kind=kind_phys), dimension(:),   intent(in) :: de_lgth
 
 !  ---  outputs
       real (kind=kind_phys), dimension(:,:), intent(out) :: clds
@@ -3686,8 +3706,8 @@
       integer,               dimension(:,:), intent(out) :: mtop, mbot
 
 !  ---  local variables:
-      real (kind=kind_phys) :: cl1(IX), cl2(IX)
-      real (kind=kind_phys) :: pcur, pnxt, ccur, cnxt
+      real (kind=kind_phys) :: cl1(IX), cl2(IX), dz1(ix)
+      real (kind=kind_phys) :: pcur, pnxt, ccur, cnxt, alfa
 
       integer, dimension(IX):: idom, kbt1, kth1, kbt2, kth2
       integer :: i, k, id, id1, kstr, kend, kinc
@@ -3737,7 +3757,7 @@
           clds(i,4) = 1.0 - cl1(i)              ! save total cloud
         enddo
 
-      else                                      ! max/ran overlap
+      elseif ( iovr == 1 ) then                 ! max/ran overlap
 
         do k = kstr, kend, kinc
           do i = 1, IX
@@ -3752,6 +3772,36 @@
 
           if (k == llyr) then
             do i = 1, IX
+              clds(i,5) = 1.0 - cl1(i) * cl2(i) ! save bl cloud
+            enddo
+          endif
+        enddo
+
+        do i = 1, IX
+          clds(i,4) = 1.0 - cl1(i) * cl2(i)     ! save total cloud
+        enddo
+
+      elseif ( iovr == 3 ) then                 ! random if clear-layer divided,
+                                                ! otherwise de-corrlength method
+        do i = 1, ix
+          dz1(i) = - dz(i,kstr)
+        enddo
+        do k = kstr, kend, kinc
+          do i = 1, ix
+            ccur = min( ovcst, max( cldtot(i,k), cldcnv(i,k) ))
+            if (ccur >= climit) then                           ! cloudy layer
+              alfa = exp( -0.5*((dz1(i)+dz(i,k)))/de_lgth(i) )
+              dz1(i) = dz(i,k)
+              cl2(i) =    alfa      * min(cl2(i), (1.0 - ccur))         & ! maximum part
+     &               + (1.0 - alfa) * (cl2(i) * (1.0 - ccur))             ! random part
+            else                                               ! clear layer
+              cl1(i) = cl1(i) * cl2(i)
+              cl2(i) = 1.0
+              if (k /= kend) dz1(i) = -dz(i,k+kinc)
+            endif
+          enddo
+          if (k == llyr) then
+            do i = 1, ix
               clds(i,5) = 1.0 - cl1(i) * cl2(i) ! save bl cloud
             enddo
           endif
