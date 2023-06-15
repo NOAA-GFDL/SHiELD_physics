@@ -1585,7 +1585,7 @@
                          clw, Grid%xlat, Grid%xlon, Sfcprop%slmsk,&
                          tracer1(:,1:lmk,Model%ntclamt), im, lmk, &
                          lmp,                                     &
-                         clouds, cldsa, mtopa, mbota)                  !  ---  outputs
+                         clouds, cldsa, mtopa, mbota, de_lgth)         !  ---  outputs
 
         elseif (icmphys == 5) then           ! zhao/moorthi's prognostic cloud scheme + pdf cloud & cnvc and cnvw
 

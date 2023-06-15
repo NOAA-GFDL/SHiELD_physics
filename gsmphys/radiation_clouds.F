@@ -3781,6 +3781,27 @@
           clds(i,4) = 1.0 - cl1(i) * cl2(i)     ! save total cloud
         enddo
 
+      elseif ( iovr == 2 ) then                 ! maximum overlap all levels
+
+        cl1(:) = 0.0
+
+        do k = kstr, kend, kinc
+          do i = 1, IX
+            ccur = min( ovcst,  max( cldtot(i,k), cldcnv(i,k) ))
+            if (ccur >= climit) cl1(i) = max( cl1(i), ccur )
+          enddo
+
+          if (k == llyr) then
+            do i = 1, IX
+              clds(i,5) = cl1(i)    ! save bl cloud
+            enddo
+          endif
+        enddo
+
+        do i = 1, IX
+          clds(i,4) = cl1(i)        ! save total cloud
+        enddo
+
       elseif ( iovr == 3 ) then                 ! random if clear-layer divided,
                                                 ! otherwise de-corrlength method
         do i = 1, ix

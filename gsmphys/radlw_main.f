@@ -455,6 +455,7 @@
       subroutine lwrad                                                  &
      &     ( plyr,plvl,tlyr,tlvl,qlyr,olyr,gasvmr,                      &   !  ---  inputs
      &       clouds,icseed,aerosols,sfemis,sfgtmp,                      &
+     &       dzlyr,delpin,de_lgth,                                      &
      &       npts, nlay, nlp1, lprnt,                                   &
      &       hlwc,topflx,sfcflx,                                        &    !  ---  outputs
      &       HLW0,HLWB,FLXPRF,tau110                                    &   !! ---  optional
@@ -509,6 +510,9 @@
 !        (:,:,:,3)     - asymmetry parameter                            !
 !     sfemis (npts)  : surface emissivity                               !
 !     sfgtmp (npts)  : surface ground temperature (k)                   !
+!     dzlyr(npts,nlay) : layer thickness (km)                           !
+!     delpin(npts,nlay): layer pressure thickness (mb)                  !
+!     de_lgth(npts)    : cloud decorrelation length (km)                !
 !     npts           : total number of horizontal points                !
 !     nlay, nlp1     : total number of vertical layers, levels          !
 !     lprnt          : cntl flag for diagnostic print out               !
@@ -640,13 +644,13 @@
       real (kind=kind_phys), dimension(npts,nlp1), intent(in) :: plvl,  &
      &       tlvl
       real (kind=kind_phys), dimension(npts,nlay), intent(in) :: plyr,  &
-     &       tlyr, qlyr, olyr
+     &       tlyr, qlyr, olyr, dzlyr, delpin
 
       real (kind=kind_phys), dimension(npts,nlay,9),intent(in):: gasvmr
       real (kind=kind_phys), dimension(npts,nlay,9),intent(in):: clouds
 
       real (kind=kind_phys), dimension(npts), intent(in) :: sfemis,     &
-     &       sfgtmp
+     &       sfgtmp, de_lgth
 
       real (kind=kind_phys), dimension(npts,nlay,nbands,3),intent(in):: &
      &       aerosols
@@ -679,7 +683,7 @@
      &       clwp, ciwp, relw, reiw, cda1, cda2, cda3, cda4,            &
      &       coldry, colbrd, h2ovmr, o3vmr, fac00, fac01, fac10, fac11, &
      &       selffac, selffrac, forfac, forfrac, minorfrac, scaleminor, &
-     &       scaleminorn2, temcol
+     &       scaleminorn2, temcol, dz
 
       real (kind=kind_phys), dimension(nbands,0:nlay) :: pklev, pklay
 
@@ -780,9 +784,10 @@
           do k = 1, nlay
             k1 = nlp1 - k
             pavel(k)= plyr(iplon,k1)
-            delp(k) = plvl(iplon,k1+1) - plvl(iplon,k1)
+            delp(k) = delpin(iplon,k1)
             tavel(k)= tlyr(iplon,k1)
             tz(k)   = tlvl(iplon,k1)
+            dz(k)   = dzlyr(iplon,k1)
 
 !> -# Set absorber amount for h2o, co2, and o3.
 
@@ -891,9 +896,10 @@
 
           do k = 1, nlay
             pavel(k)= plyr(iplon,k)
-            delp(k) = plvl(iplon,k) - plvl(iplon,k+1)
+            delp(k) = delpin(iplon,k)
             tavel(k)= tlyr(iplon,k)
             tz(k)   = tlvl(iplon,k+1)
+            dz(k)   = dzlyr(iplon,k)
 
 !  --- ...  set absorber amount
 !test use
@@ -1043,7 +1049,7 @@
           call cldprop                                                  &
 !  ---  inputs:
      &     ( cldfrc,clwp,relw,ciwp,reiw,cda1,cda2,cda3,cda4,            &
-     &       nlay, nlp1, ipseed(iplon),                                 &
+     &       nlay, nlp1, ipseed(iplon), dz, delgth,                     &
 !  ---  outputs:
      &       cldfmc, taucld                                             &
      &     )
