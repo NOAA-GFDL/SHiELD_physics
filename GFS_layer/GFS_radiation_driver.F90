@@ -1401,7 +1401,7 @@
             qlyr(i,k1) = max( tem1d(i), Statein%qgrs(i,k,1) )
             tem1d(i)   = min( QME5, qlyr(i,k1) )
             tvly(i,k1) = Statein%tgrs(i,k) * (1.0 + fvirt*qlyr(i,k1)) ! virtual T (K)
-            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
+            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
           enddo
         enddo
 
