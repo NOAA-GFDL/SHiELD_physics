@@ -85,6 +85,10 @@ module GFS_typedefs
     character(len=65) :: fn_nml                   !< namelist filename
     character(len=:), pointer, dimension(:) :: input_nml_file => null() !< character string containing full namelist
                                                                         !< for use with internal file reads
+    logical :: hydro                             !< whether the dynamical core is hydrostatic
+    logical :: do_inline_mp                      !< flag for GFDL cloud microphysics
+    logical :: do_cosp                           !< flag for COSP
+
   end type GFS_init_type
 
 
@@ -1999,7 +2003,8 @@ module GFS_typedefs
                                  cnx, cny, gnx, gny, dt_dycore,     &
                                  dt_phys, idat, jdat, iau_offset,   &
                                  tracer_names, input_nml_file,      &
-                                 tile_num, blksz)
+                                 tile_num, blksz, hydro,            &
+                                 do_inline_mp, do_cosp)
 
     !--- modules
     use physcons,         only: max_lon, max_lat, min_lon, min_lat, &
@@ -2036,6 +2041,9 @@ module GFS_typedefs
     character(len=32),      intent(in) :: tracer_names(:)
     character(len=:),       intent(in),  dimension(:), pointer :: input_nml_file
     integer,                intent(in) :: blksz(:)
+    logical,                intent(in) :: hydro
+    logical,                intent(in) :: do_inline_mp
+    logical,                intent(in) :: do_cosp
     !--- local variables
     integer :: n, i, j
     integer :: ios
@@ -2108,15 +2116,8 @@ module GFS_typedefs
     logical              :: fixed_sollat   = .false.         !< flag to fix solar latitude
     logical              :: daily_mean     = .false.         !< flag to replace cosz with daily mean value
 
-    !--- dynamical core parameters
-    logical              :: dycore_hydrostatic  = .true.     !< whether the dynamical core is hydrostatic
-
     !--- GFDL microphysical parameters
     logical              :: do_sat_adj   = .false.           !< flag for fast saturation adjustment
-    logical              :: do_inline_mp = .false.           !< flag for GFDL cloud microphysics
-
-    !--- The CFMIP Observation Simulator Package (COSP)
-    logical              :: do_cosp = .false.                !< flag for COSP
 
     !--- Z-C microphysical parameters
     integer              :: ncld           =  1                 !< cnoice of cloud scheme
@@ -2577,8 +2578,13 @@ module GFS_typedefs
 
     !--- microphysical switch
     Model%ncld             = ncld
+    !--- dynamical core parameters
+    Model%dycore_hydrostatic = hydro
     !--- GFDL microphysical parameters
     Model%do_sat_adj       = do_sat_adj
+    Model%do_inline_mp     = do_inline_mp
+    !--- The CFMIP Observation Simulator Package (COSP)
+    Model%do_cosp          = do_cosp
     !--- Zhao-Carr MP parameters
     Model%zhao_mic         = zhao_mic
     Model%psautco          = psautco
