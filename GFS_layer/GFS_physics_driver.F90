@@ -460,7 +460,7 @@ module module_physics_driver
            stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma,    &
            sigma, elvmax, wind, work1, work2, runof, xmu, fm10, fh2,    &
            tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
-           frland, adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw,          &
+           frland, adjsfculw,          &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
            adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
            snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
@@ -575,6 +575,8 @@ module module_physics_driver
 
       integer, allocatable, dimension(:) :: clw_trac_idx
       real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
+      real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
+      real(kind=kind_phys), pointer :: adjsfcdlw_for_lsm(:), adjsfcdsw_for_lsm(:), adjsfcnsw_for_lsm(:)
       integer :: nwat
 !
 !
@@ -617,6 +619,16 @@ module module_physics_driver
         dq3dt_initial = Diag%dq3dt
       endif
       
+      if (Model%override_surface_radiative_fluxes) then
+        adjsfcdlw_for_lsm => Statein%adjsfcdlw_override
+        adjsfcdsw_for_lsm => Statein%adjsfcdsw_override
+        adjsfcnsw_for_lsm => Statein%adjsfcnsw_override
+      else
+        adjsfcdlw_for_lsm => adjsfcdlw
+        adjsfcdsw_for_lsm => adjsfcdsw
+        adjsfcnsw_for_lsm => adjsfcnsw
+      endif
+
       ! perform aerosol convective transport and PBL diffusion
       !trans_aero = Model%cplchm .and. Model%trans_trac
       trans_aero = Model%trans_trac
@@ -883,7 +895,7 @@ module module_physics_driver
 
 !  --- ...  define the downward lw flux absorbed by ground
 
-      gabsbdlw(:) = Radtend%semis(:) * adjsfcdlw(:)
+      gabsbdlw(:) = Radtend%semis(:) * adjsfcdlw_for_lsm(:)
 
       if (Model%lssav) then      !  --- ...  accumulate/save output variables
 
@@ -907,9 +919,17 @@ module module_physics_driver
             if (flag_cice(i)) adjsfculw(i) = ulwsfc_cice(i)
           enddo
         endif
-        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
+        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw_for_lsm(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
+
+        if (Model%override_surface_radiative_fluxes) then
+          Diag%dswsfc(:) = Diag%dswsfc(:) + adjsfcdsw_for_lsm(:)*dtf
+          Diag%uswsfc(:) = Diag%uswsfc(:) + (adjsfcdsw_for_lsm(:) - adjsfcnsw_for_lsm(:))*dtf
+
+          Diag%dlwsfc_rrtmg(:) = Diag%dlwsfc_rrtmg(:) + adjsfcdlw(:)*dtf
+          Diag%ulwsfc_rrtmg(:) = Diag%ulwsfc_rrtmg(:) + adjsfculw(:)*dtf
+        endif
 
         if (Model%ldiag3d) then
           if (Model%lsidea) then
@@ -1189,8 +1209,8 @@ module module_physics_driver
                         Statein%vgrs, Statein%tgrs, Statein%qgrs,          &
                         Sfcprop%tref, cd, cdq, Statein%prsl(1,1), work3,   &
                         islmsk, Grid%xlon, Grid%sinlat, stress,            &
-                        Radtend%semis, gabsbdlw, adjsfcnsw, Sfcprop%tprcp, &
-                        dtf, kdt, Model%solhr, xcosz,                      &
+                        Radtend%semis, gabsbdlw, adjsfcnsw_for_lsm,        &
+                        Sfcprop%tprcp, dtf, kdt, Model%solhr, xcosz,       &
                         Tbd%phy_f2d(1,Model%num_p2d), flag_iter,           &
                         flag_guess, Model%nstf_name, lprnt, ipr,           &
 !  --- Input/output
@@ -1261,7 +1281,8 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr,                              &
             Statein%tgrs, Statein%qgrs, soiltyp, vegtype, sigmaf,      &
-            Radtend%semis, gabsbdlw, adjsfcdsw, adjsfcnsw, dtf,        &
+            Radtend%semis, gabsbdlw, adjsfcdsw_for_lsm,                &
+            adjsfcnsw_for_lsm, dtf,                                    &
             Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3, Diag%zlvl, &
             dry, wind, slopetyp,                                       &
             Sfcprop%shdmin, Sfcprop%shdmax, Sfcprop%snoalb,            &
@@ -1284,7 +1305,8 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, kdt, Statein%pgr,  Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs,  Statein%qgrs, soiltyp, vegtype, sigmaf,     &
-            Radtend%semis, adjsfcdlw, adjsfcdsw, adjsfcnsw, dtf,       &
+            Radtend%semis, adjsfcdlw_for_lsm, adjsfcdsw_for_lsm,       &
+            adjsfcnsw_for_lsm, dtf,                                    &
             Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3,            &
             Diag%zlvl, dry,   wind, slopetyp,                          &
             Sfcprop%shdmin,   Sfcprop%shdmax,  Sfcprop%snoalb,         &
@@ -1337,8 +1359,8 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr, Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs, Statein%qgrs, dtf, Radtend%semis, gabsbdlw,   &
-            adjsfcnsw, adjsfcdsw, Sfcprop%srflag, cd, cdq,              &
-            Statein%prsl(1,1), work3, islmsk,                           &
+            adjsfcnsw_for_lsm, adjsfcdsw_for_lsm, Sfcprop%srflag, cd,   &
+            cdq, Statein%prsl(1,1), work3, islmsk,                      &
             Tbd%phy_f2d(1,Model%num_p2d), flag_iter, Model%mom4ice,     &
             Model%lsm, lprnt, ipr,                                      &
 !  ---  input/outputs:
@@ -1389,16 +1411,23 @@ module module_physics_driver
       enddo   ! end iter_loop
 
       Diag%epi(:)     = ep1d(:)
-      Diag%dlwsfci(:) = adjsfcdlw(:)
+      Diag%dlwsfci(:) = adjsfcdlw_for_lsm(:)
       Diag%ulwsfci(:) = adjsfculw(:)
-      Diag%uswsfci(:) = adjsfcdsw(:) - adjsfcnsw(:)
-      Diag%dswsfci(:) = adjsfcdsw(:)
+      Diag%uswsfci(:) = adjsfcdsw_for_lsm(:) - adjsfcnsw_for_lsm(:)
+      Diag%dswsfci(:) = adjsfcdsw_for_lsm(:)
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
       Diag%u1(:)      = Statein%ugrs(:,1)
       Diag%v1(:)      = Statein%vgrs(:,1)
       Sfcprop%qsfc(:) = qss(:)
+
+      if (Model%override_surface_radiative_fluxes) then
+        Diag%dlwsfci_rrtmg(:) = adjsfcdlw(:)
+        Diag%ulwsfci_rrtmg(:) = adjsfculw(:)
+        Diag%uswsfci_rrtmg(:) = adjsfcdsw(:) - adjsfcnsw(:)
+        Diag%dswsfci_rrtmg(:) = adjsfcdsw(:)
+      endif
 
 !  --- ...  update near surface fields
 
