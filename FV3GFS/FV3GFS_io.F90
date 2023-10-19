@@ -77,6 +77,7 @@ module FV3GFS_io_mod
   public  register_coarse_diag_manager_controlled_diagnostics
   public  send_diag_manager_controlled_diagnostic_data
   public  sfc_data_override
+  public  Diag
 
   !--- GFDL filenames
   character(len=32)  :: fn_oro = 'oro_data.nc'
@@ -113,7 +114,6 @@ module FV3GFS_io_mod
   end type data_subtype
   !--- data type definition for use with GFDL FMS diagnostic manager until write component is working
   type gfdl_diag_type
-    private
     integer :: id = -1
     integer :: axes = -1
     logical :: time_avg = .false.
