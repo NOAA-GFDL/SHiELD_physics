@@ -14,7 +14,8 @@ module module_physics_driver
                                    GFS_sfcprop_type, GFS_coupling_type, &
                                    GFS_control_type, GFS_grid_type,     &
                                    GFS_tbd_type,     GFS_cldprop_type,  &
-                                   GFS_radtend_type, GFS_diag_type
+                                   GFS_radtend_type, GFS_diag_type,     &
+                                   GFS_overrides_from_python_wrapper_type
   use gfdl_cld_mp_mod,       only: gfdl_cld_mp_driver, cld_sat_adj, c_liq, c_ice
   use funcphys,              only: ftdp
   use module_ocean,          only: update_ocean
@@ -397,7 +398,7 @@ module module_physics_driver
 
     subroutine GFS_physics_driver                         &
          (Model, Statein, Stateout, Sfcprop, Coupling,  &
-          Grid, Tbd, Cldprop, Radtend, Diag)
+          Grid, Tbd, Cldprop, Radtend, Diag, OverridesFromPythonWrapper)
 
       implicit none
 !
@@ -412,6 +413,7 @@ module module_physics_driver
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
+      type(GFS_overrides_from_python_wrapper_type), intent(inout) :: OverridesFromPythonWrapper
 !
 !  ---  local variables
 
@@ -620,9 +622,9 @@ module module_physics_driver
       endif
       
       if (Model%override_surface_radiative_fluxes) then
-        adjsfcdlw_for_lsm => Statein%adjsfcdlw_override
-        adjsfcdsw_for_lsm => Statein%adjsfcdsw_override
-        adjsfcnsw_for_lsm => Statein%adjsfcnsw_override
+        adjsfcdlw_for_lsm => OverridesFromPythonWrapper%adjsfcdlw_override
+        adjsfcdsw_for_lsm => OverridesFromPythonWrapper%adjsfcdsw_override
+        adjsfcnsw_for_lsm => OverridesFromPythonWrapper%adjsfcnsw_override
       else
         adjsfcdlw_for_lsm => adjsfcdlw
         adjsfcdsw_for_lsm => adjsfcdsw

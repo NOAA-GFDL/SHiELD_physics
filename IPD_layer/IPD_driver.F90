@@ -52,7 +52,8 @@ module IPD_driver
     call initialize (IPD_Control, IPD_Data(:)%Statein, IPD_Data(:)%Stateout,      &
                      IPD_Data(:)%Sfcprop, IPD_Data(:)%Coupling, IPD_Data(:)%Grid, &
                      IPD_Data(:)%Tbd, IPD_Data(:)%Cldprop, IPD_Data(:)%Radtend,   &
-                     IPD_Data(:)%Intdiag, IPD_init_parm)
+                     IPD_Data(:)%Intdiag, IPD_Data(:)%OverridesFromPythonWrapper, &
+                     IPD_init_parm)
 
 
     !--- populate/associate the Diag container elements
@@ -118,7 +119,8 @@ module IPD_driver
     call physics_step1 (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
                         IPD_Data%Sfcprop, IPD_Data%Coupling, IPD_Data%Grid, &
                         IPD_Data%Tbd, IPD_Data%Cldprop, IPD_Data%Radtend,   &
-                        IPD_Data%Intdiag)
+                        IPD_Data%Intdiag,                                   &
+                        IPD_Data%OverridesFromPythonWrapper)
 
   end subroutine IPD_physics_step1
 

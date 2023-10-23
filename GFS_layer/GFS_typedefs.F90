@@ -1330,6 +1330,27 @@ module GFS_typedefs
       procedure :: phys_zero => diag_phys_zero
   end type GFS_diag_type
 
+!----------------------------------------------------------------
+! GFS_overrides_from_python_wrapper_type
+!  Container with variables used for overriding fields in the
+!  GFS_physics_driver from a Python-wrapped version of the model.
+!
+!  Currently the only supported variables for overriding are the
+!  downward longwave, downward shortwave, and net shortwave
+!  radiative fluxes at the surface seen by the land surface model.
+!  Memory will only be allocated for these variables, and they will
+!  only be used for overriding, if
+!  gfs_physics_nml.override_surface_radiative_fluxes is set to
+!  .true..
+!----------------------------------------------------------------
+  type GFS_overrides_from_python_wrapper_type
+    real (kind=kind_phys), pointer :: adjsfcdlw_override(:) => null()  !< override to the downward longwave radiation flux at the surface
+    real (kind=kind_phys), pointer :: adjsfcdsw_override(:) => null()  !< override to the downward shortwave radiation flux at the surface
+    real (kind=kind_phys), pointer :: adjsfcnsw_override(:) => null()  !< override to the net shortwave radiation flux at the surface
+    contains
+      procedure :: create  => overrides_from_python_wrapper_create  !<   allocate array data
+  end type GFS_overrides_from_python_wrapper_type
+
 !----------------
 ! PUBLIC ENTITIES
 !----------------
@@ -2016,6 +2037,23 @@ module GFS_typedefs
 
   end subroutine coupling_create
 
+subroutine overrides_from_python_wrapper_create(OverridesFromPythonWrapper, IM, Model)
+  implicit none
+
+  class(GFS_overrides_from_python_wrapper_type) :: OverridesFromPythonWrapper
+  integer,                 intent(in) :: IM
+  type(GFS_control_type),  intent(in) :: Model
+
+  if (Model%override_surface_radiative_fluxes) then
+    allocate(OverridesFromPythonWrapper%adjsfcdlw_override(IM))
+    allocate(OverridesFromPythonWrapper%adjsfcdsw_override(IM))
+    allocate(OverridesFromPythonWrapper%adjsfcnsw_override(IM))
+    OverridesFromPythonWrapper%adjsfcdlw_override = clear_val
+    OverridesFromPythonWrapper%adjsfcdsw_override = clear_val
+    OverridesFromPythonWrapper%adjsfcnsw_override = clear_val
+  endif
+
+end subroutine overrides_from_python_wrapper_create
 
 !----------------------
 ! GFS_control_type%init
