@@ -1335,13 +1335,16 @@ module GFS_typedefs
 !  Container with variables used for overriding fields in the
 !  GFS_physics_driver from a Python-wrapped version of the model.
 !
-!  Currently the only supported variables for overriding are the
-!  downward longwave, downward shortwave, and net shortwave
-!  radiative fluxes at the surface seen by the land surface model.
-!  Memory will only be allocated for these variables, and they will
-!  only be used for overriding, if
-!  gfs_physics_nml.override_surface_radiative_fluxes is set to
-!  .true..
+!  Currently the only supported variables for overriding are the downward
+!  longwave, downward shortwave, and net shortwave radiative fluxes at the
+!  surface seen by the ocean and/or land surface model.  Memory will only be
+!  allocated for these variables, and they will only be used for overriding, if
+!  gfs_physics_nml.override_surface_radiative_fluxes is set to .true..
+!
+!  Note that from the perspective of the fortran code, these variables will
+!  appear to never be populated with anything other than zeros.  This is because
+!  they are expected to be populated within a wrapping model, which has the ability
+!  to set the state of the running fortran model within each timestep.
 !----------------------------------------------------------------
   type GFS_overrides_from_python_wrapper_type
     real (kind=kind_phys), pointer :: adjsfcdlw_override(:) => null()  !< override to the downward longwave radiation flux at the surface
