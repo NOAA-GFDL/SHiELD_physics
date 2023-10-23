@@ -142,9 +142,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: sst (:)     => null()   !< sea surface temperature
     real (kind=kind_phys), pointer :: ci (:)      => null()   !< sea ice fraction
     integer, pointer :: nwat                      => null()  !< number of water species used in the model
-    real (kind=kind_phys), pointer :: adjsfcdlw_override(:) => null()  !< override to the downward longwave radiation flux at the surface
-    real (kind=kind_phys), pointer :: adjsfcdsw_override(:) => null()  !< override to the downward shortwave radiation flux at the surface
-    real (kind=kind_phys), pointer :: adjsfcnsw_override(:) => null()  !< override to the net shortwave radiation flux at the surface
     contains
       procedure :: create  => statein_create  !<   allocate array data
 
@@ -1468,15 +1465,6 @@ module GFS_typedefs
     Statein%smc   = clear_val
     Statein%stc   = clear_val
     Statein%slc   = clear_val
-
-    if (Model%override_surface_radiative_fluxes) then
-      allocate(Statein%adjsfcdlw_override(IM))
-      allocate(Statein%adjsfcdsw_override(IM))
-      allocate(Statein%adjsfcnsw_override(IM))
-      Statein%adjsfcdlw_override = clear_val
-      Statein%adjsfcdsw_override = clear_val
-      Statein%adjsfcnsw_override = clear_val
-    endif
 
   end subroutine statein_create
 
