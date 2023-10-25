@@ -15,7 +15,7 @@ module module_physics_driver
                                    GFS_control_type, GFS_grid_type,     &
                                    GFS_tbd_type,     GFS_cldprop_type,  &
                                    GFS_radtend_type, GFS_diag_type,     &
-                                   GFS_overrides_from_python_wrapper_type
+                                   GFS_overrides_type
   use gfdl_cld_mp_mod,       only: gfdl_cld_mp_driver, cld_sat_adj, c_liq, c_ice
   use funcphys,              only: ftdp
   use module_ocean,          only: update_ocean
@@ -398,7 +398,7 @@ module module_physics_driver
 
     subroutine GFS_physics_driver                         &
          (Model, Statein, Stateout, Sfcprop, Coupling,  &
-          Grid, Tbd, Cldprop, Radtend, Diag, OverridesFromPythonWrapper)
+          Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
 
       implicit none
 !
@@ -413,7 +413,7 @@ module module_physics_driver
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
-      type(GFS_overrides_from_python_wrapper_type), intent(inout) :: OverridesFromPythonWrapper
+      type(GFS_overrides_type),       intent(in)    :: Overrides
 !
 !  ---  local variables
 
@@ -462,7 +462,7 @@ module module_physics_driver
            stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma,    &
            sigma, elvmax, wind, work1, work2, runof, xmu, fm10, fh2,    &
            tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
-           frland, adjsfculw,          &
+           frland, adjsfculw,                                           &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
            adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
            snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
@@ -621,10 +621,14 @@ module module_physics_driver
         dq3dt_initial = Diag%dq3dt
       endif
       
+      ! Assign pointers for the downward longwave, downward shortwave, and net
+      ! shortwave radiative fluxes used in ocean, sea-ice, and land surface
+      ! components of the model depending on whether we are overriding them
+      ! or not.
       if (Model%override_surface_radiative_fluxes) then
-        adjsfcdlw_for_coupling => OverridesFromPythonWrapper%adjsfcdlw_override
-        adjsfcdsw_for_coupling => OverridesFromPythonWrapper%adjsfcdsw_override
-        adjsfcnsw_for_coupling => OverridesFromPythonWrapper%adjsfcnsw_override
+        adjsfcdlw_for_coupling => Overrides%adjsfcdlw_override
+        adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
+        adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
       else
         adjsfcdlw_for_coupling => adjsfcdlw
         adjsfcdsw_for_coupling => adjsfcdsw
@@ -921,16 +925,17 @@ module module_physics_driver
             if (flag_cice(i)) adjsfculw(i) = ulwsfc_cice(i)
           enddo
         endif
-        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw_for_coupling(:)*dtf
+
+        ! Diag%dlwsfc is always meant to refer to an RRTMG flux, so we do not
+        ! use the adjsfcdlw_for_coupling pointer here.
+        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
         if (Model%override_surface_radiative_fluxes) then
-          Diag%dswsfc(:) = Diag%dswsfc(:) + adjsfcdsw_for_coupling(:)*dtf
-          Diag%uswsfc(:) = Diag%uswsfc(:) + (adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:))*dtf
-
-          Diag%dlwsfc_rrtmg(:) = Diag%dlwsfc_rrtmg(:) + adjsfcdlw(:)*dtf
-          Diag%ulwsfc_rrtmg(:) = Diag%ulwsfc_rrtmg(:) + adjsfculw(:)*dtf
+          Diag%dswsfc_override(:) = Diag%dswsfc_override(:) + adjsfcdsw_for_coupling(:)*dtf
+          Diag%uswsfc_override(:) = Diag%uswsfc_override(:) + (adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:))*dtf
+          Diag%dlwsfc_override(:) = Diag%dlwsfc_override(:) + adjsfcdlw_for_coupling(:)*dtf
         endif
 
         if (Model%ldiag3d) then
@@ -1412,10 +1417,14 @@ module module_physics_driver
       enddo   ! end iter_loop
 
       Diag%epi(:)     = ep1d(:)
-      Diag%dlwsfci(:) = adjsfcdlw_for_coupling(:)
+
+      ! Diag%dlwsfci, Diag%uswsfci, and Diag%dswsfci are always meant to refer
+      ! to RRTMG fluxes, so we do not use the adjsfc??w_for_coupling pointers
+      ! here.
+      Diag%dlwsfci(:) = adjsfcdlw(:)
       Diag%ulwsfci(:) = adjsfculw(:)
-      Diag%uswsfci(:) = adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:)
-      Diag%dswsfci(:) = adjsfcdsw_for_coupling(:)
+      Diag%uswsfci(:) = adjsfcdsw(:) - adjsfcnsw(:)
+      Diag%dswsfci(:) = adjsfcdsw(:)
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
@@ -1424,10 +1433,9 @@ module module_physics_driver
       Sfcprop%qsfc(:) = qss(:)
 
       if (Model%override_surface_radiative_fluxes) then
-        Diag%dlwsfci_rrtmg(:) = adjsfcdlw(:)
-        Diag%ulwsfci_rrtmg(:) = adjsfculw(:)
-        Diag%uswsfci_rrtmg(:) = adjsfcdsw(:) - adjsfcnsw(:)
-        Diag%dswsfci_rrtmg(:) = adjsfcdsw(:)
+        Diag%dlwsfci_override(:) = adjsfcdlw_for_coupling(:)
+        Diag%uswsfci_override(:) = adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:)
+        Diag%dswsfci_override(:) = adjsfcdsw_for_coupling(:)
       endif
 
 !  --- ...  update near surface fields

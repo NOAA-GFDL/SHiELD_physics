@@ -885,7 +885,7 @@ module GFS_typedefs
     character(len=32)    :: iau_forcing_var(20)  ! list of tracers with IAU forcing
     real(kind=kind_phys) :: iaufhrs(7)      ! forecast hours associated with increment files
     logical :: iau_filter_increments, iau_drymassfixer
-    logical :: override_surface_radiative_fluxes  ! Whether to use Statein to override the surface radiative fluxes
+    logical :: override_surface_radiative_fluxes  ! Whether to use Overrides to override the surface radiative fluxes
 
     contains
       procedure :: init  => control_initialize
@@ -1197,11 +1197,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: gflux  (:)    => null()   !< groud conductive heat flux
     real (kind=kind_phys), pointer :: dlwsfc (:)    => null()   !< time accumulated sfc dn lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: ulwsfc (:)    => null()   !< time accumulated sfc up lw flux ( w/m**2 )
-    real (kind=kind_phys), pointer :: dswsfc (:)     => null()   !< time accumulated sfc dn sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-    real (kind=kind_phys), pointer :: uswsfc (:)     => null()   !< time accumulated sfc up sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-
-    real (kind=kind_phys), pointer :: dlwsfc_rrtmg (:)     => null()   !< time accumulated sfc dn lw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-    real (kind=kind_phys), pointer :: ulwsfc_rrtmg (:)     => null()   !< time accumulated sfc up lw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dswsfc_override (:) => null()   !< time accumulated sfc dn sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: uswsfc_override (:) => null()   !< time accumulated sfc up sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dlwsfc_override (:) => null()   !< time accumulated sfc dn lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: suntim (:)    => null()   !< sunshine duration time (s)
     real (kind=kind_phys), pointer :: runoff (:)    => null()   !< total water runoff
     real (kind=kind_phys), pointer :: ep     (:)    => null()   !< potential evaporation
@@ -1251,10 +1249,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: ulwsfci(:)    => null()   !< instantaneous sfc upwd lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: dswsfci(:)    => null()   !< instantaneous sfc dnwd sw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: uswsfci(:)    => null()   !< instantaneous sfc upwd sw flux ( w/m**2 )
-    real (kind=kind_phys), pointer :: dlwsfci_rrtmg(:)     => null()   !< instantaneous sfc dnwd lw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-    real (kind=kind_phys), pointer :: ulwsfci_rrtmg(:)     => null()   !< instantaneous sfc upwd lw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-    real (kind=kind_phys), pointer :: dswsfci_rrtmg(:)     => null()   !< instantaneous sfc dnwd sw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
-    real (kind=kind_phys), pointer :: uswsfci_rrtmg(:)     => null()   !< instantaneous sfc upwd sw flux ( w/m**2 ) as predicted by RRTMG when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dlwsfci_override(:) => null()   !< instantaneous sfc dnwd lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dswsfci_override(:) => null()   !< instantaneous sfc dnwd sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: uswsfci_override(:) => null()   !< instantaneous sfc upwd sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: dusfci (:)    => null()   !< instantaneous u component of surface stress
     real (kind=kind_phys), pointer :: dvsfci (:)    => null()   !< instantaneous v component of surface stress
     real (kind=kind_phys), pointer :: dtsfci (:)    => null()   !< instantaneous sfc sensible heat flux
@@ -1328,28 +1325,29 @@ module GFS_typedefs
   end type GFS_diag_type
 
 !----------------------------------------------------------------
-! GFS_overrides_from_python_wrapper_type
+! GFS_overrides_type
 !  Container with variables used for overriding fields in the
-!  GFS_physics_driver from a Python-wrapped version of the model.
+!  GFS_physics_driver.
 !
 !  Currently the only supported variables for overriding are the downward
 !  longwave, downward shortwave, and net shortwave radiative fluxes at the
 !  surface seen by the ocean and/or land surface model.  Memory will only be
-!  allocated for these variables, and they will only be used for overriding, if
+!  allocated for these variables, and they will only be used for overriding if
 !  gfs_physics_nml.override_surface_radiative_fluxes is set to .true..
 !
 !  Note that from the perspective of the fortran code, these variables will
 !  appear to never be populated with anything other than zeros.  This is because
-!  they are expected to be populated within a wrapping model, which has the ability
-!  to set the state of the running fortran model within each timestep.
+!  they are expected to be populated within a Python-wrapped version of the
+!  model, which has the ability to set the state of the running fortran model
+!  within each timestep.
 !----------------------------------------------------------------
-  type GFS_overrides_from_python_wrapper_type
+  type GFS_overrides_type
     real (kind=kind_phys), pointer :: adjsfcdlw_override(:) => null()  !< override to the downward longwave radiation flux at the surface
     real (kind=kind_phys), pointer :: adjsfcdsw_override(:) => null()  !< override to the downward shortwave radiation flux at the surface
     real (kind=kind_phys), pointer :: adjsfcnsw_override(:) => null()  !< override to the net shortwave radiation flux at the surface
     contains
-      procedure :: create  => overrides_from_python_wrapper_create  !<   allocate array data
-  end type GFS_overrides_from_python_wrapper_type
+      procedure :: create  => overrides_create  !<   allocate array data
+  end type GFS_overrides_type
 
 !----------------
 ! PUBLIC ENTITIES
@@ -2028,23 +2026,23 @@ module GFS_typedefs
 
   end subroutine coupling_create
 
-subroutine overrides_from_python_wrapper_create(OverridesFromPythonWrapper, IM, Model)
+subroutine overrides_create(Overrides, IM, Model)
   implicit none
 
-  class(GFS_overrides_from_python_wrapper_type) :: OverridesFromPythonWrapper
+  class(GFS_overrides_type) :: Overrides
   integer,                 intent(in) :: IM
   type(GFS_control_type),  intent(in) :: Model
 
   if (Model%override_surface_radiative_fluxes) then
-    allocate(OverridesFromPythonWrapper%adjsfcdlw_override(IM))
-    allocate(OverridesFromPythonWrapper%adjsfcdsw_override(IM))
-    allocate(OverridesFromPythonWrapper%adjsfcnsw_override(IM))
-    OverridesFromPythonWrapper%adjsfcdlw_override = clear_val
-    OverridesFromPythonWrapper%adjsfcdsw_override = clear_val
-    OverridesFromPythonWrapper%adjsfcnsw_override = clear_val
+    allocate(Overrides%adjsfcdlw_override(IM))
+    allocate(Overrides%adjsfcdsw_override(IM))
+    allocate(Overrides%adjsfcnsw_override(IM))
+    Overrides%adjsfcdlw_override = clear_val
+    Overrides%adjsfcdsw_override = clear_val
+    Overrides%adjsfcnsw_override = clear_val
   endif
 
-end subroutine overrides_from_python_wrapper_create
+end subroutine overrides_create
 
 !----------------------
 ! GFS_control_type%init
@@ -2852,9 +2850,9 @@ end subroutine overrides_from_python_wrapper_create
     Model%iau_drymassfixer = iau_drymassfixer
     if(Model%me==0) print *,' model init,iaufhrs=',Model%iaufhrs
 
-    !--- whether to enable overriding the surface radiative fluxes used by the !
-    ! land surface model in the physics driver with those prescribed via the
-    ! physics Statein.
+    !--- whether to enable overriding the surface radiative fluxes used by the
+    ! ocean, sea-ice, and land surface models in the physics driver with those
+    ! prescribed via the physics Overrides type.
     Model%override_surface_radiative_fluxes = override_surface_radiative_fluxes
 
 
@@ -3262,6 +3260,7 @@ end subroutine overrides_from_python_wrapper_create
       print *, ' sfcpress_id       : ', Model%sfcpress_id
       print *, ' gen_coord_hybrid  : ', Model%gen_coord_hybrid
       print *, ' sfc_override      : ', Model%sfc_override
+      print *, ' override_surface_radiative_fluxes: ', Model%override_surface_radiative_fluxes
       print *, ' '
       print *, 'grid extent parameters'
       print *, ' isc               : ', Model%isc
@@ -3579,9 +3578,6 @@ end subroutine overrides_from_python_wrapper_create
       print *, ' zhour             : ', Model%zhour
       print *, ' kdt               : ', Model%kdt
       print *, ' jdat              : ', Model%jdat
-
-      print *, 'whether to override surface radiative fluxes seen by the land surface model'
-      print *, ' override_surface_radiative_fluxes: ', Model%override_surface_radiative_fluxes
     endif
 
   end subroutine control_print
@@ -3813,15 +3809,13 @@ end subroutine overrides_from_python_wrapper_create
     endif
     allocate (Diag%ulwsfc  (IM))
     if (Model%override_surface_radiative_fluxes) then
-      allocate (Diag%dswsfc(IM))
-      allocate (Diag%uswsfc(IM))
+      allocate (Diag%dlwsfc_override(IM))
+      allocate (Diag%dswsfc_override(IM))
+      allocate (Diag%uswsfc_override(IM))
 
-      allocate (Diag%dlwsfc_rrtmg(IM))
-      allocate (Diag%ulwsfc_rrtmg(IM))
-      allocate (Diag%dlwsfci_rrtmg(IM))
-      allocate (Diag%ulwsfci_rrtmg(IM))
-      allocate (Diag%dswsfci_rrtmg(IM))
-      allocate (Diag%uswsfci_rrtmg(IM))
+      allocate (Diag%dlwsfci_override(IM))
+      allocate (Diag%dswsfci_override(IM))
+      allocate (Diag%uswsfci_override(IM))
     endif
     allocate (Diag%suntim  (IM))
     allocate (Diag%runoff  (IM))
@@ -4138,15 +4132,13 @@ end subroutine overrides_from_python_wrapper_create
     Diag%dswsfci = zero
     Diag%uswsfci = zero
     if (Model%override_surface_radiative_fluxes) then
-      Diag%dswsfc    = zero
-      Diag%uswsfc    = zero
+      Diag%dlwsfc_override  = zero
+      Diag%dswsfc_override  = zero
+      Diag%uswsfc_override  = zero
 
-      Diag%dlwsfc_rrtmg    = zero
-      Diag%ulwsfc_rrtmg    = zero
-      Diag%dlwsfci_rrtmg    = zero
-      Diag%ulwsfci_rrtmg    = zero
-      Diag%dswsfci_rrtmg    = zero
-      Diag%uswsfci_rrtmg    = zero
+      Diag%dlwsfci_override = zero
+      Diag%dswsfci_override = zero
+      Diag%uswsfci_override = zero
     endif
     Diag%dusfci  = zero
     Diag%dvsfci  = zero

@@ -8,7 +8,7 @@ module IPD_typedefs
                                        grid_type,     tbd_type,          &
                                        cldprop_type,  radtend_type,      &
                                        intdiag_type,                     &
-                                       overrides_from_python_wrapper_type
+                                       overrides_type
 
 !--------------------
 !  IPD sub-containers
@@ -23,7 +23,7 @@ module IPD_typedefs
     type(cldprop_type)  :: Cldprop
     type(radtend_type)  :: Radtend
     type(intdiag_type)  :: Intdiag
-    type(overrides_from_python_wrapper_type) :: OverridesFromPythonWrapper
+    type(overrides_type) :: Overrides
   end type IPD_data_type
 
 

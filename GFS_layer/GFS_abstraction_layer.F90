@@ -11,7 +11,7 @@ module physics_abstraction_layer
                              cldprop_type     =>  GFS_cldprop_type,  &
                              radtend_type     =>  GFS_radtend_type,  &
                              intdiag_type     =>  GFS_diag_type,     &
-                             overrides_from_python_wrapper_type => GFS_overrides_from_python_wrapper_type
+                             overrides_type   =>  GFS_overrides_type
 
   use GFS_driver,      only: initialize       =>  GFS_initialize,       &
                              time_vary_step   =>  GFS_time_vary_step,   &
