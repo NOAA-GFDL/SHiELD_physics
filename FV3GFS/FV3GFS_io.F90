@@ -4689,17 +4689,18 @@ module FV3GFS_io_mod
     if (override_surface_radiative_fluxes) then
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'DLWRF_from_rrtmg'
+      Diag(idx)%name = 'DLWRFsfc_from_rrtmg'
       Diag(idx)%desc = 'Native RRTMG surface downward longwave flux'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
+      Diag(idx)%time_avg_kind = 'rad_lw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc(:)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,19)
       enddo
 
       idx = idx + 1
@@ -4717,17 +4718,18 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'ULWRF_from_rrtmg'
+      Diag(idx)%name = 'ULWRFsfc_from_rrtmg'
       Diag(idx)%desc = 'Native RRTMG surface upward longwave flux'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
+      Diag(idx)%time_avg_kind = 'rad_lw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc(:)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,20)
       enddo
 
       idx = idx + 1
@@ -4745,7 +4747,7 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'DSWRF_from_rrtmg'
+      Diag(idx)%name = 'DSWRFsfc_from_rrtmg'
       Diag(idx)%desc = 'Native RRTMG averaged surface downward shortwave flux'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
@@ -4774,7 +4776,7 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'USWRF_from_rrtmg'
+      Diag(idx)%name = 'USWRFsfc_from_rrtmg'
       Diag(idx)%desc = 'Native RRTMG averaged surface upward shortwave flux'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
