@@ -1197,6 +1197,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: gflux  (:)    => null()   !< groud conductive heat flux
     real (kind=kind_phys), pointer :: dlwsfc (:)    => null()   !< time accumulated sfc dn lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: ulwsfc (:)    => null()   !< time accumulated sfc up lw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: dswsfc (:)    => null()   !< time accumulated sfc dn sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: uswsfc (:)    => null()   !< time accumulated sfc up sw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: dlwsfc_override (:) => null()   !< time accumulated sfc dn lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: dswsfc_override (:) => null()   !< time accumulated sfc dn sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: uswsfc_override (:) => null()   !< time accumulated sfc up sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
@@ -3799,6 +3801,7 @@ end subroutine overrides_create
     allocate (Diag%totprcpb(IM))
     allocate (Diag%gflux   (IM))
     allocate (Diag%dlwsfc  (IM))
+    allocate (Diag%dswsfc  (IM))
     allocate (Diag%netflxsfc     (IM))
     allocate (Diag%qflux_restore (IM))
     allocate (Diag%MLD     (IM))
@@ -3808,6 +3811,7 @@ end subroutine overrides_create
        allocate (Diag%el_myj (IM, Model%levs))
     endif
     allocate (Diag%ulwsfc  (IM))
+    allocate (Diag%uswsfc  (IM))
     if (Model%override_surface_radiative_fluxes) then
       allocate (Diag%dlwsfc_override(IM))
       allocate (Diag%dswsfc_override(IM))
@@ -4085,11 +4089,13 @@ end subroutine overrides_create
     Diag%dqsfc   = zero
     Diag%gflux   = zero
     Diag%dlwsfc  = zero
+    Diag%dswsfc  = zero
     Diag%netflxsfc     = zero
     Diag%qflux_restore = zero
     Diag%MLD     = zero
     Diag%tclim_iano    = zero
     Diag%ulwsfc  = zero
+    Diag%uswsfc  = zero
     Diag%suntim  = zero
     Diag%runoff  = zero
     Diag%ep      = zero

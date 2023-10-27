@@ -3083,84 +3083,51 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'USWRFsfc'
-    Diag(idx)%desc = 'averaged surface upward shortwave flux'
+    Diag(idx)%desc = 'Interval-averaged unadjusted upward shortwave flux at the surface'
     Diag(idx)%unit = 'W/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
     Diag(idx)%time_avg = .TRUE.
-    if (.not. override_surface_radiative_fluxes) then
-      Diag(idx)%time_avg_kind = 'rad_sw'
-    endif
+    Diag(idx)%time_avg_kind = 'rad_sw'
     Diag(idx)%intpl_method = 'bilinear'
     allocate (Diag(idx)%data(nblks))
-    ! This diagnostic is always meant to refer to what the model felt, so it
-    ! refers to the override flux when overriding and the RRTMG flux when not.
-    ! Note the time_avg_kind (above) is special when not overriding.
-    if (override_surface_radiative_fluxes) then
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_override(:)
-      enddo
-    else
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,3)
-      enddo
-    endif
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,3)
+    enddo
 
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'DSWRFsfc'
-    Diag(idx)%desc = 'averaged surface downward shortwave flux'
+    Diag(idx)%desc = 'Interval-averaged unadjusted downward shortwave flux at the surface'
     Diag(idx)%unit = 'W/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
     Diag(idx)%time_avg = .TRUE.
-    if (.not. override_surface_radiative_fluxes) then
-      Diag(idx)%time_avg_kind = 'rad_sw'
-    endif
+    Diag(idx)%time_avg_kind = 'rad_sw'
     Diag(idx)%intpl_method = 'bilinear'
     allocate (Diag(idx)%data(nblks))
-    ! This diagnostic is always meant to refer to what the model felt, so it
-    ! refers to the override flux when overriding and the RRTMG flux when not.
-    ! Note the time_avg_kind (above) is special when not overriding.
-    if (override_surface_radiative_fluxes) then
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_override(:)
-      enddo
-    else
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,4)
-      enddo
-    endif
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,4)
+    enddo
 
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'DLWRFsfc'
-    Diag(idx)%desc = 'surface downward longwave flux [W/m**2]'
+    Diag(idx)%desc = 'Interval-averaged unadjusted downward longwave flux at the surface'
     Diag(idx)%unit = 'W/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
     Diag(idx)%time_avg = .TRUE.
-    if (.not. override_surface_radiative_fluxes) then
-      Diag(idx)%time_avg_kind = 'rad_lw'
-    endif
+    Diag(idx)%time_avg_kind = 'rad_lw'
     allocate (Diag(idx)%data(nblks))
-    ! This diagnostic is always meant to refer to what the model felt, so it
-    ! refers to the override flux when overriding and the RRTMG flux when not.
-    ! Note the time_avg_kind (above) is special when not overriding.
-    if (override_surface_radiative_fluxes) then
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_override(:)
-      enddo
-    else
-      do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,19)
-      enddo
-    endif
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,19)
+    enddo
 
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'ULWRFsfc'
-    Diag(idx)%desc = 'surface upward longwave flux [W/m**2]'
+    Diag(idx)%desc = 'Interval-averaged unadjusted upward longwave flux at the surface'
     Diag(idx)%unit = 'W/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
@@ -3971,22 +3938,74 @@ module FV3GFS_io_mod
 
     idx = idx + 1
     Diag(idx)%axes = 2
-    Diag(idx)%name = 'DLWRF'
-    Diag(idx)%desc = 'time accumulated downward lw flux at surface- GFS physics'
+    Diag(idx)%name = 'DSWRF'
+    Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted downward shortwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
     Diag(idx)%time_avg = .TRUE.
     Diag(idx)%intpl_method = 'bilinear'
     allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc(:)
-    enddo
+    ! This diagnostic is always meant to refer to what the model felt, so it
+    ! refers to the override flux when overriding and the RRTMG flux when not.
+    if (override_surface_radiative_fluxes) then
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_override(:)
+      enddo
+    else
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc(:)
+      enddo
+    endif
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'USWRF'
+    Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted upward shortwave flux at the surface'
+    Diag(idx)%unit = 'w/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%time_avg = .TRUE.
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    ! This diagnostic is always meant to refer to what the model felt, so it
+    ! refers to the override flux when overriding and the RRTMG flux when not.
+    if (override_surface_radiative_fluxes) then
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_override(:)
+      enddo
+    else
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc(:)
+      enddo
+    endif
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'DLWRF'
+    Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted downward longwave flux at the surface'
+    Diag(idx)%unit = 'w/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%time_avg = .TRUE.
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    ! This diagnostic is always meant to refer to what the model felt, so it
+    ! refers to the override flux when overriding and the RRTMG flux when not.
+    if (override_surface_radiative_fluxes) then
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_override(:)
+      enddo
+    else
+      do nb = 1,nblks
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc(:)
+      enddo
+    endif
 
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'ULWRF'
-    Diag(idx)%desc = 'time accumulated upward lw flux at surface- GFS physics'
+    Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted upward longwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
@@ -4617,7 +4636,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'DLWRFI'
-    Diag(idx)%desc = 'instantaneous sfc downward lw flux'
+    Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted downward longwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%intpl_method = 'bilinear'
@@ -4637,7 +4656,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'ULWRFI'
-    Diag(idx)%desc = 'instantaneous sfc upward lw flux'
+    Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted upward longwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%intpl_method = 'bilinear'
@@ -4649,7 +4668,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'DSWRFI'
-    Diag(idx)%desc = 'instantaneous sfc downward sw flux'
+    Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted downward shortwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%intpl_method = 'bilinear'
@@ -4669,7 +4688,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'USWRFI'
-    Diag(idx)%desc = 'instantaneous sfc upward sw flux'
+    Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted upward shortwave flux at the surface'
     Diag(idx)%unit = 'w/m**2'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%intpl_method = 'bilinear'
@@ -4689,24 +4708,23 @@ module FV3GFS_io_mod
     if (override_surface_radiative_fluxes) then
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'DLWRFsfc_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG surface downward longwave flux'
+      Diag(idx)%name = 'DLWRF_from_rrtmg'
+      Diag(idx)%desc = 'Interval-averaged native RRTMG surface-temperature-adjusted downward longwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
-      Diag(idx)%time_avg_kind = 'rad_lw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,19)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc(:)
       enddo
 
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'DLWRFI_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG instantaneous surface downward longwave flux'
+      Diag(idx)%desc = 'Instantaneous native RRTMG surface-temperature-adjusted downward longwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%intpl_method = 'bilinear'
@@ -4718,24 +4736,23 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'ULWRFsfc_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG surface upward longwave flux'
+      Diag(idx)%name = 'ULWRF_from_rrtmg'
+      Diag(idx)%desc = 'Interval-averaged native RRTMG surface-temperature-adjusted upward longwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
-      Diag(idx)%time_avg_kind = 'rad_lw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,20)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc(:)
       enddo
 
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'ULWRFI_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG instantaneous surface upward longwave flux'
+      Diag(idx)%desc = 'Instantaneous native RRTMG surface-temperature-adjusted upward longwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%intpl_method = 'bilinear'
@@ -4747,24 +4764,23 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'DSWRFsfc_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG averaged surface downward shortwave flux'
+      Diag(idx)%name = 'DSWRF_from_rrtmg'
+      Diag(idx)%desc = 'Interval-averaged native RRTMG zenith-angle-adjusted downward shortwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
-      Diag(idx)%time_avg_kind = 'rad_sw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,4)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc(:)
       enddo
 
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'DSWRFI_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG instantaneous surface downward shortwave flux'
+      Diag(idx)%desc = 'Instantaneous native RRTMG zenith-angle-adjusted downward shortwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%intpl_method = 'bilinear'
@@ -4776,24 +4792,23 @@ module FV3GFS_io_mod
 
       idx = idx + 1
       Diag(idx)%axes = 2
-      Diag(idx)%name = 'USWRFsfc_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG averaged surface upward shortwave flux'
+      Diag(idx)%name = 'USWRF_from_rrtmg'
+      Diag(idx)%desc = 'Interval-averaged native RRTMG zenith-angle-adjusted upward shortwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%cnvfac = cn_one
       Diag(idx)%time_avg = .TRUE.
-      Diag(idx)%time_avg_kind = 'rad_sw'
       Diag(idx)%intpl_method = 'bilinear'
       Diag(idx)%coarse_graining_method = 'area_weighted'
       allocate (Diag(idx)%data(nblks))
       do nb = 1,nblks
-        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,3)
+        Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc(:)
       enddo
 
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'USWRFI_from_rrtmg'
-      Diag(idx)%desc = 'Native RRTMG instantaneous surface upward shortwave flux'
+      Diag(idx)%desc = 'Instantaneous native RRTMG zenith-angle-adjusted upward shortwave flux at the surface'
       Diag(idx)%unit = 'W/m**2'
       Diag(idx)%mod_name = 'gfs_phys'
       Diag(idx)%intpl_method = 'bilinear'

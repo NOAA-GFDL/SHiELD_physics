@@ -1418,13 +1418,15 @@ module module_physics_driver
 
       Diag%epi(:)     = ep1d(:)
 
-      ! Diag%dlwsfci, Diag%uswsfci, and Diag%dswsfci are always meant to refer
-      ! to RRTMG fluxes, so we do not use the adjsfc??w_for_coupling pointers
-      ! here.
+      ! Diag%dlwsfci, Diag%uswsfci, Diag%dswsfci, Diag%uswsfc, and Diag%dswsfc
+      ! are always meant to refer to RRTMG fluxes, so we do not use the
+      ! adjsfc??w_for_coupling pointers here.
       Diag%dlwsfci(:) = adjsfcdlw(:)
       Diag%ulwsfci(:) = adjsfculw(:)
       Diag%uswsfci(:) = adjsfcdsw(:) - adjsfcnsw(:)
       Diag%dswsfci(:) = adjsfcdsw(:)
+      Diag%uswsfc(:) =  Diag%uswsfc(:) + (adjsfcdsw(:) - adjsfcnsw(:))*dtf
+      Diag%dswsfc(:) =  Diag%dswsfc(:) + adjsfcdsw(:)*dtf
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
