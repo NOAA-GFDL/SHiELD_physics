@@ -77,7 +77,7 @@ module FV3GFS_io_mod
   public  register_coarse_diag_manager_controlled_diagnostics
   public  send_diag_manager_controlled_diagnostic_data
   public  sfc_data_override
-  public  Diag
+  public  gfdl_diag_type, Diag, Diag_diag_manager_controlled
 
   !--- GFDL filenames
   character(len=32)  :: fn_oro = 'oro_data.nc'
