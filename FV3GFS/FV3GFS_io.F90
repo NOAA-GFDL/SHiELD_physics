@@ -7018,7 +7018,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'MLD'
-    Diag(idx)%desc = 'ocean mixed layer depth'
+    Diag(idx)%desc = 'Interval-average ocean mixed layer depth'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
@@ -7027,6 +7027,30 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%mld(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'MLDI'
+    Diag(idx)%desc = 'Instantaneous ocean mixed layer depth'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%coarse_graining_method = AREA_WEIGHTED
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%mld(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'prescribed_qflux'
+    Diag(idx)%desc = 'Instantaneous prescribed ocean Q-flux'
+    Diag(idx)%unit = 'W/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%coarse_graining_method = AREA_WEIGHTED
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%qfluxadj(:)
     enddo
 
     idx = idx + 1

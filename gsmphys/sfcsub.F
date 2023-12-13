@@ -7528,7 +7528,7 @@ cjfe
      &,               imsk, jmsk, slmskh, gaus,blno, blto
      &,               outlat, outlon, me)
           if (me .eq. 0) write(6,*) 'climatological ocean 
-     &                           mixed layer depth read in.'
+     &                           Q-flux read in.'
 
         endif
 !
@@ -7808,7 +7808,7 @@ cjfe
      &,               imsk, jmsk, slmskh, gaus,blno, blto
      &,               outlat, outlon, me)
           if (me .eq. 0) write(6,*) 'climatological ocean 
-     &                           mixed layer depth read in.'
+     &                           Q-flux read in.'
 
         endif
 !
@@ -8008,6 +8008,12 @@ cjfe
       if(fnmldc(1:8).ne.'        ') then
         do i=1,len
          mldclm(i) = wei1m * mld(i,k1) + wei2m * mld(i,k2)
+        enddo
+      endif
+
+      if(fnqfluxc(1:8).ne.'        ') then
+        do i=1,len
+         qfluxadj(i) = wei1m * qflux(i,k1) + wei2m * qflux(i,k2)
         enddo
       endif
 !clu ----------------------------------------------------------------------
