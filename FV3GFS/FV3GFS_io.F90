@@ -1647,6 +1647,38 @@ module FV3GFS_io_mod
 
   end subroutine sfc_prop_restart_read
 
+  subroutine compute_surface_type_fraction(Atm_block, isc, jsc, nx, ny, diagnostic, result)
+    type(block_control_type), intent(in) :: Atm_block
+    integer, intent(in) :: isc, jsc, nx, ny
+    type(gfdl_diag_type), intent(in) :: diagnostic
+    real, intent(out) :: result(nx, ny)
+
+    integer :: i, j, ii, jj, nb, ix, surface_type_code
+
+    select case(trim(diagnostic%name))
+      case ('ocean_fraction')
+        surface_type_code = 0
+      case ('land_fraction')
+        surface_type_code = 1
+      case ('sea_ice_fraction')
+        surface_type_code = 2
+    end select
+
+    do j = 1, ny
+      jj = j + jsc - 1
+      do i = 1, nx
+          ii = i + isc - 1
+          nb = Atm_block%blkno(ii,jj)
+          ix = Atm_block%ixp(ii,jj)
+          if (nint(diagnostic%data(nb)%var2(ix)) .eq. surface_type_code) then
+            result(i,j) = 1.0
+          else
+            result(i,j) = 0.0
+          endif
+      enddo
+    enddo
+  end subroutine compute_surface_type_fraction
+
   subroutine sfc_data_override(Time, IPD_data, Atm_block, Model)
 
     implicit none
@@ -2650,8 +2682,9 @@ module FV3GFS_io_mod
 
   end subroutine phys_restart_write
 
-  subroutine register_diag_manager_controlled_diagnostics(Time, IntDiag, nblks, axes)
+  subroutine register_diag_manager_controlled_diagnostics(Time, Sfcprop, IntDiag, nblks, axes)
     type(time_type), intent(in) :: Time
+    type(Gfs_sfcprop_type), intent(in) :: Sfcprop(:)
     type(GFS_diag_type), intent(in) :: IntDiag(:)
     integer, intent(in) :: nblks
     integer, intent(in) :: axes(4)
@@ -2994,6 +3027,42 @@ module FV3GFS_io_mod
     allocate (Diag_diag_manager_controlled(index)%data(nblks))
     do nb = 1,nblks
       Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,5)
+   enddo
+
+   index = index + 1
+   Diag_diag_manager_controlled(index)%axes = 2
+   Diag_diag_manager_controlled(index)%name = 'ocean_fraction'
+   Diag_diag_manager_controlled(index)%desc = 'fraction of grid cell classified as ocean type'
+   Diag_diag_manager_controlled(index)%unit = 'fraction'
+   Diag_diag_manager_controlled(index)%mod_name = 'gfs_sfc'
+   Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+   allocate (Diag_diag_manager_controlled(index)%data(nblks))
+   do nb = 1,nblks
+     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%slmsk(:)
+   enddo
+
+   index = index + 1
+   Diag_diag_manager_controlled(index)%axes = 2
+   Diag_diag_manager_controlled(index)%name = 'land_fraction'
+   Diag_diag_manager_controlled(index)%desc = 'fraction of grid cell classified as land type'
+   Diag_diag_manager_controlled(index)%unit = 'fraction'
+   Diag_diag_manager_controlled(index)%mod_name = 'gfs_sfc'
+   Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+   allocate (Diag_diag_manager_controlled(index)%data(nblks))
+   do nb = 1,nblks
+     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%slmsk(:)
+   enddo
+
+   index = index + 1
+   Diag_diag_manager_controlled(index)%axes = 2
+   Diag_diag_manager_controlled(index)%name = 'sea_ice_fraction'
+   Diag_diag_manager_controlled(index)%desc = 'fraction of grid cell classified as sea ice type'
+   Diag_diag_manager_controlled(index)%unit = 'fraction'
+   Diag_diag_manager_controlled(index)%mod_name = 'gfs_sfc'
+   Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+   allocate (Diag_diag_manager_controlled(index)%data(nblks))
+   do nb = 1,nblks
+     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%slmsk(:)
    enddo
 
    do index = 1, DIAG_SIZE
@@ -7156,15 +7225,21 @@ module FV3GFS_io_mod
       if (trim(Diag_diag_manager_controlled(index)%name) .eq. '') exit
       if (Diag_diag_manager_controlled(index)%id .gt. 0 .or. Diag_diag_manager_controlled_coarse(index)%id .gt. 0) then
         if (Diag_diag_manager_controlled(index)%axes .eq. 2) then
-          do j = 1, ny
-            jj = j + jsc - 1
-            do i = 1, nx
-                ii = i + isc - 1
-                nb = Atm_block%blkno(ii,jj)
-                ix = Atm_block%ixp(ii,jj)
-                var2d(i,j) = Diag_diag_manager_controlled(index)%data(nb)%var2(ix)
+          if (trim(Diag_diag_manager_controlled(index)%name) .eq. 'ocean_fraction' .or. &
+              trim(Diag_diag_manager_controlled(index)%name) .eq. 'land_fraction' .or. &
+              trim(Diag_diag_manager_controlled(index)%name) .eq. 'sea_ice_fraction') then
+            call compute_surface_type_fraction(Atm_block, isc, jsc, nx, ny, Diag_diag_manager_controlled(index), var2d)
+          else
+            do j = 1, ny
+              jj = j + jsc - 1
+              do i = 1, nx
+                  ii = i + isc - 1
+                  nb = Atm_block%blkno(ii,jj)
+                  ix = Atm_block%ixp(ii,jj)
+                  var2d(i,j) = Diag(index)%data(nb)%var2(ix)
+              enddo
             enddo
-          enddo
+          endif
           if (Diag_diag_manager_controlled(index)%id > 0) then
             used = send_data(Diag_diag_manager_controlled(index)%id, var2d, Time)
           endif
