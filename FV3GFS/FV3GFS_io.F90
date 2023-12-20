@@ -7260,7 +7260,7 @@ module FV3GFS_io_mod
                   ii = i + isc - 1
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
-                  var2d(i,j) = Diag(index)%data(nb)%var2(ix)
+                  var2d(i,j) = Diag_diag_manager_controlled(index)%data(nb)%var2(ix)
               enddo
             enddo
           endif
