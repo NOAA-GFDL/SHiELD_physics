@@ -133,7 +133,7 @@
 !      close (Model%nlunit)
 
 #ifdef INTERNAL_FILE_NML
-        read(input_nml_file, nml=ocean_nml)
+        read(input_nml_file, nml=ocean_nml, iostat=ios)
 #else
 !       print *,' in sfcsub nlunit=',nlunit,' me=',me,' ialb=',ialb
        inquire (file=trim(Model%fn_nml), exist=exists)

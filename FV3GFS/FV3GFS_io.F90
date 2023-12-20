@@ -3065,30 +3065,6 @@ module FV3GFS_io_mod
      Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%slmsk(:)
    enddo
 
-   index = index + 1
-   Diag_diag_manager_controlled(index)%axes = 2
-   Diag_diag_manager_controlled(index)%name = 'mixed_layer_depth'
-   Diag_diag_manager_controlled(index)%desc = 'ocean mixed layer depth'
-   Diag_diag_manager_controlled(index)%unit = 'm'
-   Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-   Diag_diag_manager_controlled(index)%coarse_graining_method = AREA_WEIGHTED
-   allocate (Diag_diag_manager_controlled(index)%data(nblks))
-   do nb = 1,nblks
-     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%mld(:)
-   enddo
-
-   index = index + 1
-   Diag_diag_manager_controlled(index)%axes = 2
-   Diag_diag_manager_controlled(index)%name = 'prescribed_qflux'
-   Diag_diag_manager_controlled(index)%desc = 'prescribed ocean Q-flux'
-   Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-   Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-   Diag_diag_manager_controlled(index)%coarse_graining_method = AREA_WEIGHTED
-   allocate (Diag_diag_manager_controlled(index)%data(nblks))
-   do nb = 1,nblks
-     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%qfluxadj(:)
-   enddo
-
    do index = 1, DIAG_SIZE
       if (trim(Diag_diag_manager_controlled(index)%name) .eq. '') exit  ! No need to populate non-existent diagnostics
       Diag_diag_manager_controlled(index)%id = register_diag_field(trim(Diag_diag_manager_controlled(index)%mod_name), &
@@ -7111,7 +7087,7 @@ module FV3GFS_io_mod
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'MLD'
-    Diag(idx)%desc = 'Interval-average ocean mixed layer depth'
+    Diag(idx)%desc = 'ocean mixed layer depth'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'gfs_phys'
     Diag(idx)%cnvfac = cn_one
@@ -7260,7 +7236,7 @@ module FV3GFS_io_mod
                   ii = i + isc - 1
                   nb = Atm_block%blkno(ii,jj)
                   ix = Atm_block%ixp(ii,jj)
-                  var2d(i,j) = Diag_diag_manager_controlled(index)%data(nb)%var2(ix)
+                  var2d(i,j) = Diag(index)%data(nb)%var2(ix)
               enddo
             enddo
           endif
