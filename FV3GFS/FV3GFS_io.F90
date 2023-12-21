@@ -1651,7 +1651,7 @@ module FV3GFS_io_mod
     type(block_control_type), intent(in) :: Atm_block
     integer, intent(in) :: isc, jsc, nx, ny
     type(gfdl_diag_type), intent(in) :: diagnostic
-    real, intent(out) :: result(nx, ny)
+    real(kind=kind_phys), intent(out) :: result(nx, ny)
 
     integer :: i, j, ii, jj, nb, ix, surface_type_code
 
