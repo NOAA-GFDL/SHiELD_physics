@@ -1375,6 +1375,10 @@
       call getgases (plvl, Grid%xlon, Grid%xlat, IM, LMK,  & !  ---  inputs
                      gasvmr)                                 !  ---  outputs
 
+      if (Model%ldiag3d) then
+        Diag%co2 = gasvmr(:,:,1)  ! co2 volume mixing ratio
+      endif
+
 !>  - Get temperature at layer interface, and layer moisture.
       do k = 2, LMK
         do i = 1, IM

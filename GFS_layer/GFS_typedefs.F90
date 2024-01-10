@@ -1313,6 +1313,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: flux_en(:,:)  => null()
     real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
     real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
+    real (kind=kind_phys), pointer :: co2(:,:) => null()  ! Vertically resolved CO2 concentration
 
     !--- accumulated quantities for 3D diagnostics
     real (kind=kind_phys), pointer :: upd_mf (:,:)   => null()  !< instantaneous convective updraft mass flux
@@ -3905,6 +3906,7 @@ end subroutine overrides_create
       allocate (Diag%flux_en(IM,Model%levs))
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
+      allocate (Diag%co2(IM,Model%levs))
 
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))
