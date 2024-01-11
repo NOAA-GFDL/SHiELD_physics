@@ -1,6 +1,6 @@
 name: Compile SHiELD SOLO and run tests
 
-# This GitHub Action Workflow is running on the cloud devcimultiintel cluster
+# This GitHub Action Workflow is running on the cloud shieldphysicsciintel cluster
 # The tests are run inside of a container with the following software/libraries:
 # -intel: 2023.2.0
 # -hdf5: 1.14.0
@@ -13,21 +13,29 @@ on:
   pull_request:
     branches:
       - main
+
+#this should cancel in progress ci runs for the same PR 
+#(e.g. a second commit on the same PR comes in while CI is still running)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
     
 jobs:
   checkout:
-    runs-on: [self-hosted, devcimultiintel]
+    if: github.repository == 'NOAA-GFDL/SHiELD_physics'
+    runs-on: [shieldphysicsciintel]
     name: Checkout Code
     steps:
     # It can take a long time (5-15 minutes) to spinup nodes
     # so this salloc will prompt 46 nodes to startup and stay active for 20 min
     # this is enough nodes for the first 17 tests to run in parallel, and we
     # have 17 runners configured.
-    - run: salloc --partition=p2 -N 46 -J SP_$GITHUB_REF sleep 20m &
-    - run: /contrib/fv3/SHiELD_physics_CI/checkout.sh $GITHUB_REF
+    - run: salloc --partition=p2 -N 46 -J $GITHUB_SHA sleep 20m &
+    - run: /contrib/fv3/SHiELD_physics_CI/checkout.sh $GITHUB_REF $GITHUB_SHA
     
   build:
-    runs-on: [self-hosted,devcimultiintel]
+    if: github.repository == 'NOAA-GFDL/SHiELD_physics'
+    runs-on: [shieldphysicsciintel]
     name: SOLO SHiELD build
     needs: [checkout]
     strategy:
@@ -40,10 +48,11 @@ jobs:
       - env:
           RUNPATH: ${{ matrix.runpath }}
           RUNSCRIPT: ${{ matrix.runscript }}
-        run: $RUNPATH/$RUNSCRIPT $GITHUB_REF
+        run: $RUNPATH/$RUNSCRIPT $GITHUB_REF $GITHUB_SHA
         
   test:
-    runs-on: [self-hosted, devcimultiintel]
+    if: github.repository == 'NOAA-GFDL/SHiELD_physics'
+    runs-on: [shieldphysicsciintel]
     name: SOLO SHiELD test suite
     needs: [checkout, build]
     strategy:
@@ -94,15 +103,15 @@ jobs:
           - d96_500m.solo.mtn_schar.sh
     steps:
       # This will end the slurm job started in the checkout job
-      - run: scancel -n SP_$GITHUB_REF
+      - run: scancel -n $GITHUB_SHA
       - env:
           RUNPATH: ${{ matrix.runpath }}
           RUNSCRIPT: ${{ matrix.runscript }}
-        run: $RUNPATH/$RUNSCRIPT $GITHUB_REF
+        run: $RUNPATH/$RUNSCRIPT $GITHUB_REF $GITHUB_SHA
   shutdown:
-    runs-on: [self-hosted, devcimultiintel]
+    if: always() && github.repository == 'NOAA-GFDL/SHiELD_physics'
+    runs-on: [shieldphysicsciintel]
     name: Shutdown Processes
-    if: always()
     needs: [checkout, build, test]
     strategy:
       fail-fast: false
@@ -145,7 +154,7 @@ jobs:
           - d96_2k.solo.bubble
           - d96_500m.solo.mtn_schar
     steps:
-      - run: scancel -n SP_$GITHUB_REF
+      - run: scancel -n $GITHUB_SHA
       - env:
-          TEST: ${{ matrix.test }}
-        run: scancel -n SP_$GITHUB_REF_$TEST
+          JOB: ${{ github.sha }}_${{ matrix.test }}
+        run: scancel -n $JOB
