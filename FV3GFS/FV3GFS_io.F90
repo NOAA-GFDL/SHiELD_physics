@@ -3130,21 +3130,16 @@ module FV3GFS_io_mod
 !    13+NFXR - radiation
 !    76+pl_coeff - physics
 !-------------------------------------------------------------------------
-  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Cldprop, &
-                                Atm_block, axes, NFXR, ldiag3d, nkld, levs, override_surface_radiative_fluxes)
+  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Model, Cldprop, Atm_block, axes)
     use physcons,  only: con_g
 !--- subroutine interface variable definitions
     type(time_type),           intent(in) :: Time
     type(Gfs_sfcprop_type),    intent(in) :: Sfcprop(:)
     type(GFS_diag_type),       intent(in) :: Gfs_diag(:)
+    type(IPD_control_type),    intent(in) :: Model
     type(GFS_cldprop_type),    intent(in) :: Cldprop(:)
     type (block_control_type), intent(in) :: Atm_block
     integer, dimension(4),     intent(in) :: axes
-    integer,                   intent(in) :: NFXR
-    logical,                   intent(in) :: ldiag3d
-    integer,                   intent(in) :: nkld
-    integer,                   intent(in) :: levs
-    logical,                   intent(in) :: override_surface_radiative_fluxes
 !--- local variables
     integer :: idx, num, nb, nblks, nx, ny, k
     integer, allocatable :: blksz(:)
@@ -3162,7 +3157,7 @@ module FV3GFS_io_mod
     ieco   = Atm_block%iec
     jsco   = Atm_block%jsc
     jeco   = Atm_block%jec
-    levo   = levs
+    levo   = Model%levs
 
     Diag(:)%id = -99
     Diag(:)%axes = -99
@@ -3704,7 +3699,7 @@ module FV3GFS_io_mod
     enddo
 
 !--- accumulated diagnostics ---
-    do num = 1,NFXR
+    do num = 1,Model%nfxr
       write (xtra,'(I2.2)') num
       idx = idx + 1
       Diag(idx)%axes = 2
@@ -3719,7 +3714,7 @@ module FV3GFS_io_mod
     enddo
 
 !--- averaged diagnostics ---
-    do num = 1,nkld
+    do num = 1,Model%nkld
       write (xtra,'(I2.2)') num
       idx = idx + 1
       Diag(idx)%axes = 3
@@ -4057,7 +4052,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_override(:)
       enddo
@@ -4079,7 +4074,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_override(:)
       enddo
@@ -4101,7 +4096,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_override(:)
       enddo
@@ -4752,7 +4747,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfci_override(:)
       enddo
@@ -4784,7 +4779,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfci_override(:)
       enddo
@@ -4804,7 +4799,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci_override(:)
       enddo
@@ -4814,7 +4809,7 @@ module FV3GFS_io_mod
       enddo
     endif
 
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'DLWRF_from_rrtmg'
@@ -6328,7 +6323,7 @@ module FV3GFS_io_mod
 !    enddo
 !
 !--- three-dimensional variables that need to be handled special when writing
-    if (ldiag3d) then
+    if (Model%ldiag3d) then
 
     do num = 1,6
       write (xtra,'(I1)') num
