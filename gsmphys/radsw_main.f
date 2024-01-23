@@ -586,6 +586,7 @@
       subroutine swrad                                                  &
      &     ( plyr,plvl,tlyr,tlvl,qlyr,olyr,gasvmr,                      &    !  ---  inputs
      &       clouds,icseed,aerosols,sfcalb,                             &
+     &       dzlyr,delpin,de_lgth,                                      &
      &       cosz,solcon,NDAY,idxday,                                   &
      &       npts, nlay, nlp1, lprnt,                                   &
      &       hswc,topflx,sfcflx,                                        &   !  ---  outputs
@@ -645,6 +646,9 @@
 !         ( :, 2 )    - near ir diffused albedo                         !
 !         ( :, 3 )    - uv+vis direct beam albedo                       !
 !         ( :, 4 )    - uv+vis diffused albedo                          !
+!   dzlyr(npts,nlay) : layer thickness in km                            !
+!   delpin(npts,nlay): layer pressure thickness (mb)                    !
+!   de_lgth(npts)    : clouds decorrelation length (km)                 !
 !   cosz  (npts)     : cosine of solar zenith angle                     !
 !   solcon           : solar constant                      (w/m**2)     !
 !   NDAY             : num of daytime points                            !
@@ -777,7 +781,7 @@
       real (kind=kind_phys), dimension(npts,nlp1), intent(in) ::        &
      &       plvl, tlvl
       real (kind=kind_phys), dimension(npts,nlay), intent(in) ::        &
-     &       plyr, tlyr, qlyr, olyr
+     &       plyr, tlyr, qlyr, olyr, dzlyr, delpin
       real (kind=kind_phys), dimension(npts,4),    intent(in) :: sfcalb
 
       real (kind=kind_phys), dimension(npts,nlay,9),intent(in):: gasvmr
@@ -785,7 +789,8 @@
       real (kind=kind_phys), dimension(npts,nlay,nbdsw,3),intent(in)::  &
      &       aerosols
 
-      real (kind=kind_phys), intent(in) :: cosz(npts), solcon
+      real (kind=kind_phys), intent(in) :: cosz(npts), solcon,          &
+      &       de_lgth(npts)
 
 !  ---  outputs:
       real (kind=kind_phys), dimension(npts,nlay), intent(out) :: hswc
@@ -821,7 +826,7 @@
      &       pavel, tavel, coldry, colmol, h2ovmr, o3vmr, temcol,       &
      &       cliqp, reliq, cicep, reice, cdat1, cdat2, cdat3, cdat4,    &
      &       cfrac, fac00, fac01, fac10, fac11, forfac, forfrac,        &
-     &       selffac, selffrac, rfdelp
+     &       selffac, selffrac, rfdelp, dz
 
       real (kind=kind_phys), dimension(nlp1) :: fnet, flxdc, flxuc,     &
      &       flxd0, flxu0
@@ -831,7 +836,7 @@
 
       real (kind=kind_phys) :: cosz1, sntz1, tem0, tem1, tem2, s0fac,   &
      &       ssolar, zcf0, zcf1, ftoau0, ftoauc, ftoadc,                &
-     &       fsfcu0, fsfcuc, fsfcd0, fsfcdc, suvbfc, suvbf0
+     &       fsfcu0, fsfcuc, fsfcd0, fsfcdc, suvbfc, suvbf0, delgth
 
 !  ---  column amount of absorbing gases:
 !       (:,m) m = 1-h2o, 2-co2, 3-o3, 4-n2o, 5-ch4, 6-o2, 7-co
@@ -930,7 +935,8 @@
             kk = nlp1 - k
             pavel(k) = plyr(j1,kk)
             tavel(k) = tlyr(j1,kk)
-            delp (k) = plvl(j1,kk+1) - plvl(j1,kk)
+            delp (k) = delpin(j1,kk)
+            dz   (k) = dzlyr (j1,kk)
 !> -# Set absorber and gas column amount, convert from volume mixing
 !!    ratio to molec/cm2 based on coldry (scaled to 1.0e-20)
 !!    - colamt(nlay,maxgas):column amounts of absorbing gases 1 to
@@ -1018,7 +1024,8 @@
           do k = 1, nlay
             pavel(k) = plyr(j1,k)
             tavel(k) = tlyr(j1,k)
-            delp (k) = plvl(j1,k) - plvl(j1,k+1)
+            delp (k) = delpin(j1,k)
+            dz   (k) = dzlyr (j1,k)
 
 !  --- ...  set absorber amount
 !test use
@@ -1123,9 +1130,9 @@
             endif
           enddo
           zcf0 = zcf0 * zcf1
-        else if (iovrsw == 2) then               ! maximum overlapping
+        else if (iovrsw >= 2) then
           do k = 1, nlay
-            zcf0 = min ( zcf0, f_one-cfrac(k) )
+            zcf0 = min ( zcf0, f_one-cfrac(k) )  ! used only as clear/cloudy indicator
           enddo
         endif
 
@@ -1141,7 +1148,7 @@
           call cldprop                                                  &
 !  ---  inputs:
      &     ( cfrac,cliqp,reliq,cicep,reice,cdat1,cdat2,cdat3,cdat4,     &
-     &       zcf1, nlay, ipseed(j1),                                    &
+     &       zcf1, nlay, ipseed(j1), dz, delgth,                        &
 !  ---  outputs:
      &       taucw, ssacw, asycw, cldfrc, cldfmc                        &
      &     )
@@ -1572,7 +1579,7 @@
 !-----------------------------------
       subroutine cldprop                                                &
      &     ( cfrac,cliqp,reliq,cicep,reice,cdat1,cdat2,cdat3,cdat4,     &   !  ---  inputs
-     &       cf1, nlay, ipseed,                                         &
+     &       cf1, nlay, ipseed, dz, delgth,                             &
      &       taucw, ssacw, asycw, cldfrc, cldfmc                        &   !  ---  output
      &     )
 
@@ -1609,6 +1616,8 @@
 !    cf1   - real, effective total cloud cover at surface           1   !
 !    nlay  - integer, vertical layer number                         1   !
 !    ipseed- permutation seed for generating random numbers (isubcsw>0) !
+!    dz    - real, layer thickness (km)                            nlay !
+!    delgth- real, layer cloud decorrelation length (km)            1   !
 !                                                                       !
 !  outputs:                                                             !
 !    taucw  - real, cloud optical depth, w/o delta scaled    nlay*nbdsw !
@@ -1655,10 +1664,10 @@
 
 !  ---  inputs:
       integer, intent(in) :: nlay, ipseed
-      real (kind=kind_phys), intent(in) :: cf1
+      real (kind=kind_phys), intent(in) :: cf1, delgth
 
       real (kind=kind_phys), dimension(nlay), intent(in) :: cliqp,      &
-     &       reliq, cicep, reice, cdat1, cdat2, cdat3, cdat4, cfrac
+     &       reliq, cicep, reice, cdat1, cdat2, cdat3, cdat4, cfrac, dz
 
 !  ---  outputs:
       real (kind=kind_phys), dimension(nlay,ngptsw), intent(out) ::     &
@@ -1896,7 +1905,7 @@
 
         call mcica_subcol                                               &
 !  ---  inputs:
-     &     ( cldf, nlay, ipseed,                                        &
+     &     ( cldf, nlay, ipseed, dz, delgth,                            &
 !  ---  outputs:
      &       lcloudy                                                    &
      &     )
@@ -1932,7 +1941,7 @@
 !!\param lcloudy     sub-colum cloud profile flag array
 ! ----------------------------------
       subroutine mcica_subcol                                           &
-     &    ( cldf, nlay, ipseed,                                         &       !  ---  inputs
+     &    ( cldf, nlay, ipseed, dz, de_lgth,                            &       !  ---  inputs
      &      lcloudy                                                     &       !  ---  outputs
      &    )
 
@@ -1945,6 +1954,8 @@
 !    ** note : if the cloud generator is called multiple times, need    !
 !              to permute the seed between each call; if between calls  !
 !              for lw and sw, use values differ by the number of g-pts. !
+!    dz    - real, layer thickness (km)                            nlay !
+!    de_lgth-real, layer cloud decorrelation length (km)            1   !
 !                                                                       !
 !  output variables:                                                    !
 !   lcloudy - logical, sub-colum cloud profile flag array    nlay*ngptsw!
@@ -1961,14 +1972,16 @@
 !  ---  inputs:
       integer, intent(in) :: nlay, ipseed
 
-      real (kind=kind_phys), dimension(nlay), intent(in) :: cldf
+      real (kind=kind_phys), dimension(nlay), intent(in) :: cldf, dz
+      real (kind=kind_phys), intent(in) :: de_lgth
 
 !  ---  outputs:
       logical, dimension(nlay,ngptsw), intent(out):: lcloudy
 
 !  ---  locals:
       real (kind=kind_phys) :: cdfunc(nlay,ngptsw), tem1,               &
-     &       rand2d(nlay*ngptsw), rand1d(ngptsw)
+     &       rand2d(nlay*ngptsw), rand1d(ngptsw), fac_lcf(nlay),        &
+     &       cdfun2(nlay,ngptsw)
 
       type (random_stat) :: stat          ! for thread safe random generator
 
@@ -2070,6 +2083,51 @@
               cdfunc(k,n) = tem1
             enddo
           enddo
+
+        case( 3 )        ! decorrelation length overlap
+
+          !  ---  compute overlapping factors based on layer midpoint distances
+          !       and decorrelation depths
+          
+                    do k = nlay, 2, -1
+                      fac_lcf(k) = exp( -0.5 * (dz(k)+dz(k-1)) / de_lgth )
+                    enddo
+          
+          !  ---  setup 2 sets of random numbers
+          
+                    call random_number ( rand2d, stat )
+          
+                    k1 = 0
+                    do n = 1, ngptsw
+                      do k = 1, nlay
+                        k1 = k1 + 1
+                        cdfunc(k,n) = rand2d(k1)
+                      enddo
+                    enddo
+          
+                    call random_number ( rand2d, stat )
+          
+                    k1 = 0
+                    do n = 1, ngptsw
+                      do k = 1, nlay
+                        k1 = k1 + 1
+                        cdfun2(k,n) = rand2d(k1)
+                      enddo
+                    enddo
+          
+          !  ---  then working from the top down:
+          !       if a random number (from an independent set -cdfun2) is smaller then the
+          !       scale factor: use the upper layer's number,  otherwise use a new random
+          !       number (keep the original assigned one).
+          
+                    do n = 1, ngptsw
+                      do k = nlay-1, 1, -1
+                        k1 = k + 1
+                        if ( cdfun2(k,n) <= fac_lcf(k1) ) then
+                             cdfunc(k,n) = cdfunc(k1,n)
+                        endif
+                      enddo
+                    enddo
 
       end select
 

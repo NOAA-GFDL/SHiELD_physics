@@ -309,6 +309,7 @@
       use physcons,                  only: eps   => con_eps,            &
      &                                     epsm1 => con_epsm1,          &
      &                                     fvirt => con_fvirt           &
+     &,                                    rog   => con_rog             &
      &,                                    rocp  => con_rocp
       use funcphys,                  only: fpvs
 
@@ -1212,7 +1213,7 @@
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP) :: &
            htswc, htlwc, gcice, grain, grime, htsw0, htlw0, plyr, tlyr,    &
            qlyr, olyr, rhly, tvly,qstl, vvel, clw, ciw, prslk1, tem2da,    &
-           tem2db, cldcov, deltaq, cnvc, cnvw, qa, tau067, tau110
+           dz,delp,tem2db, cldcov, deltaq, cnvc, cnvw, qa, tau067, tau110
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+1+LTP) :: plvl, tlvl
 
@@ -1391,7 +1392,8 @@
         do i = 1, IM
           tem1d (i)   = QME6
           tem2da(i,1) = log( plyr(i,1) )
-          tem2db(i,1) = 1.0
+          tem2db(i,1) = log( max(prsmin, plvl(i,1)) )
+          tem2db(i,LMP) = log( plvl(i,LMP) )
           tsfa  (i)   = tlyr(i,LMK)                  ! sfc layer air temp
           tlvl(i,1)   = tlyr(i,1)
           tlvl(i,LMP) = tskn(i)
@@ -1403,6 +1405,7 @@
             qlyr(i,k1) = max( tem1d(i), Statein%qgrs(i,k,1) )
             tem1d(i)   = min( QME5, qlyr(i,k1) )
             tvly(i,k1) = Statein%tgrs(i,k) * (1.0 + fvirt*qlyr(i,k1)) ! virtual T (K)
+            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
           enddo
         enddo
 
@@ -1410,6 +1413,7 @@
           do i = 1, IM
             qlyr(i,lyb) = qlyr(i,lya)
             tvly(i,lyb) = tvly(i,lya)
+            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
           enddo
         endif
 
@@ -1421,12 +1425,22 @@
           enddo
         enddo
 
+!  ---  ...  level height and layer thickness (km)
+
+        tem0d = 0.001 * rog
+        do i = 1, IM
+          do k = 1, LMK
+            dz(i,k) = tem0d * (tem2db(i,k+1) - tem2db(i,k)) * tvly(i,k)
+          enddo
+        enddo
+
       else                               ! input data from sfc to toa
 
         do i = 1, IM
           tem1d (i)   = QME6
           tem2da(i,1) = log( plyr(i,1) )
           tem2db(i,1) = log( plvl(i,1) )
+          tem2db(i,LMP) = log( max(prsmin, plvl(i,LMP)) )
           tsfa  (i)   = tlyr(i,1)                    ! sfc layer air temp
           tlvl(i,1)   = tskn(i)
           tlvl(i,LMP) = tlyr(i,LMK)
@@ -1437,6 +1451,7 @@
             qlyr(i,k) = max( tem1d(i), Statein%qgrs(i,k,1) )
             tem1d(i)  = min( QME5, qlyr(i,k) )
             tvly(i,k) = Statein%tgrs(i,k) * (1.0 + fvirt*qlyr(i,k)) ! virtual T (K)
+            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
           enddo
         enddo
 
@@ -1444,6 +1459,7 @@
           do i = 1, IM
             qlyr(i,lyb) = qlyr(i,lya)
             tvly(i,lyb) = tvly(i,lya)
+            delp(i,lyb) = plvl(i,lla) - plvl(i,llb)
           enddo
         endif
 
@@ -1454,6 +1470,15 @@
      &                  / (tem2da(i,k+1) - tem2da(i,k))
           enddo
         enddo
+
+!  ---  ...  level height and layer thickness (km)
+
+        tem0d = 0.001 * rog
+        do i = 1, IM
+          do k = LMK, 1, -1
+            dz(i,k) = tem0d * (tem2db(i,k) - tem2db(i,k+1)) * tvly(i,k)
+          enddo
+        enddo  
 
       endif                              ! end_if_ivflip
 
@@ -1589,7 +1614,7 @@
                          clw, Grid%xlat, Grid%xlon, Sfcprop%slmsk,&
                          tracer1(:,1:lmk,Model%ntclamt), im, lmk, &
                          lmp,                                     &
-                         clouds, cldsa, mtopa, mbota)                  !  ---  outputs
+                         clouds, cldsa, mtopa, mbota, de_lgth)         !  ---  outputs
 
         elseif (icmphys == 5) then           ! zhao/moorthi's prognostic cloud scheme + pdf cloud & cnvc and cnvw
 
@@ -1685,14 +1710,16 @@
           if (Model%swhtr) then
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs
                         gasvmr, clouds, Tbd%icsdsw, faersw,     &
-                        sfcalb, Radtend%coszen, Model%solcon,   &
+                        sfcalb, dz, delp, de_lgth,              & 
+                        Radtend%coszen, Model%solcon,           &
                         nday, idxday, im, lmk, lmp, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs
                         hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)      ! ---  optional
           else
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs 
                         gasvmr, clouds, Tbd%icsdsw, faersw,     &
-                        sfcalb, Radtend%coszen, Model%solcon,   &
+                        sfcalb, dz, delp, de_lgth,              & 
+                        Radtend%coszen, Model%solcon,           &
                         nday, idxday, IM, LMK, LMP, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs 
                         FDNCMP=scmpsw, tau067=tau067)                  ! ---  optional 
