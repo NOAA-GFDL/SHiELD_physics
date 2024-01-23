@@ -2682,352 +2682,368 @@ module FV3GFS_io_mod
 
   end subroutine phys_restart_write
 
-  subroutine register_diag_manager_controlled_diagnostics(Time, Sfcprop, IntDiag, nblks, axes)
+  subroutine register_diag_manager_controlled_diagnostics(Time, Sfcprop, IntDiag, Model, nblks, axes)
     type(time_type), intent(in) :: Time
     type(Gfs_sfcprop_type), intent(in) :: Sfcprop(:)
     type(GFS_diag_type), intent(in) :: IntDiag(:)
+    type(IPD_control_type), intent(in) :: Model
     integer, intent(in) :: nblks
     integer, intent(in) :: axes(4)
 
     integer :: nb
     integer :: index = 1
 
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,1)
-    enddo
+    if (Model%ldiag3d) then
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,1)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,2)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,2)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_turbulence'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to turbulence scheme'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,3)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_turbulence'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to turbulence scheme'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,3)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_deep_convection'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to deep convection'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,4)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_deep_convection'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to deep convection'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,4)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shallow_convection'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shallow convection'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,5)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shallow_convection'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shallow convection'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,5)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_microphysics'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to micro-physics'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,6)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_microphysics'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to micro-physics'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,6)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_dissipation_of_gravity_waves'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to gravity wave drag'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,7)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_dissipation_of_gravity_waves'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to gravity wave drag'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,7)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to clear sky longwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,8)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to clear sky longwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,8)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky'
-    Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to clear sky shortwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'K/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,9)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky'
+      Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to clear sky shortwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'K/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%t_dt(:,:,9)
+      enddo
 
-  ! Vertically integrated instantaneous temperature tendency diagnostics
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_longwave_heating'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to longwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,1)
-    enddo
+   ! Vertically integrated instantaneous temperature tendency diagnostics
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_longwave_heating'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to longwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,1)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shortwave_heating'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to shortwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,2)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shortwave_heating'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to shortwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,2)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_turbulence'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to turbulence scheme'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,3)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_turbulence'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to turbulence scheme'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,3)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_deep_convection'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to deep convection'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,4)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_deep_convection'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to deep convection'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,4)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shallow_convection'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to shallow convection'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,5)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shallow_convection'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to shallow convection'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,5)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_microphysics'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to micro-physics'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,6)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_microphysics'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to micro-physics'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,6)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_dissipation_of_gravity_waves'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to gravity wave drag'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,7)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_dissipation_of_gravity_waves'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to gravity wave drag'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,7)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to clear sky longwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,8)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to clear sky longwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,8)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to clear sky shortwave radiation'
-    Diag_diag_manager_controlled(index)%unit = 'W/m**2'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,9)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated temperature tendency due to clear sky shortwave radiation'
+      Diag_diag_manager_controlled(index)%unit = 'W/m**2'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%t_dt_int(:,9)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_turbulence'
-    Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to turbulence scheme'
-    Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,1)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_turbulence'
+      Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to turbulence scheme'
+      Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,1)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_deep_convection'
-    Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to deep convection'
-    Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,2)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_deep_convection'
+      Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to deep convection'
+      Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,2)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_shallow_convection'
-    Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to shallow convection'
-    Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,3)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_shallow_convection'
+      Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to shallow convection'
+      Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,3)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_microphysics'
-    Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to microphysics'
-    Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,4)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_microphysics'
+      Diag_diag_manager_controlled(index)%desc = 'water vapor tendency due to microphysics'
+      Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,4)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 3
-    Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_change_in_atmosphere_mass'
-    Diag_diag_manager_controlled(index)%desc = 'residual water vapor tendency'
-    Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,5)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'tendency_of_specific_humidity_due_to_change_in_atmosphere_mass'
+      Diag_diag_manager_controlled(index)%desc = 'residual water vapor tendency'
+      Diag_diag_manager_controlled(index)%unit = 'kg/kg/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'mass_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%q_dt(:,:,5)
+      enddo
 
-    ! Vertically integrated instantaneous specific humidity tendency diagnostics
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_turbulence'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to turbulence scheme'
-    Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,1)
-    enddo
+      ! Vertically integrated instantaneous specific humidity tendency diagnostics
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_turbulence'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to turbulence scheme'
+      Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,1)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_deep_convection'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to deep convection'
-    Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,2)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_deep_convection'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to deep convection'
+      Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,2)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_shallow_convection'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to shallow convection'
-    Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,3)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_shallow_convection'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to shallow convection'
+      Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,3)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_microphysics'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to microphysics'
-    Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,4)
-    enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_microphysics'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated water vapor tendency due to microphysics'
+      Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,4)
+      enddo
 
-    index = index + 1
-    Diag_diag_manager_controlled(index)%axes = 2
-    Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_change_in_atmosphere_mass'
-    Diag_diag_manager_controlled(index)%desc = 'vertically integrated residual water vapor tendency'
-    Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
-    Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
-    Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
-    allocate (Diag_diag_manager_controlled(index)%data(nblks))
-    do nb = 1,nblks
-      Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,5)
-   enddo
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 2
+      Diag_diag_manager_controlled(index)%name = 'vertically_integrated_tendency_of_specific_humidity_due_to_change_in_atmosphere_mass'
+      Diag_diag_manager_controlled(index)%desc = 'vertically integrated residual water vapor tendency'
+      Diag_diag_manager_controlled(index)%unit = 'kg/m**2/s'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = 'area_weighted'
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%q_dt_int(:,5)
+      enddo
+
+      index = index + 1
+      Diag_diag_manager_controlled(index)%axes = 3
+      Diag_diag_manager_controlled(index)%name = 'co2'
+      Diag_diag_manager_controlled(index)%desc = 'carbon dioxide concentration'
+      Diag_diag_manager_controlled(index)%unit = 'volume mixing ratio'
+      Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+      Diag_diag_manager_controlled(index)%coarse_graining_method = AREA_WEIGHTED
+      allocate (Diag_diag_manager_controlled(index)%data(nblks))
+      do nb = 1,nblks
+         Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%co2(:,:)
+      enddo
+
+   endif
 
    index = index + 1
    Diag_diag_manager_controlled(index)%axes = 2
@@ -3114,21 +3130,16 @@ module FV3GFS_io_mod
 !    13+NFXR - radiation
 !    76+pl_coeff - physics
 !-------------------------------------------------------------------------
-  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Cldprop, &
-                                Atm_block, axes, NFXR, ldiag3d, nkld, levs, override_surface_radiative_fluxes)
+  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Model, Cldprop, Atm_block, axes)
     use physcons,  only: con_g
 !--- subroutine interface variable definitions
     type(time_type),           intent(in) :: Time
     type(Gfs_sfcprop_type),    intent(in) :: Sfcprop(:)
     type(GFS_diag_type),       intent(in) :: Gfs_diag(:)
+    type(IPD_control_type),    intent(in) :: Model
     type(GFS_cldprop_type),    intent(in) :: Cldprop(:)
     type (block_control_type), intent(in) :: Atm_block
     integer, dimension(4),     intent(in) :: axes
-    integer,                   intent(in) :: NFXR
-    logical,                   intent(in) :: ldiag3d
-    integer,                   intent(in) :: nkld
-    integer,                   intent(in) :: levs
-    logical,                   intent(in) :: override_surface_radiative_fluxes
 !--- local variables
     integer :: idx, num, nb, nblks, nx, ny, k
     integer, allocatable :: blksz(:)
@@ -3146,7 +3157,7 @@ module FV3GFS_io_mod
     ieco   = Atm_block%iec
     jsco   = Atm_block%jsc
     jeco   = Atm_block%jec
-    levo   = levs
+    levo   = Model%levs
 
     Diag(:)%id = -99
     Diag(:)%axes = -99
@@ -3688,7 +3699,7 @@ module FV3GFS_io_mod
     enddo
 
 !--- accumulated diagnostics ---
-    do num = 1,NFXR
+    do num = 1,Model%nfxr
       write (xtra,'(I2.2)') num
       idx = idx + 1
       Diag(idx)%axes = 2
@@ -3703,7 +3714,7 @@ module FV3GFS_io_mod
     enddo
 
 !--- averaged diagnostics ---
-    do num = 1,nkld
+    do num = 1,Model%nkld
       write (xtra,'(I2.2)') num
       idx = idx + 1
       Diag(idx)%axes = 3
@@ -4041,7 +4052,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_override(:)
       enddo
@@ -4063,7 +4074,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_override(:)
       enddo
@@ -4085,7 +4096,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_override(:)
       enddo
@@ -4736,7 +4747,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfci_override(:)
       enddo
@@ -4768,7 +4779,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfci_override(:)
       enddo
@@ -4788,7 +4799,7 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     ! This diagnostic is always meant to refer to what the model felt, so it
     ! refers to the override flux when overriding and the RRTMG flux when not.
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci_override(:)
       enddo
@@ -4798,7 +4809,7 @@ module FV3GFS_io_mod
       enddo
     endif
 
-    if (override_surface_radiative_fluxes) then
+    if (Model%override_surface_radiative_fluxes) then
       idx = idx + 1
       Diag(idx)%axes = 2
       Diag(idx)%name = 'DLWRF_from_rrtmg'
@@ -6312,7 +6323,7 @@ module FV3GFS_io_mod
 !    enddo
 !
 !--- three-dimensional variables that need to be handled special when writing
-    if (ldiag3d) then
+    if (Model%ldiag3d) then
 
     do num = 1,6
       write (xtra,'(I1)') num
