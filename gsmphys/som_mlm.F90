@@ -77,7 +77,8 @@
                                                               ! climatological SST plus initial anomaly
       logical               :: use_tvar_restore_sst  = .false.! using time varying restoring time scale for sst
       logical               :: use_tvar_restore_mld  = .false.! using time varying restoring time scale for mld
-      real(kind=kind_phys)  :: maxlat = 60.                   ! maximum latitudinal extent of the SOM/MLM; for most physical results, set <= 60.0
+      real(kind=kind_phys)  :: maxlat = 60.                   ! maximum latitudinal extent of the SOM/MLM; generally set to be <= 60, though
+                                                              ! can be useful to set to 90 in some circumstances
 
       namelist /ocean_nml/   &
        ocean_option, mld_option, mld_obs_ratio, stress_ratio, restore_method,  &
