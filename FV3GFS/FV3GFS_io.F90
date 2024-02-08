@@ -3095,6 +3095,18 @@ module FV3GFS_io_mod
 
    index = index + 1
    Diag_diag_manager_controlled(index)%axes = 2
+   Diag_diag_manager_controlled(index)%name = 'prescribed_mixed_layer_depth'
+   Diag_diag_manager_controlled(index)%desc = 'prescribed ocean mixed layer depth'
+   Diag_diag_manager_controlled(index)%unit = 'm'
+   Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+   Diag_diag_manager_controlled(index)%coarse_graining_method = AREA_WEIGHTED
+   allocate (Diag_diag_manager_controlled(index)%data(nblks))
+   do nb = 1,nblks
+     Diag_diag_manager_controlled(index)%data(nb)%var2 => Sfcprop(nb)%mldclim(:)
+   enddo
+
+   index = index + 1
+   Diag_diag_manager_controlled(index)%axes = 2
    Diag_diag_manager_controlled(index)%name = 'prescribed_qflux'
    Diag_diag_manager_controlled(index)%desc = 'prescribed ocean Q-flux'
    Diag_diag_manager_controlled(index)%unit = 'W/m**2'

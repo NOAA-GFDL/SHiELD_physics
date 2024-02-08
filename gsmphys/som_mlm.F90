@@ -296,6 +296,27 @@
         enddo
        endif
       endif
+
+      ! Reset the slab ocean temperature or mixed layer ocean properties in
+      ! any non-ocean grid cells.  This is required in the (rare) instances
+      ! when one is running with the SOM/MLM with a latitudinal extent such
+      ! that grid cells transition from ocean to sea ice and back.
+      where (islmsk .ne. 0)
+       ts_som = tsfc
+      endwhere
+
+      if (ocean_option == "MLM") then
+       where(islmsk .ne. 0)
+        tml = tsfc
+        tml0 = tsfc
+        mld = mldclim
+        mld0 = mld
+        huml = 0.
+        hvml = 0.
+        tmoml = tsfc - 5.
+        tmoml0 = tmoml
+       endwhere
+      endif
 !
       if (use_rain_flux) then
        do i=1,im
