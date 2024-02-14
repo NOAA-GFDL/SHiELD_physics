@@ -26,6 +26,7 @@
       module module_ocean                !
 !........................................!
 !
+      use physcons,          only: con_tice
       use physparam,         only : kind_phys
       use GFS_typedefs,      only : GFS_control_type, GFS_grid_type
 !      use constants_mod,     only : omega, grav
@@ -298,22 +299,22 @@
       endif
 
       ! Reset the slab ocean temperature or mixed layer ocean properties in
-      ! any non-ocean grid cells.  This is required in the (rare) instances
+      ! any sea ice grid cells.  This is required in the (rare) instances
       ! when one is running with the SOM/MLM with a latitudinal extent such
       ! that grid cells transition from ocean to sea ice and back.
-      where (islmsk .ne. 0)
-       ts_som = tsfc
+      where (islmsk .eq. 2)
+       ts_som = con_tice
       endwhere
 
       if (ocean_option == "MLM") then
-       where(islmsk .ne. 0)
-        tml = tsfc
-        tml0 = tsfc
+       where(islmsk .eq. 2)
+        tml = con_tice
+        tml0 = con_tice
         mld = mldclim
         mld0 = mld
         huml = 0.
         hvml = 0.
-        tmoml = tsfc - 5.
+        tmoml = con_tice - 5.
         tmoml0 = tmoml
        endwhere
       endif
