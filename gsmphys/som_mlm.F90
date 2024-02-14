@@ -26,7 +26,7 @@
       module module_ocean                !
 !........................................!
 !
-      use physcons,          only: con_tice
+      use physcons,          only : con_tice
       use physparam,         only : kind_phys
       use GFS_typedefs,      only : GFS_control_type, GFS_grid_type
 !      use constants_mod,     only : omega, grav
