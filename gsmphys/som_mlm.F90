@@ -78,8 +78,13 @@
                                                               ! climatological SST plus initial anomaly
       logical               :: use_tvar_restore_sst  = .false.! using time varying restoring time scale for sst
       logical               :: use_tvar_restore_mld  = .false.! using time varying restoring time scale for mld
-      real(kind=kind_phys)  :: maxlat = 60.                   ! maximum latitudinal extent of the SOM/MLM; generally set to be <= 60, though
-                                                              ! can be useful to set to 90 in some circumstances
+      real(kind=kind_phys)  :: maxlat = 60.                   ! maximum latitudinal extent of the SOM/MLM. Generally set to <= 60, though
+                                                              ! it can be useful to set to > 60 if the desired start_lat and end_lat are
+                                                              ! poleward of 60 degrees. If set to > 60, it is recommended to also set
+                                                              ! gfs_physics_nml.disable_radiation_quasi_sea_ice to .true. to prevent
+                                                              ! an unphysical quasi-ice-albedo feedback from occuring. Set to 90 along
+                                                              ! with ocean_nml.start_lat = -90 and ocean_nml.end_lat = 90 to enable
+                                                              ! running with a global slab ocean.
 
       namelist /ocean_nml/   &
        ocean_option, mld_option, mld_obs_ratio, stress_ratio, restore_method,  &
