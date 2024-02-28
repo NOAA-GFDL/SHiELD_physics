@@ -2,7 +2,8 @@
       subroutine rad_initialize                                         &
 !...................................
 !  ---  inputs:
-     &     ( si,levr,ictm,isol,ico2,iaer,ialb,iems,ntcw, num_p2d,       &
+     &     ( si,levr,ictm,isol,ico2,iaer,ialb,                          &
+     &       disable_radiation_quasi_sea_ice,iems,ntcw, num_p2d,        &
      &       num_p3d,npdf3d,ntoz,iovr_sw,iovr_lw,isubc_sw,isubc_lw,     &
      &       crick_proof,ccnorm,norad_precip,                           &
      &       idate,iflip,me )
@@ -107,7 +108,7 @@
      &             iaermdl, laswflg, lalwflg, lavoflg, icldflg, icmphys,&
      &             iovrsw , iovrlw , lcrick , lcnorm , lnoprec,         &
      &             ialbflg, iemsflg, isubcsw, isubclw, ivflip , ipsd0,  &
-     &             kind_phys
+     &             kind_phys, ldisable_radiation_quasi_sea_ice
 
       use module_radiation_driver, only : radinit
 !
@@ -120,8 +121,8 @@
 
       real (kind=kind_phys), intent(in) :: si(levr+1)
 
-      logical, intent(in) :: crick_proof, ccnorm, norad_precip
-
+      logical, intent(in) :: crick_proof, ccnorm, norad_precip,         &
+     &                       disable_radiation_quasi_sea_ice
 !  ---  output: ( none )
 
 !  ---  local:
@@ -184,6 +185,7 @@
       isubclw = isubc_lw                ! sub-column cloud approx flag in lw radiation
 
       ialbflg= ialb                     ! surface albedo control flag
+      ldisable_radiation_quasi_sea_ice = disable_radiation_quasi_sea_ice  ! flag to disable treating below freezing ocean grid cells as sea ice
       iemsflg= iems                     ! surface emissivity control flag
 
       ivflip = iflip                    ! vertical index direction control flag
@@ -198,7 +200,10 @@
         print *,'  In rad_initialize, before calling radinit'
         print *,' si =',si
         print *,' levr=',levr,' ictm=',ictm,' isol=',isol,' ico2=',ico2,&
-     &          ' iaer=',iaer,' ialb=',ialb,' iems=',iems,' ntcw=',ntcw
+     &   ' iaer=',iaer,' ialb=',ialb,                                   &
+     &   ' disable_radiation_quasi_sea_ice=',                           & 
+     &   disable_radiation_quasi_sea_ice,                               &
+     &   ' iems=',iems,' ntcw=',ntcw
         print *,' np3d=',num_p3d,' ntoz=',ntoz,' iovr_sw=',iovr_sw,     &
      &          ' iovr_lw=',iovr_lw,' isubc_sw=',isubc_sw,              &
      &          ' isubc_lw=',isubc_lw,' iflip=',iflip,'  me=',me

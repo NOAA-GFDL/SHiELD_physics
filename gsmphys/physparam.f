@@ -270,7 +270,10 @@
 !> surface albedo scheme control flag
 !!\n =0:vegetation type based climatological albedo scheme
 !!\n =1:seasonal albedo derived from MODIS measurements
-      integer, save :: ialbflg = 0      
+      integer, save :: ialbflg = 0
+!> flag to disable radiation code treating ocean grid cells with
+!!\n temperature below freezing as sea ice
+      logical, save :: ldisable_radiation_quasi_sea_ice = .false.
 !> surface emissivity scheme control flag
 !!\n =0:black-body surface emissivity(=1.0)
 !!\n =1:vegetation type based climatology emissivity(<1.0)

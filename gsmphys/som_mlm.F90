@@ -26,6 +26,7 @@
       module module_ocean                !
 !........................................!
 !
+      use physcons,          only : con_tice
       use physparam,         only : kind_phys
       use GFS_typedefs,      only : GFS_control_type, GFS_grid_type
 !      use constants_mod,     only : omega, grav
@@ -35,9 +36,8 @@
 
       public  ocean_init, update_ocean
 !
-      real (kind=kind_phys)   :: maxlat, width_buffer, minmld,  &
+      real (kind=kind_phys)   :: width_buffer, minmld,  &
                                  cpwater, rhowater, omega, grav
-      parameter(maxlat       = 60.)  ! determine the maximum latitude band for SOM/MLM
       parameter(minmld       = 10.)  ! minimum mixed layer depth
       parameter(width_buffer = 15.)  ! the width of a buffer band where SST is determined by both SOM/MLM
                                      ! and climatology (or climatology plus initial anomaly)
@@ -66,8 +66,8 @@
       real(kind=kind_phys)  :: eps_day            = 10.       ! damping time scale of ocean current (days)
       real(kind=kind_phys)  :: sst_restore_tscale = 3.        ! restoring time scale for sst (day)
       real(kind=kind_phys)  :: mld_restore_tscale = 1.        ! restoring time scale for mld (day)
-      real(kind=kind_phys)  :: start_lat          = -30.      ! latitude starting from? Note that this value should not be smaller than -60.
-      real(kind=kind_phys)  :: end_lat            = 30.       ! latitude ending with? Note that this value should not be bigger than 60.
+      real(kind=kind_phys)  :: start_lat          = -30.      ! latitude starting from? Note that this value should not be smaller than -maxlat.
+      real(kind=kind_phys)  :: end_lat            = 30.       ! latitude ending with? Note that this value should not be bigger than maxlat.
       real(kind=kind_phys)  :: tday1              = 3.        !
       real(kind=kind_phys)  :: tday2              = 10.       !
       real(kind=kind_phys)  :: sst_restore_tscale1= 3.        ! restoring time scale for sst during the period from 1 to tday1
@@ -78,13 +78,20 @@
                                                               ! climatological SST plus initial anomaly
       logical               :: use_tvar_restore_sst  = .false.! using time varying restoring time scale for sst
       logical               :: use_tvar_restore_mld  = .false.! using time varying restoring time scale for mld
+      real(kind=kind_phys)  :: maxlat = 60.                   ! maximum latitudinal extent of the SOM/MLM. Generally set to <= 60, though
+                                                              ! it can be useful to set to > 60 if the desired start_lat and end_lat are
+                                                              ! poleward of 60 degrees. If set to > 60, it is recommended to also set
+                                                              ! gfs_physics_nml.disable_radiation_quasi_sea_ice to .true. to prevent
+                                                              ! an unphysical quasi-ice-albedo feedback from occurring. Set to 90 along
+                                                              ! with ocean_nml.start_lat = -90 and ocean_nml.end_lat = 90 to enable
+                                                              ! running with a global interactive ocean.
 
       namelist /ocean_nml/   &
        ocean_option, mld_option, mld_obs_ratio, stress_ratio, restore_method,  &
        use_old_mlm, use_rain_flux, use_qflux, do_mld_restore, const_mld, Gam,  &
        eps_day, sst_restore_tscale, mld_restore_tscale, start_lat, end_lat,    &
        tday1, tday2, sst_restore_tscale1, sst_restore_tscale2, mld_restore_tscale1, &
-       mld_restore_tscale2, use_tvar_restore_sst, use_tvar_restore_mld
+       mld_restore_tscale2, use_tvar_restore_sst, use_tvar_restore_mld, maxlat
 
 ! =================
       contains
@@ -149,11 +156,11 @@
 #endif
 
       if (start_lat < -maxlat) then
-       write(*,*) 'start_lat should not be smaller than -60.'
+       write(*,*) 'start_lat should not be smaller than', -maxlat
        call abort
       endif
       if (end_lat > maxlat) then
-       write(*,*) 'end_lat should not be larger than 60.'
+       write(*,*) 'end_lat should not be larger than', maxlat
        call abort
       endif
 
@@ -294,6 +301,27 @@
         tmoml0(i)=tmoml(i)
         enddo
        endif
+      endif
+
+      ! Reset the slab ocean temperature or mixed layer ocean properties in
+      ! any sea ice grid cells.  This is required in the (rare) instances
+      ! when one is running with the SOM/MLM with a latitudinal extent such
+      ! that grid cells transition from ocean to sea ice and back.
+      where (islmsk .eq. 2)
+       ts_som = con_tice
+      endwhere
+
+      if (ocean_option == "MLM") then
+       where(islmsk .eq. 2)
+        tml = con_tice
+        tml0 = con_tice
+        mld = mldclim
+        mld0 = mld
+        huml = 0.
+        hvml = 0.
+        tmoml = con_tice - 5.
+        tmoml0 = tmoml
+       endwhere
       endif
 !
       if (use_rain_flux) then

@@ -85,7 +85,8 @@
 !........................................!
 !
       use physparam,         only : ialbflg, iemsflg, semis_file,       &
-     &                              kind_phys
+     &                              kind_phys,                          &
+     &                              ldisable_radiation_quasi_sea_ice
       use physcons,          only : con_t0c, con_ttp, con_pi, con_tice
       use module_iounitdef,  only : NIRADSF
 !
@@ -207,6 +208,21 @@
         stop
       endif    ! end if_ialbflg_block
 
+!! \n physparam::ldisable_radiation_quasi_sea_ice 
+!!  - = .false.: use a sea-ice-like albedo and emissivity for below
+!!      freezing ocean grid cells.
+!!  - = .true.:  treat all ocean grid cells as if they were
+!!      above freezing when determing the albedo and emissivity
+      if ( ldisable_radiation_quasi_sea_ice ) then
+         if ( me == 0 ) then
+            print *, '- Disabling radiation quasi-sea-ice'
+         endif
+      else
+         if ( me == 0 ) then
+            print *, '- Enabling radiation quasi-sea-ice'
+         endif
+      endif
+      
 !> - Initialization of surface emissivity section
 !! \n physparam::iemsflg
 !!  - = 0: fixed SFC emissivity at 1.0
@@ -424,7 +440,13 @@
          argh  = min(0.50, max(.025, 0.01*zorlf(i)))
          hrgh  = min(f_one, max(0.20, 1.0577-1.1538e-3*hprif(i) ) )
          fsno0 = asnow / (argh + asnow) * hrgh
-         if (nint(slmsk(i))==0 .and. tsknf(i)>con_tice) fsno0 = f_zero
+
+         if (nint(slmsk(i))==0 .and.
+     &       (tsknf(i)>con_tice .or.
+     &        ldisable_radiation_quasi_sea_ice)) then
+            fsno0 = f_zero
+         endif
+         
          fsno1 = f_one - fsno0
          flnd0 = min(f_one, facsf(i)+facwf(i))
          fsea0 = max(f_zero, f_one-flnd0)
@@ -434,7 +456,8 @@
 
 !>    - Calculate diffused sea surface albedo
 
-         if (tsknf(i) >= 271.5) then
+         if (tsknf(i) >= 271.5 .or.
+     &       ldisable_radiation_quasi_sea_ice) then
             asevd = 0.06
             asend = 0.06
          elseif (tsknf(i) < 271.1) then
@@ -486,7 +509,8 @@
             rfcs = 2.14 / (f_one + 1.48*coszf(i))
             rfcw = rfcs
 
-            if (tsknf(i) >= con_t0c) then
+            if (tsknf(i) >= con_t0c .or.
+     &          ldisable_radiation_quasi_sea_ice) then
               asevb = max(asevd, 0.026/(coszf(i)**1.7+0.065)            &
      &              + 0.15 * (coszf(i)-0.1) * (coszf(i)-0.5)            &
      &              * (coszf(i)-f_one))
@@ -525,7 +549,11 @@
 
          fsno0 = sncovr(i)
 
-         if (nint(slmsk(i))==0 .and. tsknf(i)>con_tice) fsno0 = f_zero
+         if (nint(slmsk(i))==0 .and.
+     &       (tsknf(i)>con_tice .or.
+     &        ldisable_radiation_quasi_sea_ice)) then
+            fsno0 = f_zero
+         endif
 
          if (nint(slmsk(i)) == 2) then
            asnow = 0.02*snowf(i)
@@ -543,7 +571,8 @@
 
 !>    - Calculate diffused sea surface albedo.
 
-         if (tsknf(i) >= 271.5) then
+         if (tsknf(i) >= 271.5 .or.
+     &       ldisable_radiation_quasi_sea_ice) then
             asevd = 0.06
             asend = 0.06
          elseif (tsknf(i) < 271.1) then
@@ -602,7 +631,8 @@
 !    &           - 2.02*coszf(i)*coszf(i)*coszf(i)
             rfcs = 1.775/(1.0+1.55*coszf(i))      
 
-            if (tsknf(i) >= con_t0c) then
+            if (tsknf(i) >= con_t0c .or.
+     &          ldisable_radiation_quasi_sea_ice) then
               asevb = max(asevd, 0.026/(coszf(i)**1.7+0.065)            &
      &              + 0.15 * (coszf(i)-0.1) * (coszf(i)-0.5)            &
      &              * (coszf(i)-f_one))
@@ -652,7 +682,8 @@
 
 !>    - Calculate diffused sea surface albedo.
 
-         if (tsknf(i) >= 271.5) then
+         if (tsknf(i) >= 271.5 .or.
+     &       ldisable_radiation_quasi_sea_ice) then
             asevd = 0.06
             asend = 0.06
          elseif (tsknf(i) < 271.1) then
@@ -708,7 +739,8 @@
 !    &           - 2.02*coszf(i)*coszf(i)*coszf(i)
             rfcs = 1.775/(1.0+1.55*coszf(i))      
 
-            if (tsknf(i) >= con_t0c) then
+            if (tsknf(i) >= con_t0c .or.
+     &          ldisable_radiation_quasi_sea_ice) then
               asevb = max(asevd, 0.026/(coszf(i)**1.7+0.065)            &
      &              + 0.15 * (coszf(i)-0.1) * (coszf(i)-0.5)            &
      &              * (coszf(i)-f_one))
@@ -930,8 +962,13 @@
               argh  = min(0.50, max(.025, 0.01*zorlf(i)))
               hrgh  = min(f_one, max(0.20, 1.0577-1.1538e-3*hprif(i) ) )
               fsno0 = asnow / (argh + asnow) * hrgh
-              if (nint(slmsk(i)) == 0 .and. tsknf(i) > 271.2)           &
-     &                               fsno0=f_zero
+
+              if (nint(slmsk(i)) == 0 .and.
+     &            (tsknf(i) > 271.2 .or.
+     &             ldisable_radiation_quasi_sea_ice)) then
+                 fsno0=f_zero
+              endif
+              
               fsno1 = f_one - fsno0
               sfcemis(i) = sfcemis(i)*fsno1 + emsref(8)*fsno0
             endif
