@@ -84,7 +84,7 @@
                                                               ! gfs_physics_nml.disable_radiation_quasi_sea_ice to .true. to prevent
                                                               ! an unphysical quasi-ice-albedo feedback from occuring. Set to 90 along
                                                               ! with ocean_nml.start_lat = -90 and ocean_nml.end_lat = 90 to enable
-                                                              ! running with a global slab ocean.
+                                                              ! running with a global interactive ocean.
 
       namelist /ocean_nml/   &
        ocean_option, mld_option, mld_obs_ratio, stress_ratio, restore_method,  &
