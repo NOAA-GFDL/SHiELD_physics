@@ -224,6 +224,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: uustar (:)   => null()  !< boundary layer parameter
     real (kind=kind_phys), pointer :: oro    (:)   => null()  !< orography
     real (kind=kind_phys), pointer :: oro_uf (:)   => null()  !< unfiltered orography
+    real (kind=kind_phys), pointer :: shflx  (:)   => null()  !< sen heat flux (kgao)
+    real (kind=kind_phys), pointer :: lhflx  (:)   => null()  !< latent heat flux (kgao)
 
     !--- IN/out MYJ scheme
     real (kind=kind_phys), pointer :: QZ0    (:) => null()  !< vapor mixing ratio at z=z0
@@ -1219,8 +1221,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: totgrpb(:)    => null()   !< accumulated graupel precipitation in bucket (kg/m2)
 
     ! Output - only in physics
-    real (kind=kind_phys), pointer :: u10m   (:)    => null()   !< 10 meater u/v wind speed
-    real (kind=kind_phys), pointer :: v10m   (:)    => null()   !< 10 meater u/v wind speed
+    real (kind=kind_phys), pointer :: u10m   (:)    => null()   !< 10 meter u/v wind speed
+    real (kind=kind_phys), pointer :: v10m   (:)    => null()   !< 10 meter u/v wind speed
+    real (kind=kind_phys), pointer :: hflx   (:)    => null()   !< sfc temp flux 
+    real (kind=kind_phys), pointer :: evap   (:)    => null()   !< sfc moisture flux
     real (kind=kind_phys), pointer :: dpt2m  (:)    => null()   !< 2 meter dew point temperature
     real (kind=kind_phys), pointer :: zlvl   (:)    => null()   !< layer 1 height (m)
     real (kind=kind_phys), pointer :: psurf  (:)    => null()   !< surface pressure (Pa)
@@ -1561,6 +1565,8 @@ module GFS_typedefs
     allocate (Sfcprop%uustar  (IM))
     allocate (Sfcprop%oro     (IM))
     allocate (Sfcprop%oro_uf  (IM))
+    allocate (Sfcprop%shflx   (IM))
+    allocate (Sfcprop%lhflx   (IM))
 
     Sfcprop%slope   = clear_val
     Sfcprop%shdmin  = clear_val
@@ -1573,6 +1579,8 @@ module GFS_typedefs
     Sfcprop%uustar  = clear_val
     Sfcprop%oro     = clear_val
     Sfcprop%oro_uf  = clear_val
+    Sfcprop%shflx   = clear_val
+    Sfcprop%lhflx   = clear_val
 
     if (Model%myj_pbl) then
        allocate (Sfcprop%QZ0  (IM))
@@ -3770,6 +3778,8 @@ module GFS_typedefs
     allocate (Diag%totgrpb (IM))
     allocate (Diag%u10m    (IM))
     allocate (Diag%v10m    (IM))
+    allocate (Diag%hflx    (IM))
+    allocate (Diag%evap    (IM))
     allocate (Diag%dpt2m   (IM))
     allocate (Diag%zlvl    (IM))
     allocate (Diag%psurf   (IM))
@@ -4037,6 +4047,8 @@ module GFS_typedefs
     !--- Out
     Diag%u10m    = zero
     Diag%v10m    = zero
+    Diag%hflx    = zero
+    Diag%evap    = zero
     Diag%dpt2m   = zero
     Diag%zlvl    = zero
     Diag%psurf   = zero
