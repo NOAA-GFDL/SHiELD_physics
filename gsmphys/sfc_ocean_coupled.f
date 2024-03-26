@@ -1,5 +1,5 @@
 !-----------------------------------
-      subroutine sfc_ocean_gfdl_coupled                                 &
+      subroutine sfc_ocean_coupled                                      &
 !...................................
 !  ---  inputs:
      &     ( im, ps, u1, v1, t1, q1, tskin, cm, ch,                     &
