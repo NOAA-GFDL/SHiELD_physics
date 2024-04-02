@@ -1135,11 +1135,10 @@ module module_physics_driver
          !else
 !!$         endif
 
-            ! kgao - need a logic to ensure sfc_coupld is true when coupled
+            ! kgao - need a logic to ensure sfc_coupled is true when coupled with MOM6
             if (Model%sfc_coupled) then
 ! a version of sfc_diff from coupling with MOM6 by kgao  
-! Sfcprop%uustar,Sfcprop%zorl not updated over ocean points
-! needs to consider ztrl too
+! Sfcprop%uustar,Sfcprop%zorl,Sfcprop%ztrl are not updated over ocean points
             call sfc_diff_coupled(im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
                  Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
@@ -1254,7 +1253,8 @@ module module_physics_driver
 !  --- ...  surface energy balance over ocean
 
           if (Model%sfc_coupled) then
-          ! kgao: this version gets hflx and evap over ocean points
+          ! kgao: this version is for coupling with MOM6, which
+          !       gets hflx and evap over ocean points
           !       based on shflx and lhflx from coupler
           call sfc_ocean_coupled                                        &
 !  ---  inputs:
