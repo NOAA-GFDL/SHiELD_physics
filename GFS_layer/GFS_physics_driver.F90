@@ -1135,7 +1135,23 @@ module module_physics_driver
          !else
 !!$         endif
 
-            if (Model%sfc_gfdl) then
+            ! kgao - need a logic to ensure sfc_coupled is true when coupled with MOM6
+            if (Model%sfc_coupled) then
+! a version of sfc_diff from coupling with MOM6 by kgao  
+! Sfcprop%uustar,Sfcprop%zorl,Sfcprop%ztrl are not updated over ocean points
+            call sfc_diff_coupled(im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
+                 Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
+                 Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
+                 cdq, rb, Statein%prsl(1,1), work3, islmsk, stress, &
+                 Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
+                 wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
+                 sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
+                 tsurf, flag_iter) !, Model%redrag, Model%z0s_max,     &
+                 !Model%do_z0_moon, Model%do_z0_hwrf15,              &
+                 !Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
+                 !Model%wind_th_hwrf)
+
+            else if (Model%sfc_gfdl) then
 ! a new and more flexible version of sfc_diff by kgao
             call sfc_diff_gfdl(im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
@@ -1148,6 +1164,7 @@ module module_physics_driver
                  Model%do_z0_moon, Model%do_z0_hwrf15,              &
                  Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
                  Model%wind_th_hwrf)
+
             else
 ! GFS original sfc_diff modified by kgao 
             call sfc_diff (im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
@@ -1235,13 +1252,29 @@ module module_physics_driver
 
 !  --- ...  surface energy balance over ocean
 
-          call sfc_ocean                                                &
+          if (Model%sfc_coupled) then
+          ! kgao: this version is for coupling with MOM6, which
+          !       gets hflx and evap over ocean points
+          !       based on shflx and lhflx from coupler
+          call sfc_ocean_coupled                                        &
 !  ---  inputs:
            (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &
             Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),     &
             work3, islmsk, Tbd%phy_f2d(1,Model%num_p2d), flag_iter,     &
+            ! kgao: shflx and lhflx from coupler 
+            Sfcprop%shflx, Sfcprop%lhflx,                               &
 !  ---  outputs:
              qss, Diag%cmm, Diag%chh, gflx, evap, hflx, ep1d)
+
+          else
+          call sfc_ocean                                                &  
+!  ---  inputs:         
+           (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &  
+            Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),     &  
+            work3, islmsk, Tbd%phy_f2d(1,Model%num_p2d), flag_iter,     &  
+!  ---  outputs:        
+             qss, Diag%cmm, Diag%chh, gflx, evap, hflx, ep1d)
+          endif
 
         endif       ! if ( nstf_name(1) > 0 ) then
 
@@ -1399,6 +1432,10 @@ module module_physics_driver
       Diag%u1(:)      = Statein%ugrs(:,1)
       Diag%v1(:)      = Statein%vgrs(:,1)
       Sfcprop%qsfc(:) = qss(:)
+        
+      ! KGao
+      Diag%hflx(:) = hflx(:)
+      Diag%evap(:) = evap(:)
 
 !  --- ...  update near surface fields
 
