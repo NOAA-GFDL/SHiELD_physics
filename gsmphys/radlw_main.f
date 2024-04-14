@@ -455,6 +455,7 @@
       subroutine lwrad                                                  &
      &     ( plyr,plvl,tlyr,tlvl,qlyr,olyr,gasvmr,                      &   !  ---  inputs
      &       clouds,icseed,aerosols,sfemis,sfgtmp,                      &
+     &       dzlyr,delpin,de_lgth,                                      &
      &       npts, nlay, nlp1, lprnt,                                   &
      &       hlwc,topflx,sfcflx,                                        &    !  ---  outputs
      &       HLW0,HLWB,FLXPRF,tau110                                    &   !! ---  optional
@@ -509,6 +510,9 @@
 !        (:,:,:,3)     - asymmetry parameter                            !
 !     sfemis (npts)  : surface emissivity                               !
 !     sfgtmp (npts)  : surface ground temperature (k)                   !
+!     dzlyr(npts,nlay) : layer thickness (km)                           !
+!     delpin(npts,nlay): layer pressure thickness (mb)                  !
+!     de_lgth(npts)    : cloud decorrelation length (km)                !
 !     npts           : total number of horizontal points                !
 !     nlay, nlp1     : total number of vertical layers, levels          !
 !     lprnt          : cntl flag for diagnostic print out               !
@@ -640,13 +644,13 @@
       real (kind=kind_phys), dimension(npts,nlp1), intent(in) :: plvl,  &
      &       tlvl
       real (kind=kind_phys), dimension(npts,nlay), intent(in) :: plyr,  &
-     &       tlyr, qlyr, olyr
+     &       tlyr, qlyr, olyr, dzlyr, delpin
 
       real (kind=kind_phys), dimension(npts,nlay,9),intent(in):: gasvmr
       real (kind=kind_phys), dimension(npts,nlay,9),intent(in):: clouds
 
       real (kind=kind_phys), dimension(npts), intent(in) :: sfemis,     &
-     &       sfgtmp
+     &       sfgtmp, de_lgth
 
       real (kind=kind_phys), dimension(npts,nlay,nbands,3),intent(in):: &
      &       aerosols
@@ -679,7 +683,7 @@
      &       clwp, ciwp, relw, reiw, cda1, cda2, cda3, cda4,            &
      &       coldry, colbrd, h2ovmr, o3vmr, fac00, fac01, fac10, fac11, &
      &       selffac, selffrac, forfac, forfrac, minorfrac, scaleminor, &
-     &       scaleminorn2, temcol
+     &       scaleminorn2, temcol, dz
 
       real (kind=kind_phys), dimension(nbands,0:nlay) :: pklev, pklay
 
@@ -780,9 +784,10 @@
           do k = 1, nlay
             k1 = nlp1 - k
             pavel(k)= plyr(iplon,k1)
-            delp(k) = plvl(iplon,k1+1) - plvl(iplon,k1)
+            delp(k) = delpin(iplon,k1)
             tavel(k)= tlyr(iplon,k1)
             tz(k)   = tlvl(iplon,k1)
+            dz(k)   = dzlyr(iplon,k1)
 
 !> -# Set absorber amount for h2o, co2, and o3.
 
@@ -891,9 +896,10 @@
 
           do k = 1, nlay
             pavel(k)= plyr(iplon,k)
-            delp(k) = plvl(iplon,k) - plvl(iplon,k+1)
+            delp(k) = delpin(iplon,k)
             tavel(k)= tlyr(iplon,k)
             tz(k)   = tlvl(iplon,k+1)
+            dz(k)   = dzlyr(iplon,k)
 
 !  --- ...  set absorber amount
 !test use
@@ -1043,7 +1049,7 @@
           call cldprop                                                  &
 !  ---  inputs:
      &     ( cldfrc,clwp,relw,ciwp,reiw,cda1,cda2,cda3,cda4,            &
-     &       nlay, nlp1, ipseed(iplon),                                 &
+     &       nlay, nlp1, ipseed(iplon), dz, delgth,                     &
 !  ---  outputs:
      &       cldfmc, taucld                                             &
      &     )
@@ -1498,7 +1504,7 @@
 ! ----------------------------
       subroutine cldprop                                                &
      &     ( cfrac,cliqp,reliq,cicep,reice,cdat1,cdat2,cdat3,cdat4,     & !  ---  inputs
-     &       nlay, nlp1, ipseed,                                        &
+     &       nlay, nlp1, ipseed, dz, de_lgth,                           &
      &       cldfmc, taucld                                             & !  ---  outputs
      &     )
 
@@ -1532,6 +1538,8 @@
 !    cicep - not used                                              nlay !
 !    reice - not used                                              nlay !
 !                                                                       !
+!    dz     - real, layer thickness (km)                           nlay !
+!    de_lgth- real, layer cloud decorrelation length (km)             1 !
 !    nlay  - integer, number of vertical layers                      1  !
 !    nlp1  - integer, number of vertical levels                      1  !
 !    ipseed- permutation seed for generating random numbers (isubclw>0) !
@@ -1600,7 +1608,8 @@
 
       real (kind=kind_phys), dimension(0:nlp1), intent(in) :: cfrac
       real (kind=kind_phys), dimension(nlay),   intent(in) :: cliqp,    &
-     &       reliq, cicep, reice, cdat1, cdat2, cdat3, cdat4
+     &       reliq, cicep, reice, cdat1, cdat2, cdat3, cdat4, dz
+      real (kind=kind_phys),                    intent(in) :: de_lgth
 
 !  ---  outputs:
       real (kind=kind_phys), dimension(ngptlw,nlay),intent(out):: cldfmc
@@ -1775,7 +1784,7 @@
 
         call mcica_subcol                                               &
 !  ---  inputs:
-     &     ( cldf, nlay, ipseed,                                        &
+     &     ( cldf, nlay, ipseed, dz, de_lgth,                           &
 !  ---  output:
      &       lcloudy                                                    &
      &     )
@@ -1805,7 +1814,7 @@
 !!\param lcloudy     sub-colum cloud profile flag array
 ! ----------------------------------
       subroutine mcica_subcol                                           &
-     &    ( cldf, nlay, ipseed,                                         &!  ---  inputs
+     &    ( cldf, nlay, ipseed, dz, de_lgth,                            &!  ---  inputs
      &      lcloudy                                                     & !  ---  outputs
      &    )
 
@@ -1818,6 +1827,8 @@
 !    ** note : if the cloud generator is called multiple times, need    !
 !              to permute the seed between each call; if between calls  !
 !              for lw and sw, use values differ by the number of g-pts. !
+!   dz      - real, layer thickness (km)                           nlay !
+!   de_lgth - real, layer cloud decorrelation length (km)            1  !
 !                                                                       !
 !  output variables:                                                    !
 !   lcloudy - logical, sub-colum cloud profile flag array    ngptlw*nlay!
@@ -1833,14 +1844,16 @@
 !  ---  inputs:
       integer, intent(in) :: nlay, ipseed
 
-      real (kind=kind_phys), dimension(nlay), intent(in) :: cldf
+      real (kind=kind_phys), dimension(nlay), intent(in) :: cldf, dz
+      real (kind=kind_phys),                  intent(in) :: de_lgth
 
 !  ---  outputs:
       logical, dimension(ngptlw,nlay), intent(out) :: lcloudy
 
 !  ---  locals:
       real (kind=kind_phys) :: cdfunc(ngptlw,nlay), rand1d(ngptlw),     &
-     &       rand2d(nlay*ngptlw), tem1
+     &       rand2d(nlay*ngptlw), tem1, fac_lcf(nlay),                  &
+     &       cdfun2(ngptlw,nlay)
 
       type (random_stat) :: stat          ! for thread safe random generator
 
@@ -1940,6 +1953,52 @@
 
             do k = 1, nlay
               cdfunc(n,k) = tem1
+            enddo
+          enddo
+
+        case( 3 )        ! decorrelation length overlap
+
+!  ---  compute overlapping factors based on layer midpoint distances
+!       and decorrelation depths
+
+          do k = nlay, 2, -1
+            fac_lcf(k) = exp( -0.5 * (dz(k)+dz(k-1)) / de_lgth )
+          enddo
+
+!  ---  setup 2 sets of random numbers
+
+          call random_number ( rand2d, stat )
+
+          k1 = 0
+          do k = 1, nlay
+            do n = 1, ngptlw
+              k1 = k1 + 1
+              cdfunc(n,k) = rand2d(k1)
+            enddo
+          enddo
+
+          call random_number ( rand2d, stat )
+
+          k1 = 0
+          do k = 1, nlay
+            do n = 1, ngptlw
+              k1 = k1 + 1
+              cdfun2(n,k) = rand2d(k1)
+            enddo
+          enddo
+
+!  ---  then working from the top down:
+!       if a random number (from an independent set -cdfun2) is smaller then the
+!       scale factor: use the upper layer's number,  otherwise use a new random
+!       number (keep the original assigned one).
+
+          do k = nlay-1, 1, -1
+            k1 = k + 1
+
+            do n = 1, ngptlw
+              if ( cdfun2(n,k) <= fac_lcf(k1) ) then
+                cdfunc(n,k) = cdfunc(n,k1)
+              endif
             enddo
           enddo
 
