@@ -664,13 +664,7 @@
 !>    - Calculate snow cover input directly for land model, no 
 !!      conversion needed.
 
-         fsno0 = sncovr(i)
-
-         if (nint(slmsk(i))==0 .and.
-     &       (tsknf(i)>con_tice .or.
-     &        ldisable_radiation_quasi_sea_ice)) then
-            fsno0 = f_zero
-         endif
+         fsno0 = f_zero
 
          if (nint(slmsk(i)) == 2) then
            asnow = 0.02*snowf(i)
@@ -734,9 +728,6 @@
              asnvb = asnvd
              asnnb = asnnd
            endif
-         else
-           asnvb = snoalb(i)
-           asnnb = snoalb(i)
          endif
 
 !>    - Calculate direct sea surface albedo, use fanglin's zenith angle
