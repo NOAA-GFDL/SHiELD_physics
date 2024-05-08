@@ -9,6 +9,7 @@
      &       shdmin, shdmax, snoalb, sfalb, flag_iter, flag_guess,      &
      &       idveg,iopt_crs, iopt_btr, iopt_run, iopt_sfc, iopt_frz,    &
      &       iopt_inf,iopt_rad, iopt_alb, iopt_snf,iopt_tbot,iopt_stc,  &
+     &       iopt_gla,                                                  &
      &       xlatin,xcoszin, iyrlen, julian,imon,                       &
      &       rainn_mp,rainc_mp,snow_mp,graupel_mp,ice_mp,               &
 
@@ -97,7 +98,8 @@
 
       integer,  intent(in) ::  idveg, iopt_crs,iopt_btr,iopt_run,       &
      &                         iopt_sfc,iopt_frz,iopt_inf,iopt_rad,     &
-     &                         iopt_alb,iopt_snf,iopt_tbot,iopt_stc
+     &                         iopt_alb,iopt_snf,iopt_tbot,iopt_stc,    &
+     &                         iopt_gla
 
       real (kind=kind_phys),  intent(in) :: julian
       integer,  intent(in)               :: iyrlen
@@ -173,7 +175,7 @@
      &       sfcems, sheat, shdfac, shdmin1d, shdmax1d, smcwlt,         &
      &       smcdry, smcref, smcmax, sneqv, snoalb1d, snowh,            &
      &       snomlt, sncovr, soilw, soilm, ssoil, tsea, th2,            &
-     &       xlai, zlvl, swdn, tem, psfc,fdown,t2v,tbot
+     &       xlai, zlvl, swdn, tem, psfc,fdown,t2v,tbot, qmelt
 
       real (kind=kind_phys) :: pconv,pnonc,pshcv,psnow,pgrpl,phail
       real (kind=kind_phys) :: lat,cosz,uu,vv,swe
@@ -555,7 +557,6 @@
 !-- old
 !
           do k = 1, km
-!           stsoil(k) = stc(i,k)
             smsoil(k) = smc(i,k)
             slsoil(k) = slc(i,k)
           enddo
@@ -585,8 +586,7 @@
           tbot = min(tbot,263.15)
 
          call noahmp_options_glacier                                    &
-     &   (idveg  ,iopt_crs  ,iopt_btr, iopt_run ,iopt_sfc ,iopt_frz,    &
-     &   iopt_inf ,iopt_rad ,iopt_alb ,iopt_snf ,iopt_tbot, iopt_stc )
+     &   (iopt_alb  ,iopt_snf  ,iopt_tbot, iopt_stc, iopt_gla )
 
        call noahmp_glacier (                                            &
      &             i       ,1       ,cosz    ,nsnow   ,nsoil   ,delt  , & ! in : time/space/model-related
@@ -598,7 +598,8 @@
      &             fsa     ,fsr     ,fira    ,fsh     ,fgev  ,ssoil   , & ! out : 
      &             trad    ,edir    ,runsrf  ,runsub  ,sag   ,albedo  , & ! out : albedo is surface albedo
      &             qsnbot  ,ponding ,ponding1,ponding2,t2mb  ,q2b     , & ! out :
-     &             emissi  ,fpice   ,ch2b    ,esnow   ,albd, albi)
+     &             emissi  ,fpice   ,ch2b    ,qmelt   ,esnow ,albd    , &  
+     &             albi)
 
 !
 ! in/out and outs
@@ -799,10 +800,10 @@
           sfcemis(i) = emissi
           if(albedo .gt. 0.0) then
             sfalb(i)   = albedo
-	    albdvis(i) = albd(1)
-	    albdnir(i) = albd(2)
-	    albivis(i) = albi(1)
-	    albinir(i) = albi(2)
+            albdvis(i) = albd(1)
+            albdnir(i) = albd(2)
+            albivis(i) = albi(1)
+            albinir(i) = albi(2)
           end if
 
           stm(i) = (0.1*smsoil(1)+0.3*smsoil(2)+0.6*smsoil(3)+           &

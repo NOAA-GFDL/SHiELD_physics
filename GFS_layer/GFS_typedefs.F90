@@ -609,6 +609,7 @@ module GFS_typedefs
     integer              :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras             !< flag for ras convection scheme
@@ -2228,6 +2229,7 @@ end subroutine overrides_create
     integer              :: iopt_snf       =  1  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot      =  2  !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc       =  1  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla       =  1  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras            = .false.                  !< flag for ras convection scheme
@@ -2479,6 +2481,7 @@ end subroutine overrides_create
                           !    Noah MP options
                                iopt_dveg,iopt_crs,iopt_btr,iopt_run,iopt_sfc, iopt_frz,     &
                                iopt_inf, iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc,     &
+                               iopt_gla,                                                    &
                           !--- physical parameterizations
                                ras, trans_trac, old_monin, cnvgwd, mstrat, moist_adj,       &
                                cscnv, cal_pre, do_aw, do_shoc, shocaftcnv, shoc_cld,        &
@@ -2692,6 +2695,7 @@ end subroutine overrides_create
     Model%iopt_snf         = iopt_snf
     Model%iopt_tbot        = iopt_tbot
     Model%iopt_stc         = iopt_stc
+    Model%iopt_gla         = iopt_gla
 
 
     !--- tuning parameters for physical parameterizations
@@ -3070,6 +3074,7 @@ end subroutine overrides_create
         print *,'iopt_snf   =  ', Model%iopt_snf
         print *,'iopt_tbot   =  ',Model%iopt_tbot
         print *,'iopt_stc   =  ', Model%iopt_stc
+        print *,'iopt_gla   =  ', Model%iopt_gla
 
 
 
@@ -3389,6 +3394,7 @@ end subroutine overrides_create
       print *, ' iopt_snf          : ', Model%iopt_snf
       print *, ' iopt_tbot         : ', Model%iopt_tbot
       print *, ' iopt_stc          : ', Model%iopt_stc
+      print *, ' iopt_gla          : ', Model%iopt_gla
 
       endif
 
