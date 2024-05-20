@@ -9,6 +9,7 @@
      &       shdmin, shdmax, snoalb, sfalb, flag_iter, flag_guess,      &
      &       idveg,iopt_crs, iopt_btr, iopt_run, iopt_sfc, iopt_frz,    &
      &       iopt_inf,iopt_rad, iopt_alb, iopt_snf,iopt_tbot,iopt_stc,  &
+     &       iopt_gla,                                                  &
      &       xlatin,xcoszin, iyrlen, julian,imon,                       &
      &       rainn_mp,rainc_mp,snow_mp,graupel_mp,ice_mp,               &
 
@@ -97,7 +98,8 @@
 
       integer,  intent(in) ::  idveg, iopt_crs,iopt_btr,iopt_run,       &
      &                         iopt_sfc,iopt_frz,iopt_inf,iopt_rad,     &
-     &                         iopt_alb,iopt_snf,iopt_tbot,iopt_stc
+     &                         iopt_alb,iopt_snf,iopt_tbot,iopt_stc,    &
+     &                         iopt_gla
 
       real (kind=kind_phys),  intent(in) :: julian
       integer,  intent(in)               :: iyrlen
@@ -142,6 +144,7 @@
      &    albdnir,  albivis,  albinir
 
 !  ---  locals:
+
       real (kind=kind_phys), dimension(im) :: rch, rho,                 &
      &       q0, qs1, theta1, tv1,  weasd_old, snwdph_old,              &
      &       tprcp_old, srflag_old, tskin_old, canopy_old
@@ -586,7 +589,8 @@
 
          call noahmp_options_glacier                                    &
      &   (idveg  ,iopt_crs  ,iopt_btr, iopt_run ,iopt_sfc ,iopt_frz,    &
-     &   iopt_inf ,iopt_rad ,iopt_alb ,iopt_snf ,iopt_tbot, iopt_stc )
+     &   iopt_inf ,iopt_rad ,iopt_alb ,iopt_snf ,iopt_tbot, iopt_stc,   &
+     &   iopt_gla)
 
        call noahmp_glacier (                                            &
      &             i       ,1       ,cosz    ,nsnow   ,nsoil   ,delt  , & ! in : time/space/model-related
