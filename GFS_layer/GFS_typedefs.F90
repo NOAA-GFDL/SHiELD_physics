@@ -2229,7 +2229,7 @@ end subroutine overrides_create
     integer              :: iopt_snf       =  1  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot      =  2  !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc       =  1  !snow/soil temperature time scheme (only layer 1)
-    integer              :: iopt_gla       =  1  !glacier option (1->phase change; 2->simple)
+    integer              :: iopt_gla       =  2  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras            = .false.                  !< flag for ras convection scheme
