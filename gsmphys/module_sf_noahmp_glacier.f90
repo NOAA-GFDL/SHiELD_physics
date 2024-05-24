@@ -51,7 +51,7 @@ module noahmp_glacier_globals
 ! options for glacier treatment
 ! 1 -> include phase change of ice; 2 -> ice treatment more like original noah
 
-  integer :: opt_gla != 1    !(suggested 1)
+  integer :: opt_gla != 2    !(suggested 2)
 ! adjustable parameters for snow processes
 
   real (kind=kind_phys), parameter :: z0sno  = 0.002  !snow surface roughness length (m) (0.002)
