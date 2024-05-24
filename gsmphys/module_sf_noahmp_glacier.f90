@@ -2256,7 +2256,7 @@ end if   ! opt_gla == 1
 
 !to obtain equilibrium state of snow in glacier region
        
-   if(sneqv > mwd .and. isnow /= 0) then   ! 100 mm -> maximum water depth
+   if(sneqv > mwd .and. isnow /= 0) then
       bdsnow      = snice(0) / dzsnso(0)
       snoflow     = (sneqv - mwd)
       snice(0)    = snice(0)  - snoflow 
