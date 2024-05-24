@@ -2212,7 +2212,7 @@ end if   ! opt_gla == 1
 ! local
   integer :: iz
   real (kind=kind_phys)    :: bdsnow  !bulk density of snow (kg/m3)
-  real (kind=kind_phys),parameter :: mwd  = 100.   !< maximum water depth (mm)
+  real (kind=kind_phys),parameter :: mwd  = 5000.   !< maximum water depth (mm)
 ! ----------------------------------------------------------------------
    snoflow = 0.0
    ponding1 = 0.0
