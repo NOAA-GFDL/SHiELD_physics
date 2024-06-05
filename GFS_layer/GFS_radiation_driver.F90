@@ -1958,7 +1958,7 @@
             delp = Statein%prsi(:,k) - Statein%prsi(:,k+1)
             h2ovmr = (con_amd / con_amw) * (Statein%qgrs(:,k,1) / (1 - Statein%qgrs(:,k,1)))
             am_moist_air = (1 - h2ovmr) * con_amd + h2ovmr * con_amw
-            moles_dry_air_per_square_meter =  delp / (con_g * am_moist_air * (1 + h2ovmr))
+            moles_dry_air_per_square_meter = delp / (con_g * am_moist_air * (1 + h2ovmr))
             Diag%column_moles_dry_air_per_square_meter = Diag%column_moles_dry_air_per_square_meter + moles_dry_air_per_square_meter
             Diag%column_moles_co2_per_square_meter = Diag%column_moles_co2_per_square_meter + moles_dry_air_per_square_meter * gasvmr(:,k,1)
          enddo
