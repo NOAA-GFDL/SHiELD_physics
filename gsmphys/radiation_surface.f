@@ -674,7 +674,7 @@
          endif
 
          fsno1 = f_one - fsno0
-         flnd0 = f_one
+         flnd0 = min(f_one, facsf(i)+facwf(i))
          fsea0 = max(f_zero, f_one-flnd0)
          fsno  = fsno0
          fsea  = fsea0 * fsno1
