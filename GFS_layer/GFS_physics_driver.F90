@@ -743,15 +743,25 @@ module module_physics_driver
               Sfcprop%slmsk(i) = 2
               Sfcprop%hice(i) = 0.1 !minimum value
            elseif (nint(Sfcprop%slmsk(i)) == 2) then
-              if (Statein%ci(i) < 0.15) then !remove sea ice
+              if (Statein%ci(i) < 0.15) then ! Remove sea ice and associated snow
                  Sfcprop%slmsk(i) = 0
                  Sfcprop%fice(i) = 0.0
                  Sfcprop%hice(i) = 0.0
+                 Sfcprop%snowd(i) = 0.0
+                 Sfcprop%weasd(i) = 0.0
               else
                  Sfcprop%fice(i) = Statein%ci(i)
               endif
               
            endif
+        endif
+        if (nint(Sfcprop%slmsk(i)) .eq. 0) then
+           ! Always reset the snow cover fraction to zero over all ocean grid
+           ! cells regardless of whether we are running with sea ice prescribed
+           ! from an external source or not.  This is to prevent persisted
+           ! snow cover from sea ice from contaminating the snow cover
+           ! diagnostic over ocean (where it should always be zero).
+           Sfcprop%sncovr(i) = 0.0
         endif
       enddo
 
