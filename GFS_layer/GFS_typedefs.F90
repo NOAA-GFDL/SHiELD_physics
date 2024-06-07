@@ -1322,6 +1322,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
     real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
     real (kind=kind_phys), pointer :: co2(:,:) => null()  ! Vertically resolved CO2 concentration
+    real (kind=kind_phys), pointer :: column_moles_co2_per_square_meter(:) => null()  ! Moles of CO2 in column per square meter
+    real (kind=kind_phys), pointer :: column_moles_dry_air_per_square_meter(:) => null()  ! Moles of dry air in column per square meter
 
     !--- accumulated quantities for 3D diagnostics
     real (kind=kind_phys), pointer :: upd_mf (:,:)   => null()  !< instantaneous convective updraft mass flux
@@ -3930,6 +3932,8 @@ end subroutine overrides_create
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
       allocate (Diag%co2(IM,Model%levs))
+      allocate (Diag%column_moles_co2_per_square_meter(IM))
+      allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))
