@@ -309,7 +309,10 @@
       use physcons,                  only: eps   => con_eps,            &
      &                                     epsm1 => con_epsm1,          &
      &                                     fvirt => con_fvirt           &
-     &,                                    rocp  => con_rocp
+     &,                                    rocp  => con_rocp,           &
+     &                                     con_g,                       &
+     &                                     con_amd,                     &
+     &                                     con_amw
       use funcphys,                  only: fpvs
 
       use module_radiation_astronomy,only: sol_init, sol_update, coszmn
@@ -1379,6 +1382,12 @@
         Diag%co2 = gasvmr(:,:,1)  ! co2 volume mixing ratio
       endif
 
+      ! For diagnostic purposes, compute the column integrated moles of dry
+      ! air and moles of co2 per square meter following the method in
+      ! radlw_main.f.  These can be used later to compute a global mean carbon
+      ! dioxide volume mixing ratio diagnostic if requested.
+      call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+
 !>  - Get temperature at layer interface, and layer moisture.
       do k = 2, LMK
         do i = 1, IM
@@ -1934,6 +1943,26 @@
       end subroutine GFS_radiation_driver
 !----------------------------------------
 
+      subroutine compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+         integer,                 intent(in)    :: IM, LMK, NF_VGAS
+         type(GFS_statein_type),  intent(in)    :: Statein
+         real(kind=kind_phys),    intent(in)    :: gasvmr(IM,LMK,NF_VGAS)
+         type(GFS_diag_type),     intent(inout) :: Diag
+
+         integer :: k
+         real(kind=kind_phys), dimension(IM) :: delp, h2ovmr, am_moist_air, moles_dry_air_per_square_meter
+
+         Diag%column_moles_co2_per_square_meter = 0.0
+         Diag%column_moles_dry_air_per_square_meter = 0.0
+         do k = 1, LMK
+            delp = Statein%prsi(:,k) - Statein%prsi(:,k+1)
+            h2ovmr = (con_amd / con_amw) * (Statein%qgrs(:,k,1) / (1 - Statein%qgrs(:,k,1)))
+            am_moist_air = (1 - h2ovmr) * con_amd + h2ovmr * con_amw
+            moles_dry_air_per_square_meter = delp / (con_g * am_moist_air * (1 + h2ovmr))
+            Diag%column_moles_dry_air_per_square_meter = Diag%column_moles_dry_air_per_square_meter + moles_dry_air_per_square_meter
+            Diag%column_moles_co2_per_square_meter = Diag%column_moles_co2_per_square_meter + moles_dry_air_per_square_meter * gasvmr(:,k,1)
+         enddo
+      end subroutine compute_column_integrated_moles_of_dry_air_and_co2
 
 !
 !> @}

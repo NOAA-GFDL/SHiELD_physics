@@ -609,6 +609,7 @@ module GFS_typedefs
     integer              :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras             !< flag for ras convection scheme
@@ -1321,6 +1322,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
     real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
     real (kind=kind_phys), pointer :: co2(:,:) => null()  ! Vertically resolved CO2 concentration
+    real (kind=kind_phys), pointer :: column_moles_co2_per_square_meter(:) => null()  ! Moles of CO2 in column per square meter
+    real (kind=kind_phys), pointer :: column_moles_dry_air_per_square_meter(:) => null()  ! Moles of dry air in column per square meter
 
     !--- accumulated quantities for 3D diagnostics
     real (kind=kind_phys), pointer :: upd_mf (:,:)   => null()  !< instantaneous convective updraft mass flux
@@ -2228,6 +2231,7 @@ end subroutine overrides_create
     integer              :: iopt_snf       =  1  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot      =  2  !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc       =  1  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla       =  2  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras            = .false.                  !< flag for ras convection scheme
@@ -2479,6 +2483,7 @@ end subroutine overrides_create
                           !    Noah MP options
                                iopt_dveg,iopt_crs,iopt_btr,iopt_run,iopt_sfc, iopt_frz,     &
                                iopt_inf, iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc,     &
+                               iopt_gla,                                                    &
                           !--- physical parameterizations
                                ras, trans_trac, old_monin, cnvgwd, mstrat, moist_adj,       &
                                cscnv, cal_pre, do_aw, do_shoc, shocaftcnv, shoc_cld,        &
@@ -2692,6 +2697,7 @@ end subroutine overrides_create
     Model%iopt_snf         = iopt_snf
     Model%iopt_tbot        = iopt_tbot
     Model%iopt_stc         = iopt_stc
+    Model%iopt_gla         = iopt_gla
 
 
     !--- tuning parameters for physical parameterizations
@@ -3070,6 +3076,7 @@ end subroutine overrides_create
         print *,'iopt_snf   =  ', Model%iopt_snf
         print *,'iopt_tbot   =  ',Model%iopt_tbot
         print *,'iopt_stc   =  ', Model%iopt_stc
+        print *,'iopt_gla   =  ', Model%iopt_gla
 
 
 
@@ -3389,6 +3396,7 @@ end subroutine overrides_create
       print *, ' iopt_snf          : ', Model%iopt_snf
       print *, ' iopt_tbot         : ', Model%iopt_tbot
       print *, ' iopt_stc          : ', Model%iopt_stc
+      print *, ' iopt_gla          : ', Model%iopt_gla
 
       endif
 
@@ -3924,6 +3932,8 @@ end subroutine overrides_create
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
       allocate (Diag%co2(IM,Model%levs))
+      allocate (Diag%column_moles_co2_per_square_meter(IM))
+      allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))

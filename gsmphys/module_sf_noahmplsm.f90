@@ -5912,8 +5912,10 @@ contains
 
    if(isnow < 0) then  ! mb: only do for multi-layer
        sneqv = 0.
+       snowh = 0.
        do iz = isnow+1,0
              sneqv = sneqv + snice(iz) + snliq(iz)
+             snowh = snowh + dzsnso(iz)
        enddo
    end if
 
@@ -6472,6 +6474,7 @@ contains
            ! the change in dz due to compaction
 
            dzsnso(j) = dzsnso(j)*(1.+pdzdtc)
+           dzsnso(j) = min(max(dzsnso(j),(snliq(j)+snice(j))/500.0),(snliq(j)+snice(j))/50.0)  ! limit adjustment to a reasonable density
         end if
 
         ! pressure of overlying snow
@@ -6627,6 +6630,10 @@ contains
          snliq(j) = snliq(j) - qout
          qin = qout
       end if
+   end do
+
+   do j = isnow+1, 0
+     dzsnso(j) = min(max(dzsnso(j),(snliq(j)+snice(j))/500.0),(snliq(j)+snice(j))/50.0)  ! limit adjustment to a reasonable density
    end do
 
 ! liquid water from snow bottom to soil
