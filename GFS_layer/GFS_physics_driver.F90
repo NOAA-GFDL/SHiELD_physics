@@ -14,7 +14,8 @@ module module_physics_driver
                                    GFS_sfcprop_type, GFS_coupling_type, &
                                    GFS_control_type, GFS_grid_type,     &
                                    GFS_tbd_type,     GFS_cldprop_type,  &
-                                   GFS_radtend_type, GFS_diag_type
+                                   GFS_radtend_type, GFS_diag_type,     &
+                                   GFS_overrides_type
   use gfdl_cld_mp_mod,       only: gfdl_cld_mp_driver, cld_sat_adj, c_liq, c_ice
   use funcphys,              only: ftdp
   use module_ocean,          only: update_ocean
@@ -397,7 +398,7 @@ module module_physics_driver
 
     subroutine GFS_physics_driver                         &
          (Model, Statein, Stateout, Sfcprop, Coupling,  &
-          Grid, Tbd, Cldprop, Radtend, Diag)
+          Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
 
       implicit none
 !
@@ -412,6 +413,7 @@ module module_physics_driver
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
+      type(GFS_overrides_type),       intent(in)    :: Overrides
 !
 !  ---  local variables
 
@@ -460,7 +462,7 @@ module module_physics_driver
            stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma,    &
            sigma, elvmax, wind, work1, work2, runof, xmu, fm10, fh2,    &
            tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
-           frland, adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw,          &
+           frland, adjsfculw,                                           &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
            adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
            snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
@@ -575,6 +577,8 @@ module module_physics_driver
 
       integer, allocatable, dimension(:) :: clw_trac_idx
       real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
+      real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
+      real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
       integer :: nwat
 !
 !
@@ -617,6 +621,20 @@ module module_physics_driver
         dq3dt_initial = Diag%dq3dt
       endif
       
+      ! Assign pointers for the downward longwave, downward shortwave, and net
+      ! shortwave radiative fluxes used in ocean, sea-ice, and land surface
+      ! components of the model depending on whether we are overriding them
+      ! or not.
+      if (Model%override_surface_radiative_fluxes) then
+        adjsfcdlw_for_coupling => Overrides%adjsfcdlw_override
+        adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
+        adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
+      else
+        adjsfcdlw_for_coupling => adjsfcdlw
+        adjsfcdsw_for_coupling => adjsfcdsw
+        adjsfcnsw_for_coupling => adjsfcnsw
+      endif
+
       ! perform aerosol convective transport and PBL diffusion
       !trans_aero = Model%cplchm .and. Model%trans_trac
       trans_aero = Model%trans_trac
@@ -725,15 +743,25 @@ module module_physics_driver
               Sfcprop%slmsk(i) = 2
               Sfcprop%hice(i) = 0.1 !minimum value
            elseif (nint(Sfcprop%slmsk(i)) == 2) then
-              if (Statein%ci(i) < 0.15) then !remove sea ice
+              if (Statein%ci(i) < 0.15) then ! Remove sea ice and associated snow
                  Sfcprop%slmsk(i) = 0
                  Sfcprop%fice(i) = 0.0
                  Sfcprop%hice(i) = 0.0
+                 Sfcprop%snowd(i) = 0.0
+                 Sfcprop%weasd(i) = 0.0
               else
                  Sfcprop%fice(i) = Statein%ci(i)
               endif
               
            endif
+        endif
+        if (nint(Sfcprop%slmsk(i)) .eq. 0) then
+           ! Always reset the snow cover fraction to zero over all ocean grid
+           ! cells regardless of whether we are running with sea ice prescribed
+           ! from an external source or not.  This is to prevent persisted
+           ! snow cover from sea ice from contaminating the snow cover
+           ! diagnostic over ocean (where it should always be zero).
+           Sfcprop%sncovr(i) = 0.0
         endif
       enddo
 
@@ -883,7 +911,7 @@ module module_physics_driver
 
 !  --- ...  define the downward lw flux absorbed by ground
 
-      gabsbdlw(:) = Radtend%semis(:) * adjsfcdlw(:)
+      gabsbdlw(:) = Radtend%semis(:) * adjsfcdlw_for_coupling(:)
 
       if (Model%lssav) then      !  --- ...  accumulate/save output variables
 
@@ -907,9 +935,18 @@ module module_physics_driver
             if (flag_cice(i)) adjsfculw(i) = ulwsfc_cice(i)
           enddo
         endif
+
+        ! Diag%dlwsfc is always meant to refer to an RRTMG flux, so we do not
+        ! use the adjsfcdlw_for_coupling pointer here.
         Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
+
+        if (Model%override_surface_radiative_fluxes) then
+          Diag%dswsfc_override(:) = Diag%dswsfc_override(:) + adjsfcdsw_for_coupling(:)*dtf
+          Diag%uswsfc_override(:) = Diag%uswsfc_override(:) + (adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:))*dtf
+          Diag%dlwsfc_override(:) = Diag%dlwsfc_override(:) + adjsfcdlw_for_coupling(:)*dtf
+        endif
 
         if (Model%ldiag3d) then
           if (Model%lsidea) then
@@ -1206,8 +1243,8 @@ module module_physics_driver
                         Statein%vgrs, Statein%tgrs, Statein%qgrs,          &
                         Sfcprop%tref, cd, cdq, Statein%prsl(1,1), work3,   &
                         islmsk, Grid%xlon, Grid%sinlat, stress,            &
-                        Radtend%semis, gabsbdlw, adjsfcnsw, Sfcprop%tprcp, &
-                        dtf, kdt, Model%solhr, xcosz,                      &
+                        Radtend%semis, gabsbdlw, adjsfcnsw_for_coupling,   &
+                        Sfcprop%tprcp, dtf, kdt, Model%solhr, xcosz,       &
                         Tbd%phy_f2d(1,Model%num_p2d), flag_iter,           &
                         flag_guess, Model%nstf_name, lprnt, ipr,           &
 !  --- Input/output
@@ -1294,9 +1331,9 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr,                              &
             Statein%tgrs, Statein%qgrs, soiltyp, vegtype, sigmaf,      &
-            Radtend%semis, gabsbdlw, adjsfcdsw, adjsfcnsw, dtf,        &
-            Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3, Diag%zlvl, &
-            dry, wind, slopetyp,                                       &
+            Radtend%semis, gabsbdlw, adjsfcdsw_for_coupling,           &
+            adjsfcnsw_for_coupling, dtf, Sfcprop%tg3, cd, cdq,         &
+            Statein%prsl(:,1), work3, Diag%zlvl, dry, wind, slopetyp,  &
             Sfcprop%shdmin, Sfcprop%shdmax, Sfcprop%snoalb,            &
             Radtend%sfalb, flag_iter, flag_guess,                      &
             Model%lheatstrg, Model%isot, Model%ivegsrc,                &
@@ -1317,7 +1354,8 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, kdt, Statein%pgr,  Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs,  Statein%qgrs, soiltyp, vegtype, sigmaf,     &
-            Radtend%semis, adjsfcdlw, adjsfcdsw, adjsfcnsw, dtf,       &
+            Radtend%semis, adjsfcdlw_for_coupling,                     &
+            adjsfcdsw_for_coupling, adjsfcnsw_for_coupling, dtf,       &
             Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3,            &
             Diag%zlvl, dry,   wind, slopetyp,                          &
             Sfcprop%shdmin,   Sfcprop%shdmax,  Sfcprop%snoalb,         &
@@ -1325,7 +1363,7 @@ module module_physics_driver
             Model%iopt_dveg,  Model%iopt_crs,  Model%iopt_btr,         &
             Model%iopt_run,   Model%iopt_sfc,  Model%iopt_frz,         &
             Model%iopt_inf,   Model%iopt_rad,  Model%iopt_alb,         &
-            Model%iopt_snf,   Model%iopt_tbot, Model%iopt_stc,         &
+            Model%iopt_snf,   Model%iopt_tbot, Model%iopt_stc, Model%iopt_gla, &
             grid%xlat, xcosz, Model%yearlen,   Model%julian, Model%imn,&
             Sfcprop%drainncprv, Sfcprop%draincprv, Sfcprop%dsnowprv,   &
             Sfcprop%dgraupelprv, Sfcprop%diceprv,                      &
@@ -1370,8 +1408,8 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr, Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs, Statein%qgrs, dtf, Radtend%semis, gabsbdlw,   &
-            adjsfcnsw, adjsfcdsw, Sfcprop%srflag, cd, cdq,              &
-            Statein%prsl(1,1), work3, islmsk,                           &
+            adjsfcnsw_for_coupling, adjsfcdsw_for_coupling,             &
+            Sfcprop%srflag, cd, cdq, Statein%prsl(1,1), work3, islmsk,  &
             Tbd%phy_f2d(1,Model%num_p2d), flag_iter, Model%mom4ice,     &
             Model%lsm, lprnt, ipr,                                      &
 !  ---  input/outputs:
@@ -1422,10 +1460,16 @@ module module_physics_driver
       enddo   ! end iter_loop
 
       Diag%epi(:)     = ep1d(:)
+
+      ! Diag%dlwsfci, Diag%uswsfci, Diag%dswsfci, Diag%uswsfc, and Diag%dswsfc
+      ! are always meant to refer to RRTMG fluxes, so we do not use the
+      ! adjsfc??w_for_coupling pointers here.
       Diag%dlwsfci(:) = adjsfcdlw(:)
       Diag%ulwsfci(:) = adjsfculw(:)
       Diag%uswsfci(:) = adjsfcdsw(:) - adjsfcnsw(:)
       Diag%dswsfci(:) = adjsfcdsw(:)
+      Diag%uswsfc(:) =  Diag%uswsfc(:) + (adjsfcdsw(:) - adjsfcnsw(:))*dtf
+      Diag%dswsfc(:) =  Diag%dswsfc(:) + adjsfcdsw(:)*dtf
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
@@ -1436,6 +1480,12 @@ module module_physics_driver
       ! KGao
       Diag%hflx(:) = hflx(:)
       Diag%evap(:) = evap(:)
+
+      if (Model%override_surface_radiative_fluxes) then
+        Diag%dlwsfci_override(:) = adjsfcdlw_for_coupling(:)
+        Diag%uswsfci_override(:) = adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:)
+        Diag%dswsfci_override(:) = adjsfcdsw_for_coupling(:)
+      endif
 
 !  --- ...  update near surface fields
 
@@ -1460,10 +1510,10 @@ module module_physics_driver
 
 
       if (Model%cplflx) then
-        Coupling%dlwsfci_cpl (:) = adjsfcdlw(:)
-        Coupling%dswsfci_cpl (:) = adjsfcdsw(:)
-        Coupling%dlwsfc_cpl  (:) = Coupling%dlwsfc_cpl(:) + adjsfcdlw(:)*dtf
-        Coupling%dswsfc_cpl  (:) = Coupling%dswsfc_cpl(:) + adjsfcdsw(:)*dtf
+        Coupling%dlwsfci_cpl (:) = adjsfcdlw_for_coupling(:)
+        Coupling%dswsfci_cpl (:) = adjsfcdsw_for_coupling(:)
+        Coupling%dlwsfc_cpl  (:) = Coupling%dlwsfc_cpl(:) + adjsfcdlw_for_coupling(:)*dtf
+        Coupling%dswsfc_cpl  (:) = Coupling%dswsfc_cpl(:) + adjsfcdsw_for_coupling(:)*dtf
         Coupling%dnirbmi_cpl (:) = adjnirbmd(:)
         Coupling%dnirdfi_cpl (:) = adjnirdfd(:)
         Coupling%dvisbmi_cpl (:) = adjvisbmd(:)
@@ -1472,7 +1522,7 @@ module module_physics_driver
         Coupling%dnirdf_cpl  (:) = Coupling%dnirdf_cpl(:) + adjnirdfd(:)*dtf
         Coupling%dvisbm_cpl  (:) = Coupling%dvisbm_cpl(:) + adjvisbmd(:)*dtf
         Coupling%dvisdf_cpl  (:) = Coupling%dvisdf_cpl(:) + adjvisdfd(:)*dtf
-        Coupling%nlwsfci_cpl (:) = adjsfcdlw(:)  - adjsfculw(:)
+        Coupling%nlwsfci_cpl (:) = adjsfcdlw_for_coupling(:)  - adjsfculw(:)
         Coupling%nlwsfc_cpl  (:) = Coupling%nlwsfc_cpl(:) + Coupling%nlwsfci_cpl(:)*dtf
         Coupling%t2mi_cpl    (:) = Sfcprop%t2m(:)
         Coupling%q2mi_cpl    (:) = Sfcprop%q2m(:)
@@ -1940,9 +1990,9 @@ module module_physics_driver
 !                         adjnirdfd(i)-adjnirdfd(i)*ocalnirdf_cpl(i) +   &
 !                         adjvisbmd(i)-adjvisbmd(i)*ocalvisbm_cpl(i) +   &
 !                         adjvisdfd(i)-adjvisdfd(i)*ocalvisdf_cpl(i)
-          netswsfc  (i) = adjsfcnsw(i)
+          netswsfc  (i) = adjsfcnsw_for_coupling(i)
           netflxsfc (i) = netswsfc(i)                                +   & !net shortwave
-                          adjsfcdlw(i)-adjsfculw(i)                  +   & !net longwave
+                          adjsfcdlw_for_coupling(i)-adjsfculw(i)     +   & !net longwave
                           dtsfc1(i) * (-1.)                          +   & !sensible heat flux
                           dqsfc1(i) * (-1.)                                !latent heat flux
          endif

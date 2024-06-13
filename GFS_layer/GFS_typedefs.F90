@@ -85,6 +85,10 @@ module GFS_typedefs
     character(len=65) :: fn_nml                   !< namelist filename
     character(len=:), pointer, dimension(:) :: input_nml_file => null() !< character string containing full namelist
                                                                         !< for use with internal file reads
+    logical :: hydro                             !< whether the dynamical core is hydrostatic
+    logical :: do_inline_mp                      !< flag for GFDL cloud microphysics
+    logical :: do_cosp                           !< flag for COSP
+
   end type GFS_init_type
 
 
@@ -514,6 +518,13 @@ module GFS_typedefs
     integer              :: ico2            !< prescribed global mean value (old opernl)
     integer              :: ialb            !< use climatology alb, based on sfc type
                                             !< 1 => use modis based alb
+
+    logical              :: disable_radiation_quasi_sea_ice
+                                            !< flag to disable
+                                            !< radiation code treating ocean grid
+                                            !< cells with temperature below
+                                            !< freezing as sea ice
+    
     integer              :: iems            !< use fixed value of 1.0
     integer              :: iaer            !< default aerosol effect in sw only
     integer              :: iovr_sw         !< sw: max-random overlap clouds
@@ -600,6 +611,7 @@ module GFS_typedefs
     integer              :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras             !< flag for ras convection scheme
@@ -884,6 +896,7 @@ module GFS_typedefs
     character(len=32)    :: iau_forcing_var(20)  ! list of tracers with IAU forcing
     real(kind=kind_phys) :: iaufhrs(7)      ! forecast hours associated with increment files
     logical :: iau_filter_increments, iau_drymassfixer
+    logical :: override_surface_radiative_fluxes  ! Whether to use Overrides to override the surface radiative fluxes
 
     contains
       procedure :: init  => control_initialize
@@ -1195,6 +1208,11 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: gflux  (:)    => null()   !< groud conductive heat flux
     real (kind=kind_phys), pointer :: dlwsfc (:)    => null()   !< time accumulated sfc dn lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: ulwsfc (:)    => null()   !< time accumulated sfc up lw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: dswsfc (:)    => null()   !< time accumulated sfc dn sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: uswsfc (:)    => null()   !< time accumulated sfc up sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: dlwsfc_override (:) => null()   !< time accumulated sfc dn lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dswsfc_override (:) => null()   !< time accumulated sfc dn sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: uswsfc_override (:) => null()   !< time accumulated sfc up sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: suntim (:)    => null()   !< sunshine duration time (s)
     real (kind=kind_phys), pointer :: runoff (:)    => null()   !< total water runoff
     real (kind=kind_phys), pointer :: ep     (:)    => null()   !< potential evaporation
@@ -1246,6 +1264,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: ulwsfci(:)    => null()   !< instantaneous sfc upwd lw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: dswsfci(:)    => null()   !< instantaneous sfc dnwd sw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: uswsfci(:)    => null()   !< instantaneous sfc upwd sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: dlwsfci_override(:) => null()   !< instantaneous sfc dnwd lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dswsfci_override(:) => null()   !< instantaneous sfc dnwd sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: uswsfci_override(:) => null()   !< instantaneous sfc upwd sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: dusfci (:)    => null()   !< instantaneous u component of surface stress
     real (kind=kind_phys), pointer :: dvsfci (:)    => null()   !< instantaneous v component of surface stress
     real (kind=kind_phys), pointer :: dtsfci (:)    => null()   !< instantaneous sfc sensible heat flux
@@ -1305,6 +1326,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: flux_en(:,:)  => null()
     real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
     real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
+    real (kind=kind_phys), pointer :: co2(:,:) => null()  ! Vertically resolved CO2 concentration
+    real (kind=kind_phys), pointer :: column_moles_co2_per_square_meter(:) => null()  ! Moles of CO2 in column per square meter
+    real (kind=kind_phys), pointer :: column_moles_dry_air_per_square_meter(:) => null()  ! Moles of dry air in column per square meter
 
     !--- accumulated quantities for 3D diagnostics
     real (kind=kind_phys), pointer :: upd_mf (:,:)   => null()  !< instantaneous convective updraft mass flux
@@ -1317,6 +1341,31 @@ module GFS_typedefs
       procedure :: rad_zero  => diag_rad_zero
       procedure :: phys_zero => diag_phys_zero
   end type GFS_diag_type
+
+!----------------------------------------------------------------
+! GFS_overrides_type
+!  Container with variables used for overriding fields in the
+!  GFS_physics_driver.
+!
+!  Currently the only supported variables for overriding are the downward
+!  longwave, downward shortwave, and net shortwave radiative fluxes at the
+!  surface seen by the ocean and/or land surface model.  Memory will only be
+!  allocated for these variables, and they will only be used for overriding if
+!  gfs_physics_nml.override_surface_radiative_fluxes is set to .true..
+!
+!  Note that from the perspective of the fortran code, these variables will
+!  appear to never be populated with anything other than zeros.  This is because
+!  they are expected to be populated within a Python-wrapped version of the
+!  model, which has the ability to set the state of the running fortran model
+!  within each timestep.
+!----------------------------------------------------------------
+  type GFS_overrides_type
+    real (kind=kind_phys), pointer :: adjsfcdlw_override(:) => null()  !< override to the downward longwave radiation flux at the surface
+    real (kind=kind_phys), pointer :: adjsfcdsw_override(:) => null()  !< override to the downward shortwave radiation flux at the surface
+    real (kind=kind_phys), pointer :: adjsfcnsw_override(:) => null()  !< override to the net shortwave radiation flux at the surface
+    contains
+      procedure :: create  => overrides_create  !<   allocate array data
+  end type GFS_overrides_type
 
 !----------------
 ! PUBLIC ENTITIES
@@ -1999,6 +2048,23 @@ module GFS_typedefs
 
   end subroutine coupling_create
 
+subroutine overrides_create(Overrides, IM, Model)
+  implicit none
+
+  class(GFS_overrides_type) :: Overrides
+  integer,                 intent(in) :: IM
+  type(GFS_control_type),  intent(in) :: Model
+
+  if (Model%override_surface_radiative_fluxes) then
+    allocate(Overrides%adjsfcdlw_override(IM))
+    allocate(Overrides%adjsfcdsw_override(IM))
+    allocate(Overrides%adjsfcnsw_override(IM))
+    Overrides%adjsfcdlw_override = clear_val
+    Overrides%adjsfcdsw_override = clear_val
+    Overrides%adjsfcnsw_override = clear_val
+  endif
+
+end subroutine overrides_create
 
 !----------------------
 ! GFS_control_type%init
@@ -2008,7 +2074,8 @@ module GFS_typedefs
                                  cnx, cny, gnx, gny, dt_dycore,     &
                                  dt_phys, idat, jdat, iau_offset,   &
                                  tracer_names, input_nml_file,      &
-                                 tile_num, blksz)
+                                 tile_num, blksz, hydro,            &
+                                 do_inline_mp, do_cosp)
 
     !--- modules
     use physcons,         only: max_lon, max_lat, min_lon, min_lat, &
@@ -2045,6 +2112,9 @@ module GFS_typedefs
     character(len=32),      intent(in) :: tracer_names(:)
     character(len=:),       intent(in),  dimension(:), pointer :: input_nml_file
     integer,                intent(in) :: blksz(:)
+    logical,                intent(in) :: hydro
+    logical,                intent(in) :: do_inline_mp
+    logical,                intent(in) :: do_cosp
     !--- local variables
     integer :: n, i, j
     integer :: ios
@@ -2086,6 +2156,13 @@ module GFS_typedefs
     integer              :: ico2           =  0              !< prescribed global mean value (old opernl)
     integer              :: ialb           =  0              !< use climatology alb, based on sfc type
                                                              !< 1 => use modis based alb
+
+    logical              :: disable_radiation_quasi_sea_ice = .false.
+                                                             !< flag to disable
+                                                             !< radiation code treating ocean grid
+                                                             !< cells with temperature below
+                                                             !< freezing as sea ice
+
     integer              :: iems           =  0              !< use fixed value of 1.0
     integer              :: iaer           =  1              !< default aerosol effect in sw only
     integer              :: iovr_sw        =  1              !< sw: max-random overlap clouds
@@ -2117,15 +2194,8 @@ module GFS_typedefs
     logical              :: fixed_sollat   = .false.         !< flag to fix solar latitude
     logical              :: daily_mean     = .false.         !< flag to replace cosz with daily mean value
 
-    !--- dynamical core parameters
-    logical              :: dycore_hydrostatic  = .true.     !< whether the dynamical core is hydrostatic
-
     !--- GFDL microphysical parameters
     logical              :: do_sat_adj   = .false.           !< flag for fast saturation adjustment
-    logical              :: do_inline_mp = .false.           !< flag for GFDL cloud microphysics
-
-    !--- The CFMIP Observation Simulator Package (COSP)
-    logical              :: do_cosp = .false.                !< flag for COSP
 
     !--- Z-C microphysical parameters
     integer              :: ncld           =  1                 !< cnoice of cloud scheme
@@ -2170,6 +2240,7 @@ module GFS_typedefs
     integer              :: iopt_snf       =  1  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot      =  2  !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc       =  1  !snow/soil temperature time scheme (only layer 1)
+    integer              :: iopt_gla       =  2  !glacier option (1->phase change; 2->simple)
 
     !--- tuning parameters for physical parameterizations
     logical              :: ras            = .false.                  !< flag for ras convection scheme
@@ -2397,6 +2468,8 @@ module GFS_typedefs
 !--- aerosol scavenging factors
     character(len=20) :: fscav_aero(20) = 'default'
 
+    logical :: override_surface_radiative_fluxes = .false.
+
     !--- END NAMELIST VARIABLES
 
     NAMELIST /gfs_physics_nml/                                                              &
@@ -2407,6 +2480,7 @@ module GFS_typedefs
                                cplflx, cplwav, lsidea,                                      &
                           !--- radiation parameters
                                fhswr, fhlwr, levr, nfxr, aero_in, iflip, isol, ico2, ialb,  &
+                               disable_radiation_quasi_sea_ice,                             &
                                isot, iems,  iaer, iovr_sw, iovr_lw, ictm, isubc_sw,         &
                                isubc_lw, crick_proof, ccnorm, lwhtr, swhtr, nkld,           &
                                fixed_date, fixed_solhr, fixed_sollat, daily_mean, sollat,   &
@@ -2419,6 +2493,7 @@ module GFS_typedefs
                           !    Noah MP options
                                iopt_dveg,iopt_crs,iopt_btr,iopt_run,iopt_sfc, iopt_frz,     &
                                iopt_inf, iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc,     &
+                               iopt_gla,                                                    &
                           !--- physical parameterizations
                                ras, trans_trac, old_monin, cnvgwd, mstrat, moist_adj,       &
                                cscnv, cal_pre, do_aw, do_shoc, shocaftcnv, shoc_cld,        &
@@ -2463,7 +2538,8 @@ module GFS_typedefs
                           !--- debug options
                                debug, pre_rad, do_ocean, use_ifs_ini_sst, use_ext_sst, lprnt, &
                           !--- aerosol scavenging factors ('name:value' string array)
-                               fscav_aero
+                               fscav_aero,                                                  &
+                               override_surface_radiative_fluxes
 
     !--- other parameters
     integer :: nctp    =  0                !< number of cloud types in CS scheme
@@ -2569,6 +2645,7 @@ module GFS_typedefs
     Model%isol             = isol
     Model%ico2             = ico2
     Model%ialb             = ialb
+    Model%disable_radiation_quasi_sea_ice = disable_radiation_quasi_sea_ice
     Model%iems             = iems
     Model%iaer             = iaer
     Model%iovr_sw          = iovr_sw
@@ -2587,8 +2664,13 @@ module GFS_typedefs
 
     !--- microphysical switch
     Model%ncld             = ncld
+    !--- dynamical core parameters
+    Model%dycore_hydrostatic = hydro
     !--- GFDL microphysical parameters
     Model%do_sat_adj       = do_sat_adj
+    Model%do_inline_mp     = do_inline_mp
+    !--- The CFMIP Observation Simulator Package (COSP)
+    Model%do_cosp          = do_cosp
     !--- Zhao-Carr MP parameters
     Model%zhao_mic         = zhao_mic
     Model%psautco          = psautco
@@ -2625,6 +2707,7 @@ module GFS_typedefs
     Model%iopt_snf         = iopt_snf
     Model%iopt_tbot        = iopt_tbot
     Model%iopt_stc         = iopt_stc
+    Model%iopt_gla         = iopt_gla
 
 
     !--- tuning parameters for physical parameterizations
@@ -2802,6 +2885,12 @@ module GFS_typedefs
     Model%iau_filter_increments = iau_filter_increments
     Model%iau_drymassfixer = iau_drymassfixer
     if(Model%me==0) print *,' model init,iaufhrs=',Model%iaufhrs
+
+    !--- whether to enable overriding the surface radiative fluxes used by the
+    ! ocean, sea-ice, and land surface models in the physics driver with those
+    ! prescribed via the physics Overrides type.
+    Model%override_surface_radiative_fluxes = override_surface_radiative_fluxes
+
 
     !--- tracer handling
     Model%ntrac            = size(tracer_names)
@@ -2998,6 +3087,7 @@ module GFS_typedefs
         print *,'iopt_snf   =  ', Model%iopt_snf
         print *,'iopt_tbot   =  ',Model%iopt_tbot
         print *,'iopt_stc   =  ', Model%iopt_stc
+        print *,'iopt_gla   =  ', Model%iopt_gla
 
 
 
@@ -3207,6 +3297,7 @@ module GFS_typedefs
       print *, ' sfcpress_id       : ', Model%sfcpress_id
       print *, ' gen_coord_hybrid  : ', Model%gen_coord_hybrid
       print *, ' sfc_override      : ', Model%sfc_override
+      print *, ' override_surface_radiative_fluxes: ', Model%override_surface_radiative_fluxes
       print *, ' '
       print *, 'grid extent parameters'
       print *, ' isc               : ', Model%isc
@@ -3253,6 +3344,7 @@ module GFS_typedefs
       print *, ' isol              : ', Model%isol
       print *, ' ico2              : ', Model%ico2
       print *, ' ialb              : ', Model%ialb
+      print *, ' disable_radiation_quasi_sea_ice: ', Model%disable_radiation_quasi_sea_ice
       print *, ' iems              : ', Model%iems
       print *, ' iaer              : ', Model%iaer
       print *, ' iovr_sw           : ', Model%iovr_sw
@@ -3315,6 +3407,7 @@ module GFS_typedefs
       print *, ' iopt_snf          : ', Model%iopt_snf
       print *, ' iopt_tbot         : ', Model%iopt_tbot
       print *, ' iopt_stc          : ', Model%iopt_stc
+      print *, ' iopt_gla          : ', Model%iopt_gla
 
       endif
 
@@ -3746,6 +3839,7 @@ module GFS_typedefs
     allocate (Diag%totprcpb(IM))
     allocate (Diag%gflux   (IM))
     allocate (Diag%dlwsfc  (IM))
+    allocate (Diag%dswsfc  (IM))
     allocate (Diag%netflxsfc     (IM))
     allocate (Diag%qflux_restore (IM))
     allocate (Diag%MLD     (IM))
@@ -3755,6 +3849,16 @@ module GFS_typedefs
        allocate (Diag%el_myj (IM, Model%levs))
     endif
     allocate (Diag%ulwsfc  (IM))
+    allocate (Diag%uswsfc  (IM))
+    if (Model%override_surface_radiative_fluxes) then
+      allocate (Diag%dlwsfc_override(IM))
+      allocate (Diag%dswsfc_override(IM))
+      allocate (Diag%uswsfc_override(IM))
+
+      allocate (Diag%dlwsfci_override(IM))
+      allocate (Diag%dswsfci_override(IM))
+      allocate (Diag%uswsfci_override(IM))
+    endif
     allocate (Diag%suntim  (IM))
     allocate (Diag%runoff  (IM))
     allocate (Diag%ep      (IM))
@@ -3841,6 +3945,9 @@ module GFS_typedefs
       allocate (Diag%flux_en(IM,Model%levs))
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
+      allocate (Diag%co2(IM,Model%levs))
+      allocate (Diag%column_moles_co2_per_square_meter(IM))
+      allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))
@@ -4025,11 +4132,13 @@ module GFS_typedefs
     Diag%dqsfc   = zero
     Diag%gflux   = zero
     Diag%dlwsfc  = zero
+    Diag%dswsfc  = zero
     Diag%netflxsfc     = zero
     Diag%qflux_restore = zero
     Diag%MLD     = zero
     Diag%tclim_iano    = zero
     Diag%ulwsfc  = zero
+    Diag%uswsfc  = zero
     Diag%suntim  = zero
     Diag%runoff  = zero
     Diag%ep      = zero
@@ -4073,6 +4182,15 @@ module GFS_typedefs
     Diag%ulwsfci = zero
     Diag%dswsfci = zero
     Diag%uswsfci = zero
+    if (Model%override_surface_radiative_fluxes) then
+      Diag%dlwsfc_override  = zero
+      Diag%dswsfc_override  = zero
+      Diag%uswsfc_override  = zero
+
+      Diag%dlwsfci_override = zero
+      Diag%dswsfci_override = zero
+      Diag%uswsfci_override = zero
+    endif
     Diag%dusfci  = zero
     Diag%dvsfci  = zero
     Diag%dtsfci  = zero

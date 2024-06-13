@@ -327,6 +327,9 @@ module gfdl_cld_mp_mod
 
     logical :: do_subgrid_proc = .true. ! do temperature sentive high vertical resolution processes
 
+    logical :: fast_fr_mlt = .true. ! do freezing and melting in fast microphysics
+    logical :: fast_dep_sub = .true. ! do deposition and sublimation in fast microphysics
+
     real :: mp_time = 150.0 ! maximum microphysics time step (s)
 
     real :: n0w_sig = 1.1 ! intercept parameter (significand) of cloud water (Lin et al. 1983) (1/m^4) (Martin et al. 1994)
@@ -536,7 +539,8 @@ module gfdl_cld_mp_mod
         alinw, alini, alinr, alins, aling, alinh, blinw, blini, blinr, blins, bling, blinh, &
         do_new_acc_water, do_new_acc_ice, is_fac, ss_fac, gs_fac, rh_fac_evap, rh_fac_cond, &
         snow_grauple_combine, do_psd_water_num, do_psd_ice_num, vdiffflag, rewfac, reifac, &
-        cp_heating, nconds, do_evap_timescale, delay_cond_evap, do_subgrid_proc
+        cp_heating, nconds, do_evap_timescale, delay_cond_evap, do_subgrid_proc, &
+        fast_fr_mlt, fast_dep_sub
 
 contains
 
@@ -2006,7 +2010,7 @@ subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
     call cal_mhc_lhc (ks, ke, qv, ql, qr, qi, qs, qg, q_liq, q_sol, cvm, te8, tz, &
         lcpk, icpk, tcpk, tcp3)
 
-    if (.not. do_warm_rain_mp) then
+    if (.not. do_warm_rain_mp .and. fast_fr_mlt) then
 
         ! -----------------------------------------------------------------------
         ! cloud ice melting to form cloud water and rain
@@ -2044,7 +2048,7 @@ subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
     condensation = condensation + cond * convt
     evaporation = evaporation + reevap * convt
 
-    if (.not. do_warm_rain_mp) then
+    if (.not. do_warm_rain_mp .and. fast_fr_mlt) then
 
         ! -----------------------------------------------------------------------
         ! cloud water freezing to form cloud ice and snow
@@ -2089,7 +2093,7 @@ subroutine mp_fast (ks, ke, tz, qv, ql, qr, qi, qs, qg, dtm, dp, den, &
 
     call praut_simp (ks, ke, dtm, tz, qv, ql, qr, qi, qs, qg)
 
-    if (.not. do_warm_rain_mp) then
+    if (.not. do_warm_rain_mp .and. fast_dep_sub) then
 
         ! -----------------------------------------------------------------------
         ! cloud ice deposition and sublimation
