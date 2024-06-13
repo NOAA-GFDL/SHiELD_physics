@@ -427,7 +427,7 @@ module module_physics_driver
 
       integer, dimension(size(Grid%xlon,1)) ::                          &
            kbot, ktop, kcnv, soiltyp, vegtype, kpbl, slopetyp, kinver,  &
-           lmh, levshc, islmsk,                                         &
+           lmh, levshc, islmsk, soilcol,                                &
            !--- coupling inputs for physics
            islmsk_cice
 
@@ -786,6 +786,7 @@ module module_physics_driver
           soiltyp(i)  = int( Sfcprop%stype(i)+0.5 )
           vegtype(i)  = int( Sfcprop%vtype(i)+0.5 )
           slopetyp(i) = int( Sfcprop%slope(i)+0.5 )    !! clu: slope -> slopetyp
+          soilcol(i)  = nint(Sfcprop%scolor(i))
         endif
 !  --- ...  xw: transfer ice thickness & concentration from global to local variables
         zice(i) = Sfcprop%hice(i)
@@ -1320,7 +1321,8 @@ module module_physics_driver
           call noahmpdrv                                               &
 !  ---  inputs:
            (im, Model%lsoil, kdt, Statein%pgr,  Statein%ugrs, Statein%vgrs,   &
-            Statein%tgrs,  Statein%qgrs, soiltyp, vegtype, sigmaf,     &
+            Statein%tgrs,  Statein%qgrs, soiltyp, soilcol,             &
+            vegtype, sigmaf,                                           &
             Radtend%semis, adjsfcdlw_for_coupling,                     &
             adjsfcdsw_for_coupling, adjsfcnsw_for_coupling, dtf,       &
             Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3,            &

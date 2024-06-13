@@ -522,7 +522,7 @@ module FV3GFS_io_mod
     nvar_s3  = 3
 
     if (Model%lsm == Model%lsm_noahmp) then
-      nvar_s2mp = 39       !mp 2D
+      nvar_s2mp = 40       !mp 2D
       nvar_s3mp = 5        !mp 3D
     else
       nvar_s2mp = 0        !mp 2D
@@ -653,6 +653,7 @@ module FV3GFS_io_mod
         sfc_name2(nvar_s2m+55) = 'albivis'
         sfc_name2(nvar_s2m+56) = 'albinir'
         sfc_name2(nvar_s2m+57) = 'emiss'
+        sfc_name2(nvar_s2m+58) = 'scolor'
       endif
 
       !--- names of the 3D variables to save
@@ -1154,6 +1155,7 @@ module FV3GFS_io_mod
              Sfcprop(nb)%albivis(ix)    = sfc_var2(i,j,nvar_s2m+55)
              Sfcprop(nb)%albinir(ix)    = sfc_var2(i,j,nvar_s2m+56)
              Sfcprop(nb)%emiss(ix)      = sfc_var2(i,j,nvar_s2m+57)
+             Sfcprop(nb)%scolor(ix)     = sfc_var2(i,j,nvar_s2m+58)
            endif
 
 
@@ -2040,6 +2042,7 @@ module FV3GFS_io_mod
             sfc_var2(i,j,nvar_s2m+55) = Sfcprop(nb)%albivis(ix)
             sfc_var2(i,j,nvar_s2m+56) = Sfcprop(nb)%albinir(ix)
             sfc_var2(i,j,nvar_s2m+57) = Sfcprop(nb)%emiss(ix)
+            sfc_var2(i,j,nvar_s2m+58) = Sfcprop(nb)%scolor(ix)
           endif
 
           !--- 3D variables
@@ -6852,6 +6855,17 @@ module FV3GFS_io_mod
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Sfcprop(nb)%sncovr(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'soil_color'
+    Diag(idx)%desc = 'soil color category'
+    Diag(idx)%unit = 'none'
+    Diag(idx)%mod_name = 'gfs_sfc'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%scolor(:)
     enddo
 
     idx = idx + 1
