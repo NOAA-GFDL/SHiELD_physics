@@ -1308,6 +1308,7 @@ module FV3GFS_io_mod
               Sfcprop(nb)%albivis(ix)    = missing_value
               Sfcprop(nb)%albinir(ix)    = missing_value
               Sfcprop(nb)%emiss(ix)      = missing_value
+              Sfcprop(nb)%scolor(ix)     = 0.0
 
               Sfcprop(nb)%snowxy (ix)   = missing_value
               Sfcprop(nb)%snicexy(ix, -2:0) = missing_value
@@ -1533,6 +1534,11 @@ module FV3GFS_io_mod
                 Sfcprop(nb)%deeprechxy(ix) = 0.0
                 Sfcprop(nb)%rechxy(ix)     = 0.0
 
+                ! Use a default value of 4 for the soil color category over
+                ! land when cold starting. Note this will get overridden during
+                ! cycling if soil color data is provided. If soil color data is
+                ! not provided then the soil color will remain 4 over land.
+                Sfcprop(nb)%scolor(ix)     = 4.0
               endif !end if slmsk>0.01 (land only)
 
             enddo ! ix
