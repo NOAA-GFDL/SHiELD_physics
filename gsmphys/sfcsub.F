@@ -546,23 +546,23 @@
 !       rec. 16    canopy water content (cnpanl)  -----> f10m
 !       rec. 17    vegetation type
 !       rec. 18    soil type
-!       rec. 18    soil color ? add later?
-!       rec. 19    zeneith angle dependent vegetation fraction (two types)
-!       rec. 20    uustar
-!       rec. 21    ffmm
-!       rec. 22    ffhh
+!       rec. 19    soil color
+!       rec. 20    zeneith angle dependent vegetation fraction (two types)
+!       rec. 21    uustar
+!       rec. 22    ffmm
+!       rec. 23    ffhh
 !cwu add sih & sic
-!       rec. 23    sih(one category only)
-!       rec. 24    sic
+!       rec. 24    sih(one category only)
+!       rec. 25    sic
 !clu [+8l] add prcp, flag, swd, slc, vmn, vmx, slp, abs
-!       rec. 25    tprcp
-!       rec. 26    srflag
-!       rec. 27    swd
-!       rec. 28    slc (4 layers)
-!       rec. 29    vmn
-!       rec. 30    vmx
-!       rec. 31    slp
-!       rec. 32    abs
+!       rec. 26    tprcp
+!       rec. 27    srflag
+!       rec. 28    swd
+!       rec. 29    slc (4 layers)
+!       rec. 30    vmn
+!       rec. 31    vmx
+!       rec. 32    slp
+!       rec. 33    abs
 
 !
 !  debug only
