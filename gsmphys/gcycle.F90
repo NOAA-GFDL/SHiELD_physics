@@ -40,6 +40,7 @@
         VEGFCS (Model%nx*Model%ny),             &
         VETFCS (Model%nx*Model%ny),             &
         SOTFCS (Model%nx*Model%ny),             &
+        SLCFCS (Model%nx*Model%ny),             &
          CVFCS (Model%nx*Model%ny),             &
         CVBFCS (Model%nx*Model%ny),             &
         CVTFCS (Model%nx*Model%ny),             &
@@ -117,6 +118,7 @@
           VEGFCS  (len)          = Sfcprop(nb)%vfrac  (ix)
           VETFCS  (len)          = Sfcprop(nb)%vtype  (ix)
           SOTFCS  (len)          = Sfcprop(nb)%stype  (ix)
+          SLCFCS  (len)          = Sfcprop(nb)%scolor (ix)
           CVFCS   (len)          = Cldprop(nb)%cv     (ix)
           CVBFCS  (len)          = Cldprop(nb)%cvb    (ix)
           CVTFCS  (len)          = Cldprop(nb)%cvt    (ix)
@@ -183,8 +185,9 @@
                      VMNFCS, VMXFCS, SLPFCS, ABSFCS, TSFFCS, TSCLIM,      &
                      SNOFCS, ZORFCS, ALBFC1, MLDCLIM, QFLUXADJ, TG3FCS, CNPFCS,      &
                      SMCFC1, STCFC1, SLIFCS, AISFCS, F10MFCS,     &
-                     VEGFCS, VETFCS, SOTFCS, ALFFC1, CVFCS,       &
-                     CVBFCS, CVTFCS, Model%me, Model%nlunit,      &
+                     VEGFCS, VETFCS, SOTFCS, SLCFCS, ALFFC1,      &
+                     CVFCS, CVBFCS, CVTFCS, Model%me,             &
+                     Model%nlunit,                                &
                      size(Model%input_nml_file),                  &
                      Model%input_nml_file,                        &
                      Model%ialb, Model%isot, Model%ivegsrc,       &
@@ -220,6 +223,7 @@
           Sfcprop(nb)%vfrac  (ix) = VEGFCS  (len)
           Sfcprop(nb)%vtype  (ix) = VETFCS  (len)
           Sfcprop(nb)%stype  (ix) = SOTFCS  (len)
+          Sfcprop(nb)%scolor (ix) = SLCFCS  (len)
           Cldprop(nb)%cv     (ix) = CVFCS   (len)
           Cldprop(nb)%cvb    (ix) = CVBFCS  (len)
           Cldprop(nb)%cvt    (ix) = CVTFCS  (len)

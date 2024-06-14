@@ -3,7 +3,8 @@
       subroutine noahmpdrv                                              &
 !...................................
 !  ---  inputs:
-     &     ( im, km,itime,ps, u1, v1, t1, q1, soiltyp, vegtype, sigmaf, &
+     &     ( im, km,itime,ps, u1, v1, t1, q1, soiltyp, soilcol,vegtype, &
+     &       sigmaf,                                                    &
      &       sfcemis, dlwflx, dswsfc, snet, delt, tg3, cm, ch,          &
      &       prsl1, prslki, zf, dry, wind, slopetyp,                    &
      &       shdmin, shdmax, snoalb, sfalb, flag_iter, flag_guess,      &
@@ -84,7 +85,8 @@
 
       integer, intent(in) :: im, km, itime,imon
 
-      integer, dimension(im), intent(in) :: soiltyp, vegtype, slopetyp
+      integer, dimension(im), intent(in) :: soiltyp, soilcol, vegtype,  &
+     &       slopetyp
 
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
      &       t1, q1, sigmaf, dlwflx, dswsfc, snet, tg3, cm,             &
@@ -205,7 +207,8 @@
      &                         irb,tr,evc,chleaf,chuc,chv2,chb2,        &
      &                         fpice,pahv,pahg,pahb,pah,co2pp,o2pp,ch2b
 
-      integer :: i, k, ice, stype, vtype ,slope,nroot,couple
+      integer :: i, k, ice, stype, soil_color_category
+      integer :: vtype ,slope,nroot,couple
       logical :: flag(im)
       logical :: snowng,frzgra
 
@@ -431,6 +434,7 @@
           vtype = vegtype(i)
           stype = soiltyp(i)
           slope = slopetyp(i)
+          soil_color_category = soilcol(i)
           shdfac= sigmaf(i)
 
           shdmin1d = shdmin(i)   
@@ -574,8 +578,8 @@
           cmm(i) = cm(i)  * wind(i)
 
 
-
-       call transfer_mp_parameters(vtype,stype,slope,isc,parameters)
+       call transfer_mp_parameters(vtype,stype,slope,                   &
+     &                             soil_color_category,parameters)
 
        call noahmp_options(idveg ,iopt_crs,iopt_btr,iopt_run,iopt_sfc,  &
      & iopt_frz,iopt_inf,iopt_rad,iopt_alb,iopt_snf,iopt_tbot,iopt_stc)
