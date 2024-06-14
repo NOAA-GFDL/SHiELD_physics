@@ -768,7 +768,7 @@ module module_physics_driver
       do i = 1, im
         sigmaf(i)   = max( Sfcprop%vfrac(i),0.01 )
         islmsk(i)   = nint(Sfcprop%slmsk(i))
-
+        soilcol(i)  = nint(Sfcprop%scolor(i))
 
         if (islmsk(i) == 2) then
           if (Model%isot == 1) then
@@ -786,7 +786,6 @@ module module_physics_driver
           soiltyp(i)  = int( Sfcprop%stype(i)+0.5 )
           vegtype(i)  = int( Sfcprop%vtype(i)+0.5 )
           slopetyp(i) = int( Sfcprop%slope(i)+0.5 )    !! clu: slope -> slopetyp
-          soilcol(i)  = nint(Sfcprop%scolor(i))
         endif
 !  --- ...  xw: transfer ice thickness & concentration from global to local variables
         zice(i) = Sfcprop%hice(i)
