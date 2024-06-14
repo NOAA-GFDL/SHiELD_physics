@@ -2506,10 +2506,10 @@ contains
 
   if(opt_alb == 1) then
      call snowalb_bats (parameters,nband, fsno,cosz,fage,albsnd,albsni)
-  elseif(opt_alb == 2) then
+  else if(opt_alb == 2) then
      call snowalb_class (parameters,nband,qsnow,dt,alb,albold,albsnd,albsni,iloc,jloc)
      albold = alb
-  elseif(opt_alb == 3) then
+  else if(opt_alb == 3) then
      albsnd = snoalb
      albsni = snoalb
   end if
