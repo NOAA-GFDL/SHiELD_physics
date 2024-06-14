@@ -28,7 +28,7 @@ module noahmp_glacier_globals
 
 ! =====================================options for different schemes================================
 ! options for ground snow surface albedo
-! 1-> bats; 2 -> class
+! 1 -> bats; 2 -> class; 3 -> prescribed from fix file climatology
 
   integer :: opt_alb != 2    !(suggested 2)
 
@@ -106,6 +106,7 @@ contains
                    iloc    ,jloc    ,cosz    ,nsnow   ,nsoil   ,dt      , & ! in : time/space/model-related
                    sfctmp  ,sfcprs  ,uu      ,vv      ,q2      ,soldn   , & ! in : forcing
                    prcp    ,lwdn    ,tbot    ,zlvl    ,ficeold ,zsoil   , & ! in : forcing
+                   snoalb  ,                                              & ! in : forcing
                    qsnow   ,sneqvo  ,albold  ,cm      ,ch      ,isnow   , & ! in/out : 
                    sneqv   ,smc     ,zsnso   ,snowh   ,snice   ,snliq   , & ! in/out :
                    tg      ,stc     ,sh2o    ,tauss   ,qsfc    ,          & ! in/out : 
@@ -139,7 +140,7 @@ contains
   real (kind=kind_phys)                           , intent(in)    :: zlvl   !reference height (m)
   real (kind=kind_phys), dimension(-nsnow+1:    0), intent(in)    :: ficeold!ice fraction at last timestep
   real (kind=kind_phys), dimension(       1:nsoil), intent(in)    :: zsoil  !layer-bottom depth from soil surf (m)
-
+  real (kind=kind_phys)                           , intent(in)    :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 
 ! input/output : need arbitary intial values
   real (kind=kind_phys)                           , intent(inout) :: qsnow  !snowfall [mm/s]
@@ -235,7 +236,7 @@ contains
     call energy_glacier (nsnow  ,nsoil  ,isnow  ,dt     ,qsnow  ,rhoair , & !in
                          eair   ,sfcprs ,qair   ,sfctmp ,lwdn   ,uu     , & !in
                          vv     ,solad  ,solai  ,cosz   ,zlvl   ,         & !in
-                         tbot   ,zbot   ,zsnso  ,dzsnso ,                 & !in
+                         tbot   ,zbot   ,zsnso  ,dzsnso ,snoalb ,         & !in
                          tg     ,stc    ,snowh  ,sneqv  ,sneqvo ,sh2o   , & !inout
                          smc    ,snice  ,snliq  ,albold ,cm     ,ch     , & !inout
                          tauss  ,qsfc   ,                                 & !inout
@@ -346,7 +347,7 @@ contains
   subroutine energy_glacier (nsnow  ,nsoil  ,isnow  ,dt     ,qsnow  ,rhoair , & !in
                              eair   ,sfcprs ,qair   ,sfctmp ,lwdn   ,uu     , & !in
                              vv     ,solad  ,solai  ,cosz   ,zref   ,         & !in
-                             tbot   ,zbot   ,zsnso  ,dzsnso ,                 & !in
+                             tbot   ,zbot   ,zsnso  ,dzsnso ,snoalb ,         & !in
                              tg     ,stc    ,snowh  ,sneqv  ,sneqvo ,sh2o   , & !inout
                              smc    ,snice  ,snliq  ,albold ,cm     ,ch     , & !inout
                              tauss  ,qsfc   ,                                 & !inout
@@ -384,6 +385,7 @@ contains
   real (kind=kind_phys)                              , intent(in)    :: zbot   !depth for tbot [m]
   real (kind=kind_phys)   , dimension(-nsnow+1:nsoil), intent(in)    :: zsnso  !layer-bottom depth from snow surf [m]
   real (kind=kind_phys)   , dimension(-nsnow+1:nsoil), intent(in)    :: dzsnso !depth of snow & soil layer-bottom [m]
+  real (kind=kind_phys)                              , intent(in)    :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 
 ! input & output
   real (kind=kind_phys)                              , intent(inout) :: tg     !ground temperature (k)
@@ -462,7 +464,7 @@ contains
 ! solar radiation: absorbed & reflected by the ground
 
   call  radiation_glacier (dt      ,tg      ,sneqvo  ,sneqv   ,cosz    , & !in
-                           qsnow   ,solad   ,solai   ,                   & !in
+                           qsnow   ,solad   ,solai   ,snoalb  ,          & !in
                            albold  ,tauss   ,                            & !inout
                            sag     ,fsr     ,fsa     , albsnd ,albsni)     !out
 
@@ -658,7 +660,7 @@ contains
   end subroutine csnow_glacier
 !===================================================================================================
   subroutine radiation_glacier (dt      ,tg      ,sneqvo  ,sneqv   ,cosz    , & !in
-                                qsnow   ,solad   ,solai   ,                   & !in
+                                qsnow   ,solad   ,solai   ,snoalb  ,          & !in
                                 albold  ,tauss   ,                            & !inout
                                 sag     ,fsr     ,fsa     , albsnd ,albsni)     !out
 ! --------------------------------------------------------------------------------------------------
@@ -673,6 +675,7 @@ contains
   real (kind=kind_phys), intent(in)                     :: qsnow  !snowfall (mm/s)
   real (kind=kind_phys), dimension(1:2)    , intent(in) :: solad  !incoming direct solar radiation (w/m2)
   real (kind=kind_phys), dimension(1:2)    , intent(in) :: solai  !incoming diffuse solar radiation (w/m2)
+  real (kind=kind_phys), intent(in)                     :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 
 ! inout
   real (kind=kind_phys),                  intent(inout) :: albold !snow albedo at last time step (class type)
@@ -714,11 +717,14 @@ contains
 
      call snow_age_glacier (dt,tg,sneqvo,sneqv,tauss,fage)
 
-     if(opt_alb == 1) &
+     if(opt_alb == 1) then
         call snowalb_bats_glacier (nband,cosz,fage,albsnd,albsni)
-     if(opt_alb == 2) then
+     else if(opt_alb == 2) then
         call snowalb_class_glacier(nband,qsnow,dt,alb,albold,albsnd,albsni)
         albold = alb
+     else if(opt_alb == 3) then
+        albsnd = snoalb
+        albsni = snoalb
      end if
 
   endif
@@ -3034,7 +3040,7 @@ end if   ! opt_gla == 1
 
   implicit none
 
-  integer,  intent(in) :: iopt_alb  !snow surface albedo (1->bats; 2->class)
+  integer,  intent(in) :: iopt_alb  !snow surface albedo (1->bats; 2->class; 3->climatology)
   integer,  intent(in) :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
   integer,  intent(in) :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
   integer,  intent(in) :: iopt_stc  !snow/soil temperature time scheme (only layer 1)

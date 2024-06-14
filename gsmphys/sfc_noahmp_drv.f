@@ -596,6 +596,7 @@
      &             i       ,1       ,cosz    ,nsnow   ,nsoil   ,delt  , & ! in : time/space/model-related
      &             sfctmp  ,sfcprs  ,uu      ,vv      ,q2      ,swdn  , & ! in : forcing
      &             prcp    ,lwdn    ,tbot    ,zlvl    ,ficeold ,zsoil , & ! in : forcing
+     &             snoalb1d,                                            & ! in : forcing
      &             qsnowx  ,sneqvox ,alboldx ,cmx     ,chx     ,isnowx, & ! in/out :sneqvox + alboldx -LST 
      &             swe  ,smsoil  ,zsnsox     ,snowh  ,snicex ,snliqx ,  & ! in/out : sneqvx + snowhx are avgd
      &             tgx     ,tsnsox  ,slsoil  ,taussx  ,qsfc1d         , & ! in/out : 
@@ -664,6 +665,7 @@
      &        qc      , swdn    , lwdn                                 ,& ! in : forcing
      &        pconv   , pnonc   , pshcv   , psnow   , pgrpl   , phail  ,& ! in : forcing
      &        tbot    , co2pp   , o2pp    , foln    , ficeold , zlvl   ,& ! in : forcing
+     &        snoalb1d                                                 ,& ! in : forcing
      &        alboldx , sneqvox                                        ,& ! in/out : 
      &        tsnsox  , slsoil  , smsoil  , tahx    , eahx    , fwetx  ,& ! in/out : 
      &        canliqx , canicex , tvx     , tgx     , qsfc1d  , qsnowx ,& ! in/out : 
