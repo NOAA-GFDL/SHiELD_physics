@@ -88,11 +88,20 @@ module noahmp_tables
      &                               0.30, 0.30, 0.00, 0.00, 0.00, 0.00,     &
      &                               0.00, 0.00, 0.00, 0.00, 0.00, 0.00 /
 
+    ! C. He 12/17/2020: optimized MFSNO values dependent on land type based on evaluation with SNOTEL SWE and MODIS SCF, surface albedo
     real (kind=kind_phys) :: mfsno_table(mvt)       !snowmelt curve parameter ()
-      data  ( mfsno_table(i),i=1,mvt) /  2.50, 2.50, 2.50, 2.50, 2.50, 2.50, &
-     &                               2.50, 2.50, 2.50, 2.50, 2.50, 2.50,     &
-     &                               2.50, 2.50, 2.50, 2.50, 2.50, 2.50,     &
-     &                               2.50, 2.50, 0.00, 0.00, 0.00, 0.00,     &
+      data  ( mfsno_table(i),i=1,mvt) /  1.00, 1.00, 1.00, 1.00, 1.00, 2.00, &
+     &                               2.00, 2.00, 2.00, 2.00, 3.00, 3.00,     &
+     &                               4.00, 4.00, 2.50, 3.00, 3.00, 3.50,     &
+     &                               3.50, 3.50, 0.00, 0.00, 0.00, 0.00,     &
+     &                               0.00, 0.00, 0.00, 0.00, 0.00, 0.00 /
+
+    ! C. He 12/17/2020: optimized snow cover factor (m) in SCF formulation to replace original constant 2.5*z0,z0=0.002m, based on evaluation with SNOTEL SWE and MODIS SCF, surface albedo
+    real (kind=kind_phys) :: scffac_table(mvt)       !snow cover factor (m)
+      data  ( scffac_table(i),i=1,mvt) /  0.005, 0.005, 0.005, 0.005, 0.005, 0.008, &
+     &                               0.008, 0.010, 0.010, 0.010, 0.010, 0.007,      &
+     &                               0.021, 0.013, 0.015, 0.008, 0.015, 0.015,      &
+     &                               0.015, 0.015, 0.00, 0.00, 0.00, 0.00,          &
      &                               0.00, 0.00, 0.00, 0.00, 0.00, 0.00 /
 
 !
