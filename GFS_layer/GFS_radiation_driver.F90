@@ -1386,7 +1386,9 @@
       ! air and moles of co2 per square meter following the method in
       ! radlw_main.f.  These can be used later to compute a global mean carbon
       ! dioxide volume mixing ratio diagnostic if requested.
-      call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+      if (Model%ldiag3d) then
+        call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+      endif
 
 !>  - Get temperature at layer interface, and layer moisture.
       do k = 2, LMK
