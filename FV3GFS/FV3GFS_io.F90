@@ -3496,6 +3496,53 @@ module FV3GFS_io_mod
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,1)
     enddo
 
+    if (Model%do_radiation_double_call) then
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'DSWRFtoa_double_call'
+       Diag(idx)%desc = 'top of atmos downward shortwave flux [W/m**2]'
+       Diag(idx)%unit = 'W/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%time_avg_kind = 'rad_sw'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswrftoa_double_call
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'USWRFtoa_double_call'
+       Diag(idx)%desc = 'top of atmos upward shortwave flux [W/m**2]'
+       Diag(idx)%unit = 'W/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%time_avg_kind = 'rad_sw'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswrftoa_double_call
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'ULWRFtoa_double_call'
+       Diag(idx)%desc = 'top of atmos upward longwave flux [W/m**2]'
+       Diag(idx)%unit = 'W/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%time_avg_kind = 'rad_lw'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwrftoa_double_call
+       enddo
+    endif
+
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'TCDCclm'
@@ -4160,6 +4207,64 @@ module FV3GFS_io_mod
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc(:)
     enddo
+
+    if (Model%do_radiation_double_call) then
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'DSWRF_double_call'
+       Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted downward shortwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'USWRF_double_call'
+       Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted upward shortwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'DLWRF_double_call'
+       Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted downward longwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'ULWRF_double_call'
+       Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted upward longwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%cnvfac = cn_one
+       Diag(idx)%time_avg = .TRUE.
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc_double_call(:)
+       enddo
+    endif
 
     idx = idx + 1
     Diag(idx)%axes = 2
@@ -4962,6 +5067,56 @@ module FV3GFS_io_mod
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci(:)
       enddo
+    endif
+
+    if (Model%do_radiation_double_call) then
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'DLWRFI_double_call'
+       Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted downward longwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfci_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'ULWRFI_double_call'
+       Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted upward longwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfci_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'DSWRFI_double_call'
+       Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted downward shortwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfci_double_call(:)
+       enddo
+
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'USWRFI_double_call'
+       Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted upward shortwave flux at the surface'
+       Diag(idx)%unit = 'w/m**2'
+       Diag(idx)%mod_name = 'gfs_phys'
+       Diag(idx)%intpl_method = 'bilinear'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci_double_call(:)
+       enddo
     endif
 
     idx = idx + 1

@@ -474,6 +474,13 @@ module module_physics_driver
            !--- for CS-convection
            wcbmax
            
+      real(kind=kind_phys), allocatable, dimension(:) :: adjsfcdsw_double_call, &
+           adjsfcnsw_double_call, adjsfcdlw_double_call, adjsfculw_double_call, &
+           adjnirbmu_double_call, adjnirdfu_double_call, adjvisbmu_double_call, &
+           adjvisdfu_double_call, adjnirbmd_double_call, adjnirdfd_double_call, &
+           adjvisbmd_double_call, adjvisdfd_double_call, xmu_double_call,       &
+           xcosz_double_call
+
       logical, dimension(size(Grid%xlon,1))                ::           &
            wet, dry,              icy
 !
@@ -505,6 +512,8 @@ module module_physics_driver
           prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
           sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
           wu2_shal,  eta_shal 
+
+      real(kind=kind_phys), allocatable, dimension(:,:) :: dtdt_double_call, dtdtc_double_call
 
       real(kind=kind_phys), allocatable ::                              &
            pfr(:,:), pfs(:,:), pfg(:,:)
@@ -884,6 +893,48 @@ module module_physics_driver
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd                     &
            )
 
+        if (Model%do_radiation_double_call) then
+           allocate(dtdt_double_call(size(Grid%xlon,1),Model%levs))
+           allocate(dtdtc_double_call(size(Grid%xlon,1),Model%levs))
+
+           allocate(adjsfcdsw_double_call(size(Grid%xlon,1)))
+           allocate(adjsfcnsw_double_call(size(Grid%xlon,1)))
+           allocate(adjsfcdlw_double_call(size(Grid%xlon,1)))
+           allocate(adjsfculw_double_call(size(Grid%xlon,1)))
+           allocate(adjnirbmu_double_call(size(Grid%xlon,1)))
+           allocate(adjnirdfu_double_call(size(Grid%xlon,1)))
+           allocate(adjvisbmu_double_call(size(Grid%xlon,1)))
+           allocate(adjvisdfu_double_call(size(Grid%xlon,1)))
+           allocate(adjnirbmd_double_call(size(Grid%xlon,1)))
+           allocate(adjnirdfd_double_call(size(Grid%xlon,1)))
+           allocate(adjvisbmd_double_call(size(Grid%xlon,1)))
+           allocate(adjvisdfd_double_call(size(Grid%xlon,1)))
+
+           allocate(xmu_double_call(size(Grid%xlon,1)))
+           allocate(xcosz_double_call(size(Grid%xlon,1)))
+
+           call dcyc2t3                                                        &
+   !  ---  inputs:
+           ! TODO(spencer): do we need to worry about updating Radtend%tsflw for the double call?
+             ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                  &
+               Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                          &
+               Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                               &
+               Coupling%sfcdsw_double_call, Coupling%sfcnsw_double_call, Coupling%sfcdlw_double_call,                         &
+               Radtend%htrsw_double_call, Radtend%swhc_double_call, Radtend%htrlw_double_call, Radtend%lwhc_double_call,      &
+               Coupling%nirbmui_double_call, Coupling%nirdfui_double_call, Coupling%visbmui_double_call,                      &
+               Coupling%visdfui_double_call, Coupling%nirbmdi_double_call, Coupling%nirdfdi_double_call,                      &
+               Coupling%visbmdi_double_call, Coupling%visdfdi_double_call, ix, im, levs,                                      &
+               Model%daily_mean,                                                                                              &
+   !  ---  input/output:
+               dtdt_double_call, dtdtc_double_call,                                                                           &
+   !  ---  outputs:
+               adjsfcdsw_double_call, adjsfcnsw_double_call, adjsfcdlw_double_call, adjsfculw_double_call,                    &
+               xmu_double_call, xcosz_double_call,                                                                            &
+               adjnirbmu_double_call, adjnirdfu_double_call, adjvisbmu_double_call, adjvisdfu_double_call,                    &
+               adjnirbmd_double_call, adjnirdfd_double_call, adjvisbmd_double_call, adjvisdfd_double_call                     &
+             )
+        endif
+
 !
 ! save temp change due to radiation - need for sttp stochastic physics
 !---------------------------------------------------------------------
@@ -940,6 +991,12 @@ module module_physics_driver
         ! use the adjsfcdlw_for_coupling pointer here.
         Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
+
+        if (Model%do_radiation_double_call) then
+           Diag%dlwsfc_double_call(:) = Diag%dlwsfc_double_call(:) +   adjsfcdlw_double_call(:)*dtf
+           Diag%ulwsfc_double_call(:) = Diag%ulwsfc_double_call(:) +   adjsfculw_double_call(:)*dtf
+        endif
+
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
         if (Model%override_surface_radiative_fluxes) then
@@ -1449,6 +1506,16 @@ module module_physics_driver
         Diag%dlwsfci_override(:) = adjsfcdlw_for_coupling(:)
         Diag%uswsfci_override(:) = adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:)
         Diag%dswsfci_override(:) = adjsfcdsw_for_coupling(:)
+      endif
+
+      if (Model%do_radiation_double_call) then
+         Diag%dlwsfci_double_call(:) = adjsfcdlw_double_call(:)
+         Diag%ulwsfci_double_call(:) = adjsfculw_double_call(:)
+         Diag%uswsfci_double_call(:) = adjsfcdsw_double_call(:) - adjsfcnsw_double_call(:)
+         Diag%dswsfci_double_call(:) = adjsfcdsw_double_call(:)
+
+         Diag%uswsfc_double_call(:) = Diag%uswsfc_double_call(:) + (adjsfcdsw_double_call(:) - adjsfcnsw_double_call(:))*dtf
+         Diag%dswsfc_double_call(:) = Diag%dswsfc_double_call(:) + adjsfcdsw_double_call(:)*dtf
       endif
 
 !  --- ...  update near surface fields
