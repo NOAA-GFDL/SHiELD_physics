@@ -318,7 +318,8 @@
 
       do i = 1, im
         if (flag_iter(i) .and. flag(i)) then
-          q0(i)   = max(q1(i), 1.e-8)   !* q1=specific humidity at level 1 (kg/kg)
+          q0(i) = q1(i) / (1. - q1(i))  ! convert to mixing ratio (q0)
+          q0(i)   = max(q0(i), 1.e-8)  
           theta1(i) = t1(i) * prslki(i) !* adiabatic temp at level 1 (k)
 
           tv1(i) = t1(i) * (1.0 + con_fvirt*q0(i))
