@@ -131,7 +131,6 @@
 
       integer, dimension(im)                   :: jsnowxy
       real (kind=kind_phys),dimension(im)      :: snodep
-      real (kind=kind_phys),dimension(im,-2:4) :: tsnsoxy
 
 !  ---  output:
 
@@ -489,11 +488,11 @@
           wtx      = waxy(i)     
 
           do k = -2,0
-           tsnsoxy(i,k) = tsnoxy(i,k)
+           tsnsox(k) = tsnoxy(i,k)
           enddo
 
           do k = 1,4
-           tsnsoxy(i,k) = stc(i,k)
+           tsnsox(k) = stc(i,k)
           enddo
 
          do k = -2,0
@@ -511,7 +510,6 @@
 
           do k = -2, km
             zsnsox(k)  = zsnsoxy(i,k)
-            tsnsox(k)  = tsnsoxy(i,k)
           enddo
 
           lfmassx  = lfmassxy(i)
