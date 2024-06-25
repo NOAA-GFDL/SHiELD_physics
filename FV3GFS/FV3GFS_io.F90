@@ -1409,7 +1409,15 @@ module FV3GFS_io_mod
                 snd   = Sfcprop(nb)%snowd(ix)/1000.0  ! go to m from snwdph
 
                 if (Sfcprop(nb)%weasd(ix) /= 0.0 .and. snd == 0.0 ) then
-                  snd = Sfcprop(nb)%weasd(ix)/1000.0
+                  snd = Sfcprop(nb)%weasd(ix)*0.005
+                  Sfcprop(nb)%snowd(ix) = snd*1000.0
+                endif
+
+                ! cap SNOW at 2000, maintain density
+                if (Sfcprop(nb)%weasd(ix) > 2000.0 ) then
+                  snd = snd * 2000.0 / Sfcprop(nb)%weasd(ix)
+                  Sfcprop(nb)%weasd(ix) = 2000.0
+                  Sfcprop(nb)%snowd(ix) = snd*1000.0
                 endif
 
                 if (vegtyp == 15) then                      ! land ice in MODIS/IGBP
