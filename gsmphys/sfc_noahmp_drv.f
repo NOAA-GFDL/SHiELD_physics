@@ -447,7 +447,6 @@
           cmc = canopy(i)/1000.              ! convert from mm to m
           tsea = tsurf(i)                    ! clu_q2m_iter
 
-          snowh = snwdph(i) * 0.001         ! convert from mm to m
           sneqv = weasd(i)  * 0.001         ! convert from mm to m
 
 
@@ -563,10 +562,6 @@
           enddo
 
           snowh = snwdph(i) * 0.001         ! convert from mm to m
-
-          if (swe /= 0.0 .and. snowh == 0.0) then
-            snowh = 10.0 * swe /1000.0
-          endif
 
           chx    = chxy(i) ! maybe chxy  
           cmx    = cmxy(i)
