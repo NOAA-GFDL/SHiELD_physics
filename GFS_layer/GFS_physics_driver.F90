@@ -884,8 +884,8 @@ module module_physics_driver
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd                     &
            )
 
-        if (Model%do_radiation_double_call) then
-           call compute_radiation_double_call_diagnostics(                  &
+        if (Model%do_diagnostic_radiation_with_scaled_co2) then
+           call compute_diagnostics_with_scaled_co2(                        &
               Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im,     &
               levs, Diag                                                    &
            )
@@ -4234,7 +4234,7 @@ module module_physics_driver
         delp = initial_mass_of_dry_air_plus_vapor * dry_air_plus_hydrometeor_mass_fraction_after_physics
       end subroutine compute_updated_delp_following_dynamics_definition
 
-  subroutine compute_radiation_double_call_diagnostics(Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im, levs, Diag)
+  subroutine compute_diagnostics_with_scaled_co2(Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im, levs, Diag)
      type(GFS_control_type),         intent(in)    :: Model
      type(GFS_statein_type),         intent(in)    :: Statein
      type(GFS_sfcprop_type),         intent(in)    :: Sfcprop
@@ -4252,38 +4252,38 @@ module module_physics_driver
         adjsfculw, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,    &
         adjnirdfd, adjvisbmd, adjvisdfd, xmu, xcosz
 
-     do n = 1, Model%n_radiation_double_calls
-        call dcyc2t3                                                                                                                                    &
+     do n = 1, Model%n_diagnostic_radiation_calls
+        call dcyc2t3                                                                                                                                                &
     !  ---  inputs:
-           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                                              &
-             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                                                      &
-             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                                                           &
-             Coupling%sfcdsw_double_call(n,:), Coupling%sfcnsw_double_call(n,:), Coupling%sfcdlw_double_call(n,:),                                      &
-             Radtend%htrsw_double_call(n,:,:), Radtend%swhc_double_call(n,:,:), Radtend%htrlw_double_call(n,:,:), Radtend%lwhc_double_call(n,:,:),      &
-             Coupling%nirbmui_double_call(n,:), Coupling%nirdfui_double_call(n,:), Coupling%visbmui_double_call(n,:),                                   &
-             Coupling%visdfui_double_call(n,:), Coupling%nirbmdi_double_call(n,:), Coupling%nirdfdi_double_call(n,:),                                   &
-             Coupling%visbmdi_double_call(n,:), Coupling%visdfdi_double_call(n,:), ix, im, levs,                                                        &
-             Model%daily_mean,                                                                                                                          &
+           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                                                          &
+             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                                                                  &
+             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                                                                       &
+             Coupling%sfcdsw_with_scaled_co2(n,:), Coupling%sfcnsw_with_scaled_co2(n,:), Coupling%sfcdlw_with_scaled_co2(n,:),                                      &
+             Radtend%htrsw_with_scaled_co2(n,:,:), Radtend%swhc_with_scaled_co2(n,:,:), Radtend%htrlw_with_scaled_co2(n,:,:), Radtend%lwhc_with_scaled_co2(n,:,:),  &
+             Coupling%nirbmui_with_scaled_co2(n,:), Coupling%nirdfui_with_scaled_co2(n,:), Coupling%visbmui_with_scaled_co2(n,:),                                   &
+             Coupling%visdfui_with_scaled_co2(n,:), Coupling%nirbmdi_with_scaled_co2(n,:), Coupling%nirdfdi_with_scaled_co2(n,:),                                   &
+             Coupling%visbmdi_with_scaled_co2(n,:), Coupling%visdfdi_with_scaled_co2(n,:), ix, im, levs,                                                            &
+             Model%daily_mean,                                                                                                                                      &
     !  ---  input/output:
-             dtdt, dtdtc,                                                                                                                               &
+             dtdt, dtdtc,                                                                                                                                           &
     !  ---  outputs:
-             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,       &
-             adjvisdfd                                                                                                                                  &
+             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,                   &
+             adjvisdfd                                                                                                                                              &
            )
 
-        Diag%dlwsfc_double_call(n,:) = Diag%dlwsfc_double_call(n,:) + adjsfcdlw * Model%dtf
-        Diag%ulwsfc_double_call(n,:) = Diag%ulwsfc_double_call(n,:) + adjsfculw * Model%dtf
+        Diag%dlwsfc_with_scaled_co2(n,:) = Diag%dlwsfc_with_scaled_co2(n,:) + adjsfcdlw * Model%dtf
+        Diag%ulwsfc_with_scaled_co2(n,:) = Diag%ulwsfc_with_scaled_co2(n,:) + adjsfculw * Model%dtf
 
-        Diag%dlwsfci_double_call(n,:) = adjsfcdlw
-        Diag%ulwsfci_double_call(n,:) = adjsfculw
-        Diag%uswsfci_double_call(n,:) = adjsfcdsw - adjsfcnsw
-        Diag%dswsfci_double_call(n,:) = adjsfcdsw
+        Diag%dlwsfci_with_scaled_co2(n,:) = adjsfcdlw
+        Diag%ulwsfci_with_scaled_co2(n,:) = adjsfculw
+        Diag%uswsfci_with_scaled_co2(n,:) = adjsfcdsw - adjsfcnsw
+        Diag%dswsfci_with_scaled_co2(n,:) = adjsfcdsw
 
-        Diag%uswsfc_double_call(n,:) = Diag%uswsfc_double_call(n,:) + (adjsfcdsw - adjsfcnsw) * Model%dtf
-        Diag%dswsfc_double_call(n,:) = Diag%dswsfc_double_call(n,:) + adjsfcdsw * Model%dtf
+        Diag%uswsfc_with_scaled_co2(n,:) = Diag%uswsfc_with_scaled_co2(n,:) + (adjsfcdsw - adjsfcnsw) * Model%dtf
+        Diag%dswsfc_with_scaled_co2(n,:) = Diag%dswsfc_with_scaled_co2(n,:) + adjsfcdsw * Model%dtf
       enddo
 
-  end subroutine compute_radiation_double_call_diagnostics
+  end subroutine compute_diagnostics_with_scaled_co2
 !> @}
 
 end module module_physics_driver
