@@ -473,7 +473,7 @@ module module_physics_driver
            tisfc_cice, tsea_cice, hice_cice, fice_cice,                 &
            !--- for CS-convection
            wcbmax
-
+           
       logical, dimension(size(Grid%xlon,1))                ::           &
            wet, dry,              icy
 !
@@ -947,7 +947,6 @@ module module_physics_driver
         ! use the adjsfcdlw_for_coupling pointer here.
         Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
-
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
         if (Model%override_surface_radiative_fluxes) then
