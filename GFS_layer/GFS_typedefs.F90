@@ -1051,7 +1051,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: lwhd (:,:,:) => null()  !< idea sky lw heating rates ( k/s )
 
 !-----------------------------------------
-! Optional arrays for outputs when calling the radiation code a second time with scaled carbon dioxide
+! Optional arrays for outputs when calling the radiation code a multiple times with scaled carbon dioxide for diagnostic purposes
 
     type (sfcfsw_type),    pointer :: sfcfsw_with_scaled_co2(:,:)   => null()   !< sw radiation fluxes at sfc with scaled carbon dioxide
                                                                             !< [dim(im): created in grrad.f], components:

@@ -1229,7 +1229,6 @@
 
       !--- TYPED VARIABLES
       type (cmpfsw_type),    dimension(size(Grid%xlon,1)) :: scmpsw
-
 !
 !===> ...  begin here
 !only call GFS_radiation_driver at radiation time step
@@ -1932,7 +1931,6 @@
               Diag%fluxr(i,32) = Diag%fluxr(i,32) + Radtend%sfcfsw(i)%dnfx0 * tem0d  ! clear sky sfc sw dn
             endif
           enddo
-
         endif
 
 !  ---  save total and boundary layer clouds

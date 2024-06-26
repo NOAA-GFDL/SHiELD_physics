@@ -4253,22 +4253,25 @@ module module_physics_driver
         adjnirdfd, adjvisbmd, adjvisdfd, xmu, xcosz
 
      do n = 1, Model%n_diagnostic_radiation_calls
-        call dcyc2t3                                                                                                                                                &
+        call dcyc2t3                                                                        &
     !  ---  inputs:
-           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                                                          &
-             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                                                                  &
-             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                                                                       &
-             Coupling%sfcdsw_with_scaled_co2(n,:), Coupling%sfcnsw_with_scaled_co2(n,:), Coupling%sfcdlw_with_scaled_co2(n,:),                                      &
-             Radtend%htrsw_with_scaled_co2(n,:,:), Radtend%swhc_with_scaled_co2(n,:,:), Radtend%htrlw_with_scaled_co2(n,:,:), Radtend%lwhc_with_scaled_co2(n,:,:),  &
-             Coupling%nirbmui_with_scaled_co2(n,:), Coupling%nirdfui_with_scaled_co2(n,:), Coupling%visbmui_with_scaled_co2(n,:),                                   &
-             Coupling%visdfui_with_scaled_co2(n,:), Coupling%nirbmdi_with_scaled_co2(n,:), Coupling%nirdfdi_with_scaled_co2(n,:),                                   &
-             Coupling%visbmdi_with_scaled_co2(n,:), Coupling%visdfdi_with_scaled_co2(n,:), ix, im, levs,                                                            &
-             Model%daily_mean,                                                                                                                                      &
+           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                  &
+             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                          &
+             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                               &
+             Coupling%sfcdsw_with_scaled_co2(n,:), Coupling%sfcnsw_with_scaled_co2(n,:),    &
+             Coupling%sfcdlw_with_scaled_co2(n,:), Radtend%htrsw_with_scaled_co2(n,:,:),    &
+             Radtend%swhc_with_scaled_co2(n,:,:), Radtend%htrlw_with_scaled_co2(n,:,:),     &
+             Radtend%lwhc_with_scaled_co2(n,:,:), Coupling%nirbmui_with_scaled_co2(n,:),    &
+             Coupling%nirdfui_with_scaled_co2(n,:), Coupling%visbmui_with_scaled_co2(n,:),  &
+             Coupling%visdfui_with_scaled_co2(n,:), Coupling%nirbmdi_with_scaled_co2(n,:),  &
+             Coupling%nirdfdi_with_scaled_co2(n,:), Coupling%visbmdi_with_scaled_co2(n,:),  &
+             Coupling%visdfdi_with_scaled_co2(n,:), ix, im, levs, Model%daily_mean,         &
     !  ---  input/output:
-             dtdt, dtdtc,                                                                                                                                           &
+             dtdt, dtdtc,                                                                   &
     !  ---  outputs:
-             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,                   &
-             adjvisdfd                                                                                                                                              &
+             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu,  &
+             adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,                         &
+             adjvisdfd                                                                      &
            )
 
         Diag%dlwsfc_with_scaled_co2(n,:) = Diag%dlwsfc_with_scaled_co2(n,:) + adjsfcdlw * Model%dtf
