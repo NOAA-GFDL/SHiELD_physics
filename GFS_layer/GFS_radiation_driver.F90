@@ -1218,15 +1218,11 @@
            qlyr, olyr, rhly, tvly,qstl, vvel, clw, ciw, prslk1, tem2da,    &
            tem2db, cldcov, deltaq, cnvc, cnvw, qa, tau067, tau110
 
-      real(kind=kind_phys), allocatable, dimension(:,:,:) :: htlwc_double_call, htlw0_double_call, tau110_double_call
-      real(kind=kind_phys), allocatable, dimension(:,:,:) :: htswc_double_call, htsw0_double_call, tau067_double_call
-
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+1+LTP) :: plvl, tlvl
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP,2:Model%ntrac) :: tracer1
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP,NF_CLDS) :: clouds
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP,NF_VGAS) :: gasvmr
-      real(kind=kind_phys), allocatable :: gasvmr_with_scaled_co2(:,:,:,:)
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP,NBDSW,NF_AESW)::faersw
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levr+LTP,NBDLW,NF_AELW)::faerlw
@@ -1234,7 +1230,6 @@
       !--- TYPED VARIABLES
       type (cmpfsw_type),    dimension(size(Grid%xlon,1)) :: scmpsw
 
-      type (cmpfsw_type), allocatable, dimension(:,:) :: scmpsw_double_call
 !
 !===> ...  begin here
 !only call GFS_radiation_driver at radiation time step
@@ -1396,10 +1391,7 @@
       call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
 
       if (Model%do_radiation_double_call) then
-         allocate(gasvmr_with_scaled_co2(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP,NF_VGAS))
          do n = 1, Model%n_radiation_double_calls
-            gasvmr_with_scaled_co2(n,:,:,:) = gasvmr
-            gasvmr_with_scaled_co2(n,:,:,1) = Model%radiation_double_call_co2_scale_factors(n) * gasvmr(:,:,1)
             Diag%column_moles_co2_per_square_meter_radiation_double_call(n,:) = Model%radiation_double_call_co2_scale_factors(n) * Diag%column_moles_co2_per_square_meter
          enddo
       endif
@@ -1714,20 +1706,6 @@
                         nday, idxday, im, lmk, lmp, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs
                         hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)      ! ---  optional
-            if (Model%do_radiation_double_call) then
-               allocate(htswc_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-               allocate(htsw0_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-               allocate(scmpsw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-               allocate(tau067_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-               do n = 1,Model%n_radiation_double_calls
-                  call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
-                              gasvmr_with_scaled_co2(n,:,:,:), clouds, Tbd%icsdsw, faersw,                                       &
-                              sfcalb, Radtend%coszen, Model%solcon,                                                              &
-                              nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
-                              htswc_double_call(n,:,:), Diag%topfsw_double_call(n,:), Radtend%sfcfsw_double_call(n,:),           &    ! ---  outputs
-                              hsw0=htsw0_double_call(n,:,:), fdncmp=scmpsw_double_call(n,:), tau067=tau067_double_call(n,:,:))        ! ---  optional
-               enddo
-            endif
           else
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs 
                         gasvmr, clouds, Tbd%icsdsw, faersw,     &
@@ -1735,26 +1713,20 @@
                         nday, idxday, IM, LMK, LMP, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs 
                         FDNCMP=scmpsw, tau067=tau067)                  ! ---  optional 
-            if (Model%do_radiation_double_call) then
-               allocate(htswc_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-               allocate(scmpsw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-               allocate(tau067_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-               do n = 1,Model%n_radiation_double_calls
-                  call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
-                              gasvmr_with_scaled_co2(n,:,:,:), clouds, Tbd%icsdsw, faersw,                                       &
-                              sfcalb, Radtend%coszen, Model%solcon,                                                              &
-                              nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
-                              htswc_double_call(n,:,:), Diag%topfsw_double_call(n,:), Radtend%sfcfsw_double_call(n,:),           &    ! ---  outputs
-                              fdncmp=scmpsw_double_call(n,:), tau067=tau067_double_call(n,:,:))                                       ! ---  optional
-               enddo
-            endif
           endif
+
+        if (Model%do_radiation_double_call) then
+           call shortwave_radiation_double_call(                              &
+              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd,        &  ! in
+              nf_aesw, nf_vgas, nf_clds,                                      &  ! in
+              Coupling, Radtend, Diag                                         &  ! inout
+           )
+        endif
 
 !  ---  pass optical depth out, Linjiong Zhou
 
           diag%ctau(:,:,1) = tau067
-
-! TODO(spencer): add a diagnostic for tau067_double_call?
 
           do k = 1, LM
             k1 = k + kd
@@ -1794,44 +1766,6 @@
           Coupling%visbmui(:) = scmpsw(:)%visbm * sfcalb(:,3)
           Coupling%visdfui(:) = scmpsw(:)%visdf * sfcalb(:,4)
 
-          if (Model%do_radiation_double_call) then
-             do n = 1,Model%n_radiation_double_calls
-               do k = 1, LM
-                 k1 = k + kd
-                 Radtend%htrsw_double_call(n,:,k) = htswc_double_call(n,:,k1)
-               enddo
-               ! --- repopulate the points above levr
-               if (Model%levr < Model%levs) then
-                 do k = LM,Model%levs
-                   Radtend%htrsw_double_call (n,:,k) = Radtend%htrsw_double_call (n,:,LM)
-                 enddo
-               endif
-
-               if (Model%swhtr) then
-                 do k = 1, lm
-                   k1 = k + kd
-                   Radtend%swhc_double_call(n,:,k) = htsw0_double_call(n,:,k1)
-                 enddo
-                ! --- repopulate the points above levr
-                 if (Model%levr < Model%levs) then
-                   do k = LM,Model%levs
-                     Radtend%swhc_double_call(n,:,k) = Radtend%swhc_double_call(n,:,LM)
-                   enddo
-                 endif
-               endif
-
-               Coupling%nirbmdi_double_call(n,:) = scmpsw_double_call(n,:)%nirbm
-               Coupling%nirdfdi_double_call(n,:) = scmpsw_double_call(n,:)%nirdf
-               Coupling%visbmdi_double_call(n,:) = scmpsw_double_call(n,:)%visbm
-               Coupling%visdfdi_double_call(n,:) = scmpsw_double_call(n,:)%visdf
-
-               Coupling%nirbmui_double_call(n,:) = scmpsw_double_call(n,:)%nirbm * sfcalb(:,1)
-               Coupling%nirdfui_double_call(n,:) = scmpsw_double_call(n,:)%nirdf * sfcalb(:,2)
-               Coupling%visbmui_double_call(n,:) = scmpsw_double_call(n,:)%visbm * sfcalb(:,3)
-               Coupling%visdfui_double_call(n,:) = scmpsw_double_call(n,:)%visdf * sfcalb(:,4)
-             enddo
-          endif
-
         else                   ! if_nday_block
 
           Radtend%htrsw(:,:) = 0.0
@@ -1854,38 +1788,11 @@
             Radtend%swhc(:,:) = 0
           endif
 
-          if (Model%do_radiation_double_call) then
-             Radtend%htrsw_double_call = 0.0
-
-             Radtend%sfcfsw_double_call = sfcfsw_type( 0.0, 0.0, 0.0, 0.0 )
-             Diag%topfsw_double_call    = topfsw_type( 0.0, 0.0, 0.0 )
-             scmpsw_double_call         = cmpfsw_type( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 )
-
-             if (Model%swhtr) then
-                Radtend%swhc_double_call = 0
-             endif
-
-             Coupling%nirbmdi_double_call = 0.0
-             Coupling%nirdfdi_double_call = 0.0
-             Coupling%visbmdi_double_call = 0.0
-             Coupling%visdfdi_double_call = 0.0
-
-             Coupling%nirbmui_double_call = 0.0
-             Coupling%nirdfui_double_call = 0.0
-             Coupling%visbmui_double_call = 0.0
-             Coupling%visdfui_double_call = 0.0
-          endif
-
         endif                  ! end_if_nday
 
 ! --- radiation fluxes for other physics processes
         Coupling%sfcnsw(:) = Radtend%sfcfsw(:)%dnfxc - Radtend%sfcfsw(:)%upfxc
         Coupling%sfcdsw(:) = Radtend%sfcfsw(:)%dnfxc
-
-        if (Model%do_radiation_double_call) then
-           Coupling%sfcnsw_double_call(:,:) = Radtend%sfcfsw_double_call(:,:)%dnfxc - Radtend%sfcfsw_double_call(:,:)%upfxc
-           Coupling%sfcdsw_double_call(:,:) = Radtend%sfcfsw_double_call(:,:)%dnfxc
-        endif
 
       endif                                ! end_if_lsswr
 
@@ -1911,43 +1818,25 @@
                       tsfg, im, lmk, lmp, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &        !  ---  outputs
                       hlw0=htlw0, tau110=tau110)                            !  ---  optional
-
-          if (Model%do_radiation_double_call) then
-             allocate(htlwc_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-             allocate(htlw0_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-             allocate(tau110_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-             do n = 1,Model%n_radiation_double_calls
-                call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2(n,:,:,:),                       &     !  ---  inputs
-                            clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
-                            tsfg, im, lmk, lmp, Model%lprnt,                                                           &
-                            htlwc_double_call(n,:,:), Diag%topflw_double_call(n,:), Radtend%sfcflw_double_call(n,:),   &     !  ---  outputs
-                            hlw0=htlw0_double_call(n,:,:), tau110=tau110_double_call(n,:,:))                                 !  ---  optional
-             enddo
-          endif
         else
           call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr,  &        !  ---  inputs
                       clouds, Tbd%icsdlw, faerlw, Radtend%semis,   &
                       tsfg, IM, LMK, LMP, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &
                       tau110=tau110)                                        !  ---  outputs
-          if (Model%do_radiation_double_call) then
-             allocate(htlwc_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-             allocate(tau110_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levr+LTP))
-             do n = 1,Model%n_radiation_double_calls
-                call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2(n,:,:,:),                       &     !  ---  inputs
-                            clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
-                            tsfg, im, lmk, lmp, Model%lprnt,                                                           &
-                            htlwc_double_call(n,:,:), Diag%topflw_double_call(n,:), Radtend%sfcflw_double_call(n,:),   &     !  ---  outputs
-                            tau110=tau110_double_call(n,:,:))                                                                !  ---  optional
-             enddo
-          endif
+        endif
+
+        if (Model%do_radiation_double_call) then
+           call longwave_radiation_double_call(                               &
+              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,      &  ! in
+              Coupling, Radtend, Diag                                         &  ! inout
+           )
         endif
 
 !  ---  pass emissivity out, Linjiong Zhou
 
         diag%ctau(:,:,2) = tau110
-
-! TODO(spencer): add a diagnostic for tau110_double_call?
 
 !> -# Save calculation results
 !>  - Save surface air temp for diurnal adjustment at model t-steps
@@ -1980,35 +1869,6 @@
 ! --- radiation fluxes for other physics processes
         Coupling%sfcdlw(:) = Radtend%sfcflw(:)%dnfxc
 
-        if (Model%do_radiation_double_call) then
-           do n = 1,Model%n_radiation_double_calls
-              do k = 1, LM
-                 k1 = k + kd
-                 Radtend%htrlw_double_call(n,:,k) = htlwc_double_call(n,:,k1)
-               enddo
-               ! --- repopulate the points above levr
-               if (Model%levr < Model%levs) then
-                  do k = LM,Model%levs
-                     Radtend%htrlw_double_call (n,:,k) = Radtend%htrlw_double_call (n,:,LM)
-                  enddo
-               endif
-
-               if (Model%lwhtr) then
-                  do k = 1, lm
-                     k1 = k + kd
-                     Radtend%lwhc_double_call(n,:,k) = htlw0_double_call(n,:,k1)
-                  enddo
-                  ! --- repopulate the points above levr
-                  if (Model%levr < Model%levs) then
-                     do k = LM,Model%levs
-                        Radtend%lwhc_double_call(n,:,k) = Radtend%lwhc_double_call(n,:,LM)
-                     enddo
-                  endif
-               endif
-               Coupling%sfcdlw_double_call(n,:) = Radtend%sfcflw_double_call(n,:)%dnfxc
-           enddo
-        endif                              ! end if do_radiation_double_call
-
       endif                                ! end_if_lslwr
 
 !>  - For time averaged output quantities (including total-sky and
@@ -2039,11 +1899,6 @@
           Diag%fluxr(:,28) = Diag%fluxr(:,28) + Model%fhlwr *    Diag%topflw(:)%upfx0   ! clear sky top lw up
           Diag%fluxr(:,30) = Diag%fluxr(:,30) + Model%fhlwr * Radtend%sfcflw(:)%dnfx0   ! clear sky sfc lw dn
           Diag%fluxr(:,33) = Diag%fluxr(:,33) + Model%fhlwr * Radtend%sfcflw(:)%upfx0   ! clear sky sfc lw up
-          if (Model%do_radiation_double_call) then
-             do n = 1,Model%n_radiation_double_calls
-                Diag%ulwrftoa_double_call(n,:) = Diag%ulwrftoa_double_call(n,:) + Model%fhlwr * Diag%topflw_double_call(n,:)%upfxc
-             enddo
-          endif
         endif
 
 !  ---  save sw toa and sfc fluxes with proper diurnal sw wgt. coszen=mean cosz over daylight
@@ -2078,17 +1933,6 @@
             endif
           enddo
 
-          if (Model%do_radiation_double_call) then
-             do i = 1, IM
-                if (Radtend%coszen(i) > 0.) then
-                   tem0d = Model%fhswr * Radtend%coszdg(i)  / Radtend%coszen(i)
-                   do n = 1,Model%n_radiation_double_calls
-                      Diag%uswrftoa_double_call(n,i) = Diag%uswrftoa_double_call(n,i) + Diag%topfsw_double_call(n,i)%upfxc * tem0d  ! total sky top sw up
-                      Diag%dswrftoa_double_call(n,i) = Diag%dswrftoa_double_call(n,i) + Diag%topfsw_double_call(n,i)%dnfxc * tem0d  ! top sw dn
-                   enddo
-                endif
-             enddo
-          endif
         endif
 
 !  ---  save total and boundary layer clouds
@@ -2146,6 +1990,204 @@
          enddo
       end subroutine compute_column_integrated_moles_of_dry_air_and_co2
 
+      subroutine shortwave_radiation_double_call(                             &
+         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd, nf_aesw,    &  ! in
+         nf_vgas, nf_clds,                                                    &  ! in
+         Coupling, Radtend, Diag                                              &  ! inout
+      )
+         type(GFS_control_type),  intent(in)                        :: Model
+         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
+         real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
+         real(kind=kind_phys),    intent(in)                        :: faersw(im,lmk,nf_aesw)
+         real(kind=kind_phys),    intent(in)                        :: sfcalb(im,nf_albd)
+         real(kind=kind_phys),    intent(in), dimension(im,lmk)     :: plyr, tlyr, qlyr, olyr
+         real(kind=kind_phys),    intent(in), dimension(im,lmk + 1) :: plvl, tlvl
+         integer,                 intent(in), dimension(im)         :: idxday
+         integer,                 intent(in)                        :: im, lm, lmk, lmp, nday, nf_albd, nf_aesw, nf_vgas, nf_clds
+         type(GFS_coupling_type), intent(inout)                     :: Coupling
+         type(GFS_radtend_type),  intent(inout)                     :: Radtend
+         type(GFS_diag_type),     intent(inout)                     :: Diag
+
+
+         integer :: i, k, k1, kd, n
+         real(kind=kind_phys)                             :: tem0d
+         real(kind=kind_phys), dimension(im,lmk)          :: htswc, htsw0, tau067
+         type (cmpfsw_type),   dimension(im)              :: scmpsw
+         real(kind=kind_phys), dimension(im,lmk,nf_vgas)  :: gasvmr_with_scaled_co2
+
+         if (nday > 0) then
+
+            do n = 1, Model%n_radiation_double_calls
+              gasvmr_with_scaled_co2 = gasvmr
+              gasvmr_with_scaled_co2(:,:,1) = Model%radiation_double_call_co2_scale_factors(n) * gasvmr(:,:,1)
+
+              if (Model%swhtr) then
+                call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
+                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            sfcalb, Radtend%coszen, Model%solcon,                                                              &
+                            nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
+                            htswc, Diag%topfsw_double_call(n,:), Radtend%sfcfsw_double_call(n,:),                              &    ! ---  outputs
+                            hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)                                                               ! ---  optional
+              else
+                call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
+                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            sfcalb, Radtend%coszen, Model%solcon,                                                              &
+                            nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
+                            htswc, Diag%topfsw_double_call(n,:), Radtend%sfcfsw_double_call(n,:),                              &    ! ---  outputs
+                            fdncmp=scmpsw, tau067=tau067)                                                                           ! ---  optional
+              endif  ! Model%swhtr
+
+              do k = 1, LM
+                 k1 = k + kd
+                 Radtend%htrsw_double_call(n,:,k) = htswc(:,k1)
+              enddo
+
+              ! --- repopulate the points above levr
+              if (Model%levr < Model%levs) then
+                 do k = LM,Model%levs
+                    Radtend%htrsw_double_call (n,:,k) = Radtend%htrsw_double_call (n,:,LM)
+                 enddo
+              endif
+
+              if (Model%swhtr) then
+                 do k = 1, lm
+                    k1 = k + kd
+                    Radtend%swhc_double_call(n,:,k) = htsw0(:,k1)
+                 enddo
+                 ! --- repopulate the points above levr
+                 if (Model%levr < Model%levs) then
+                    do k = LM,Model%levs
+                       Radtend%swhc_double_call(n,:,k) = Radtend%swhc_double_call(n,:,LM)
+                    enddo
+                 endif
+              endif
+
+              Coupling%nirbmdi_double_call(n,:) = scmpsw%nirbm
+              Coupling%nirdfdi_double_call(n,:) = scmpsw%nirdf
+              Coupling%visbmdi_double_call(n,:) = scmpsw%visbm
+              Coupling%visdfdi_double_call(n,:) = scmpsw%visdf
+
+              Coupling%nirbmui_double_call(n,:) = scmpsw%nirbm * sfcalb(:,1)
+              Coupling%nirdfui_double_call(n,:) = scmpsw%nirdf * sfcalb(:,2)
+              Coupling%visbmui_double_call(n,:) = scmpsw%visbm * sfcalb(:,3)
+              Coupling%visdfui_double_call(n,:) = scmpsw%visdf * sfcalb(:,4)
+
+            enddo  ! radiation double calls
+
+         else  ! nday > 0
+
+            Radtend%htrsw_double_call = 0.0
+
+            Radtend%sfcfsw_double_call = sfcfsw_type( 0.0, 0.0, 0.0, 0.0 )
+            Diag%topfsw_double_call    = topfsw_type( 0.0, 0.0, 0.0 )
+            scmpsw                     = cmpfsw_type( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 )
+
+            if (Model%swhtr) then
+               Radtend%swhc_double_call = 0
+            endif
+
+            Coupling%nirbmdi_double_call = 0.0
+            Coupling%nirdfdi_double_call = 0.0
+            Coupling%visbmdi_double_call = 0.0
+            Coupling%visdfdi_double_call = 0.0
+
+            Coupling%nirbmui_double_call = 0.0
+            Coupling%nirdfui_double_call = 0.0
+            Coupling%visbmui_double_call = 0.0
+            Coupling%visdfui_double_call = 0.0
+
+         endif  ! nday > 0
+
+         if (Model%do_radiation_double_call) then
+            Coupling%sfcnsw_double_call(:,:) = Radtend%sfcfsw_double_call(:,:)%dnfxc - Radtend%sfcfsw_double_call(:,:)%upfxc
+            Coupling%sfcdsw_double_call(:,:) = Radtend%sfcfsw_double_call(:,:)%dnfxc
+         endif
+
+         if (Model%lssav .and. Model%lsswr) then
+            do i = 1, IM
+               if (Radtend%coszen(i) > 0.) then
+                  tem0d = Model%fhswr * Radtend%coszdg(i)  / Radtend%coszen(i)
+                  Diag%uswrftoa_double_call(:,i) = Diag%uswrftoa_double_call(:,i) + Diag%topfsw_double_call(:,i)%upfxc * tem0d  ! total sky top sw up
+                  Diag%dswrftoa_double_call(:,i) = Diag%dswrftoa_double_call(:,i) + Diag%topfsw_double_call(:,i)%dnfxc * tem0d  ! top sw dn
+               endif
+            enddo
+         endif
+      end subroutine shortwave_radiation_double_call
+
+      subroutine longwave_radiation_double_call(                              &
+         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,           &  ! in
+         Coupling, Radtend, Diag                                              &  ! inout
+      )
+         type(GFS_control_type),  intent(in)                        :: Model
+         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
+         real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
+         real(kind=kind_phys),    intent(in)                        :: faerlw(im,lmk,nf_aelw)
+         real(kind=kind_phys),    intent(in), dimension(im,lmk)     :: plyr, tlyr, qlyr, olyr
+         real(kind=kind_phys),    intent(in), dimension(im,lmk + 1) :: plvl, tlvl
+         real(kind=kind_phys),    intent(in), dimension(im)         :: tsfg
+         integer,                 intent(in)                        :: im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds
+         type(GFS_coupling_type), intent(inout)                     :: Coupling
+         type(GFS_radtend_type),  intent(inout)                     :: Radtend
+         type(GFS_diag_type),     intent(inout)                     :: Diag
+
+         integer :: k, kd, k1, n
+         real(kind=kind_phys), dimension(im,lmk)         :: htlwc, htlw0, tau110
+         real(kind=kind_phys), dimension(im,lmk,nf_vgas) :: gasvmr_with_scaled_co2
+
+         do n = 1, Model%n_radiation_double_calls
+            gasvmr_with_scaled_co2 = gasvmr
+            gasvmr_with_scaled_co2(:,:,1) = Model%radiation_double_call_co2_scale_factors(n) * gasvmr(:,:,1)
+
+            if (Model%lwhtr) then
+               call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
+                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           tsfg, im, lmk, lmp, Model%lprnt,                                                           &
+                           htlwc, Diag%topflw_double_call(n,:), Radtend%sfcflw_double_call(n,:),                      &     !  ---  outputs
+                           hlw0=htlw0, tau110=tau110)                                                                       !  ---  optional
+             else
+               call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
+                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           tsfg, im, lmk, lmp, Model%lprnt,                                                           &
+                           htlwc, Diag%topflw_double_call(n,:), Radtend%sfcflw_double_call(n,:),                      &     !  ---  outputs
+                           tau110=tau110)                                                                                   !  ---  optional
+             endif
+
+             do k = 1, LM
+                k1 = k + kd
+                Radtend%htrlw_double_call(n,:,k) = htlwc(:,k1)
+             enddo
+             ! --- repopulate the points above levr
+             if (Model%levr < Model%levs) then
+                do k = LM,Model%levs
+                   Radtend%htrlw_double_call (n,:,k) = Radtend%htrlw_double_call (n,:,LM)
+                enddo
+             endif
+
+             if (Model%lwhtr) then
+                do k = 1, lm
+                   k1 = k + kd
+                   Radtend%lwhc_double_call(n,:,k) = htlw0(:,k1)
+                enddo
+                ! --- repopulate the points above levr
+                if (Model%levr < Model%levs) then
+                   do k = LM,Model%levs
+                      Radtend%lwhc_double_call(n,:,k) = Radtend%lwhc_double_call(n,:,LM)
+                   enddo
+                endif
+             endif
+
+             Coupling%sfcdlw_double_call(n,:) = Radtend%sfcflw_double_call(n,:)%dnfxc
+
+             if (Model%lssav .and. Model%lslwr) then
+                Diag%ulwrftoa_double_call(n,:) = Diag%ulwrftoa_double_call(n,:) + Model%fhlwr * Diag%topflw_double_call(n,:)%upfxc
+             endif
+
+          enddo  ! radiation double calls
+      end subroutine longwave_radiation_double_call
 !
 !> @}
 !........................................!

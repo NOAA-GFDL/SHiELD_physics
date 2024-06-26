@@ -473,13 +473,6 @@ module module_physics_driver
            tisfc_cice, tsea_cice, hice_cice, fice_cice,                 &
            !--- for CS-convection
            wcbmax
-           
-      real(kind=kind_phys), allocatable, dimension(:,:) :: adjsfcdsw_double_call, &
-           adjsfcnsw_double_call, adjsfcdlw_double_call, adjsfculw_double_call, &
-           adjnirbmu_double_call, adjnirdfu_double_call, adjvisbmu_double_call, &
-           adjvisdfu_double_call, adjnirbmd_double_call, adjnirdfd_double_call, &
-           adjvisbmd_double_call, adjvisdfd_double_call, xmu_double_call,       &
-           xcosz_double_call
 
       logical, dimension(size(Grid%xlon,1))                ::           &
            wet, dry,              icy
@@ -512,8 +505,6 @@ module module_physics_driver
           prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
           sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
           wu2_shal,  eta_shal 
-
-      real(kind=kind_phys), allocatable, dimension(:,:,:) :: dtdt_double_call, dtdtc_double_call
 
       real(kind=kind_phys), allocatable ::                              &
            pfr(:,:), pfs(:,:), pfg(:,:)
@@ -894,47 +885,10 @@ module module_physics_driver
            )
 
         if (Model%do_radiation_double_call) then
-           allocate(dtdt_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levs))
-           allocate(dtdtc_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1),Model%levs))
-
-           allocate(adjsfcdsw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjsfcnsw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjsfcdlw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjsfculw_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjnirbmu_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjnirdfu_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjvisbmu_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjvisdfu_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjnirbmd_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjnirdfd_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjvisbmd_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(adjvisdfd_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-
-           allocate(xmu_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-           allocate(xcosz_double_call(Model%n_radiation_double_calls,size(Grid%xlon,1)))
-
-           do n = 1,Model%n_radiation_double_calls
-              call dcyc2t3                                                                                                                                    &
-       !  ---  inputs:
-               ! TODO(spencer): do we need to worry about updating Radtend%tsflw for the double call?
-                 ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                                              &
-                   Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                                                      &
-                   Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                                                           &
-                   Coupling%sfcdsw_double_call(n,:), Coupling%sfcnsw_double_call(n,:), Coupling%sfcdlw_double_call(n,:),                                      &
-                   Radtend%htrsw_double_call(n,:,:), Radtend%swhc_double_call(n,:,:), Radtend%htrlw_double_call(n,:,:), Radtend%lwhc_double_call(n,:,:),      &
-                   Coupling%nirbmui_double_call(n,:), Coupling%nirdfui_double_call(n,:), Coupling%visbmui_double_call(n,:),                                   &
-                   Coupling%visdfui_double_call(n,:), Coupling%nirbmdi_double_call(n,:), Coupling%nirdfdi_double_call(n,:),                                   &
-                   Coupling%visbmdi_double_call(n,:), Coupling%visdfdi_double_call(n,:), ix, im, levs,                                                        &
-                   Model%daily_mean,                                                                                                                          &
-       !  ---  input/output:
-                   dtdt_double_call(n,:,:), dtdtc_double_call(n,:,:),                                                                                         &
-       !  ---  outputs:
-                   adjsfcdsw_double_call(n,:), adjsfcnsw_double_call(n,:), adjsfcdlw_double_call(n,:), adjsfculw_double_call(n,:),                            &
-                   xmu_double_call(n,:), xcosz_double_call(n,:),                                                                                              &
-                   adjnirbmu_double_call(n,:), adjnirdfu_double_call(n,:), adjvisbmu_double_call(n,:), adjvisdfu_double_call(n,:),                            &
-                   adjnirbmd_double_call(n,:), adjnirdfd_double_call(n,:), adjvisbmd_double_call(n,:), adjvisdfd_double_call(n,:)                             &
-                 )
-           enddo
+           call compute_radiation_double_call_diagnostics(                  &
+              Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im,     &
+              levs, Diag                                                    &
+           )
         endif
 
 !
@@ -993,11 +947,6 @@ module module_physics_driver
         ! use the adjsfcdlw_for_coupling pointer here.
         Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   adjsfculw(:)*dtf
-
-        if (Model%do_radiation_double_call) then
-           Diag%dlwsfc_double_call(:,:) = Diag%dlwsfc_double_call(:,:) +   adjsfcdlw_double_call(:,:)*dtf
-           Diag%ulwsfc_double_call(:,:) = Diag%ulwsfc_double_call(:,:) +   adjsfculw_double_call(:,:)*dtf
-        endif
 
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
@@ -1508,16 +1457,6 @@ module module_physics_driver
         Diag%dlwsfci_override(:) = adjsfcdlw_for_coupling(:)
         Diag%uswsfci_override(:) = adjsfcdsw_for_coupling(:) - adjsfcnsw_for_coupling(:)
         Diag%dswsfci_override(:) = adjsfcdsw_for_coupling(:)
-      endif
-
-      if (Model%do_radiation_double_call) then
-         Diag%dlwsfci_double_call(:,:) = adjsfcdlw_double_call(:,:)
-         Diag%ulwsfci_double_call(:,:) = adjsfculw_double_call(:,:)
-         Diag%uswsfci_double_call(:,:) = adjsfcdsw_double_call(:,:) - adjsfcnsw_double_call(:,:)
-         Diag%dswsfci_double_call(:,:) = adjsfcdsw_double_call(:,:)
-
-         Diag%uswsfc_double_call(:,:) = Diag%uswsfc_double_call(:,:) + (adjsfcdsw_double_call(:,:) - adjsfcnsw_double_call(:,:))*dtf
-         Diag%dswsfc_double_call(:,:) = Diag%dswsfc_double_call(:,:) + adjsfcdsw_double_call(:,:)*dtf
       endif
 
 !  --- ...  update near surface fields
@@ -4295,6 +4234,57 @@ module module_physics_driver
         ! Compute the mass of dry air plus all hydrometeors at the end of the physics.
         delp = initial_mass_of_dry_air_plus_vapor * dry_air_plus_hydrometeor_mass_fraction_after_physics
       end subroutine compute_updated_delp_following_dynamics_definition
+
+  subroutine compute_radiation_double_call_diagnostics(Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im, levs, Diag)
+     type(GFS_control_type),         intent(in)    :: Model
+     type(GFS_statein_type),         intent(in)    :: Statein
+     type(GFS_sfcprop_type),         intent(in)    :: Sfcprop
+     type(GFS_coupling_type),        intent(in)    :: Coupling
+     type(GFS_grid_type),            intent(in)    :: Grid
+     type(GFS_radtend_type),         intent(in)    :: Radtend
+     integer,                        intent(in)    :: ix, im, levs
+     type(GFS_diag_type),            intent(inout) :: Diag
+
+     integer :: n
+
+     ! Local variables that will get reused throughout the multi-call loop
+     real(kind=kind_phys), dimension(im,levs) :: dtdt, dtdtc
+     real(kind=kind_phys), dimension(im) :: adjsfcdsw, adjsfcnsw, adjsfcdlw, &
+        adjsfculw, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,    &
+        adjnirdfd, adjvisbmd, adjvisdfd, xmu, xcosz
+
+     do n = 1, Model%n_radiation_double_calls
+        call dcyc2t3                                                                                                                                    &
+    !  ---  inputs:
+           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                                                                              &
+             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                                                                                      &
+             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                                                                                           &
+             Coupling%sfcdsw_double_call(n,:), Coupling%sfcnsw_double_call(n,:), Coupling%sfcdlw_double_call(n,:),                                      &
+             Radtend%htrsw_double_call(n,:,:), Radtend%swhc_double_call(n,:,:), Radtend%htrlw_double_call(n,:,:), Radtend%lwhc_double_call(n,:,:),      &
+             Coupling%nirbmui_double_call(n,:), Coupling%nirdfui_double_call(n,:), Coupling%visbmui_double_call(n,:),                                   &
+             Coupling%visdfui_double_call(n,:), Coupling%nirbmdi_double_call(n,:), Coupling%nirdfdi_double_call(n,:),                                   &
+             Coupling%visbmdi_double_call(n,:), Coupling%visdfdi_double_call(n,:), ix, im, levs,                                                        &
+             Model%daily_mean,                                                                                                                          &
+    !  ---  input/output:
+             dtdt, dtdtc,                                                                                                                               &
+    !  ---  outputs:
+             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,       &
+             adjvisdfd                                                                                                                                  &
+           )
+
+        Diag%dlwsfc_double_call(n,:) = Diag%dlwsfc_double_call(n,:) + adjsfcdlw * Model%dtf
+        Diag%ulwsfc_double_call(n,:) = Diag%ulwsfc_double_call(n,:) + adjsfculw * Model%dtf
+
+        Diag%dlwsfci_double_call(n,:) = adjsfcdlw
+        Diag%ulwsfci_double_call(n,:) = adjsfculw
+        Diag%uswsfci_double_call(n,:) = adjsfcdsw - adjsfcnsw
+        Diag%dswsfci_double_call(n,:) = adjsfcdsw
+
+        Diag%uswsfc_double_call(n,:) = Diag%uswsfc_double_call(n,:) + (adjsfcdsw - adjsfcnsw) * Model%dtf
+        Diag%dswsfc_double_call(n,:) = Diag%dswsfc_double_call(n,:) + adjsfcdsw * Model%dtf
+      enddo
+
+  end subroutine compute_radiation_double_call_diagnostics
 !> @}
 
 end module module_physics_driver
