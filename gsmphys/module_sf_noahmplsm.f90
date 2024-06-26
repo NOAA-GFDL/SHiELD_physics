@@ -784,7 +784,7 @@ contains
 
 !jref: seems like pair should be p1000mb??
        pair   = sfcprs                   ! atm bottom level pressure (pa)
-       thair  = sfctmp * (sfcprs/pair)**(rair/cpair) 
+       thair  = sfctmp * (100000./pair)**(rair/cpair) 
 
        qair   = q2                       ! in wrf, driver converts to specific humidity
 
