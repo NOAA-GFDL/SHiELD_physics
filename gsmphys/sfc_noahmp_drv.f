@@ -42,7 +42,7 @@
       use module_sf_noahmplsm
       use module_sf_noahmp_glacier
       use noahmp_tables, only : isice_table, co2_table, o2_table,       &
-     &                       isurban_table,smcref_table,smcdry_table,   &
+     &                       isurban_table,smcref_table,smcwlt_table,   &
      &                       smcmax_table,co2_table,o2_table,           &
      &                       saim_table,laim_table
 
@@ -769,7 +769,7 @@
 !
           smcmax = smcmax_table(stype) 
           smcref = smcref_table(stype)
-          smcwlt = smcdry_table(stype)
+          smcwlt = smcwlt_table(stype)
 !
 ! outs
 !
