@@ -34,7 +34,6 @@
 !
 !
       use machine ,   only : kind_phys
-!     use date_def,   only : idate
       use funcphys,   only : fpvs
       use physcons,   only : con_g, con_hvap, con_cp, con_jcal,         &
      &                con_eps, con_epsm1, con_fvirt, con_rd,con_hfus
@@ -77,7 +76,6 @@
       real(kind=kind_phys), save  :: zsoil(4),sldpth(4)
       data zsoil / -0.1, -0.4, -1.0, -2.0 /
       data sldpth /0.1, 0.3, 0.6, 1.0 /
-!     data dzs /0.1, 0.3, 0.6, 1.0 /
 
 !
 !  ---  input:
@@ -174,7 +172,7 @@
      &       flx1, flx2, flx3, ffrozp, lwdn, pc, prcp, ptu, q2,         &
      &       q2sat, solnet, rc, rcs, rct, rcq, rcsoil, rsmin,           &
      &       runoff1, runoff2, runoff3, sfcspd, sfcprs, sfctmp,         &
-     &       sfcems, sheat, shdfac, shdmin1d, shdmax1d, smcwlt,         &
+     &       sheat, shdfac, shdmin1d, shdmax1d, smcwlt,                 &
      &       smcdry, smcref, smcmax, sneqv, snoalb1d, snowh,            &
      &       snomlt, sncovr, soilw, soilm, ssoil, tsea, th2,            &
      &       xlai, zlvl, swdn, tem, psfc,fdown,t2v,tbot, qmelt
@@ -388,7 +386,6 @@
           lwdn   = dlwflx(i)         !..downward lw flux at sfc in w/m2
           swdn   = dswsfc(i)         !..downward sw flux at sfc in w/m2
           solnet = snet(i)           !..net sw rad flx (dn-up) at sfc in w/m2
-          sfcems = sfcemis(i)
 
           sfctmp = t1(i)  
           sfcprs = prsl1(i) 
@@ -398,7 +395,6 @@
         if (prcp > 0.0) then
           if (ffrozp > 0.0) then                   ! rain/snow flag, one condition is enough?
             snowng = .true.
-            qsnowxy(i) = ffrozp * prcp/10.0                 !still use rho water?
           else
             if (sfctmp <= 275.15) frzgra = .true.  
           endif
@@ -652,7 +648,6 @@
         else
                  ice = 0 
 
-!        write(*,*)'tsnsox(1)=',tsnsox,'tgx=',tgx
        call noahmp_sflx (parameters                                    ,&
      &        i       , 1       , lat     , iyrlen  , julian  , cosz   ,& ! in : time/space-related
      &        delt    , dx      , dz8w    , nsoil   , zsoil   , nsnow  ,& ! in : model configuration 
@@ -764,9 +759,6 @@
           weasd(i)   = swe
           snwdph(i)  = snowh * 1000.0
 
-!         write(*,*) 'swe,snowh,can'
-!         write (*,*) swe,snowh*1000.0,canopy(i)
-!
           smcmax = smcmax_table(stype) 
           smcref = smcref_table(stype)
           smcwlt = smcwlt_table(stype)
@@ -793,12 +785,6 @@
           trans(i)   = fctr
           evap(i)    = eta
 
-!         write(*,*) 'vtype, stype are',vtype,stype
-!         write(*,*) 'fsh,gflx,eta',fsh,ssoil,eta
-!         write(*,*) 'esnow,runsrf,runsub',esnow,runsrf,runsub
-!         write(*,*) 'evbs,evcw,trans',fgev,fcev,fctr
-!         write(*,*) 'snowc',fsno
-
           tsurf(i)   = trad
           sfcemis(i) = emissi
           if(albedo .gt. 0.0) then
@@ -813,11 +799,10 @@
      &              1.0*smsoil(4))*1000.0  ! unit conversion from m to kg m-2
 !
           snohf (i) = qsnbot * con_hfus  ! only part of it but is diagnostic
-!         write(*,*) 'snohf',snohf(i)
+
 
           fdown     = fsa + lwdn
           t2v       = sfctmp * (1.0 + 0.61*q2)
-!         ssoil     = -1.0 *ssoil
 
        call penman (sfctmp,sfcprs,chx,t2v,th2,prcp,fdown,ssoil,         &
      &   q2,q2sat,etp,snowng,frzgra,ffrozp,dqsdt2,emissi,fsno)
