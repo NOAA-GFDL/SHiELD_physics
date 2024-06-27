@@ -1468,6 +1468,7 @@ module module_physics_driver
          if (dry(i)) then
           Sfcprop%t2m(i) = t2mmp(i)
           Sfcprop%q2m(i) = q2mp(i)
+          Sfcprop%emiss(i) = Radtend%semis(i)
          endif
         enddo
       endif 
