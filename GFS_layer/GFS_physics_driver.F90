@@ -3676,7 +3676,7 @@ module module_physics_driver
           Sfcprop%drainncprv(:)  = tem * (frain * rain1(:))
           Sfcprop%dsnowprv(:)    = tem * Diag%snow(:)
           Sfcprop%dgraupelprv(:) = tem * Diag%graupel(:)
-          Sfcprop%diceprv(:)     = tem * Diag%ice(:)
+          Sfcprop%diceprv(:)     = 0.0
         else
           Sfcprop%draincprv(:)   = 0.0
           Sfcprop%drainncprv(:)  = 0.0
