@@ -1391,7 +1391,7 @@
 
       if (Model%do_diagnostic_radiation_with_scaled_co2) then
          do n = 1, Model%n_diagnostic_radiation_calls
-            Diag%column_moles_co2_per_square_meter_with_scaled_co2(n,:) = Model%diagnostic_radiation_call_co2_scale_factors(n) * Diag%column_moles_co2_per_square_meter
+            Diag%column_moles_co2_per_square_meter_with_scaled_co2(n,:) = Model%diagnostic_radiation_co2_scale_factors(n) * Diag%column_moles_co2_per_square_meter
          enddo
       endif
 
@@ -2019,7 +2019,7 @@
 
             do n = 1, Model%n_diagnostic_radiation_calls
               gasvmr_with_scaled_co2 = gasvmr
-              gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_call_co2_scale_factors(n) * gasvmr(:,:,1)
+              gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_co2_scale_factors(n) * gasvmr(:,:,1)
 
               if (Model%swhtr) then
                 call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
@@ -2138,7 +2138,7 @@
 
          do n = 1, Model%n_diagnostic_radiation_calls
             gasvmr_with_scaled_co2 = gasvmr
-            gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_call_co2_scale_factors(n) * gasvmr(:,:,1)
+            gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_co2_scale_factors(n) * gasvmr(:,:,1)
 
             if (Model%lwhtr) then
                call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs

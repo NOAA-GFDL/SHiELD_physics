@@ -3072,7 +3072,7 @@ module FV3GFS_io_mod
    if (Model%do_diagnostic_radiation_with_scaled_co2) then
       do n = 1,Model%n_diagnostic_radiation_calls
          write (radiation_call,'(I1)') n
-         write (scaling,'(F6.2)') Model%diagnostic_radiation_call_co2_scale_factors(n)
+         write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
 
          index = index + 1
          Diag_diag_manager_controlled(index)%axes = 0
@@ -3522,7 +3522,7 @@ module FV3GFS_io_mod
     if (Model%do_diagnostic_radiation_with_scaled_co2) then
        do n = 1,Model%n_diagnostic_radiation_calls
          write (xtra,'(I1)') n
-         write (scaling,'(F6.2)') Model%diagnostic_radiation_call_co2_scale_factors(n)
+         write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
 
          idx = idx + 1
          Diag(idx)%axes = 2
@@ -4239,7 +4239,7 @@ module FV3GFS_io_mod
     if (Model%do_diagnostic_radiation_with_scaled_co2) then
        do n = 1,Model%n_diagnostic_radiation_calls
           write (xtra,'(I1)') n
-          write (scaling,'(F6.2)') Model%diagnostic_radiation_call_co2_scale_factors(n)
+          write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
 
           idx = idx + 1
           Diag(idx)%axes = 2
@@ -5105,7 +5105,7 @@ module FV3GFS_io_mod
     if (Model%do_diagnostic_radiation_with_scaled_co2) then
        do n = 1,Model%n_diagnostic_radiation_calls
           write (xtra,'(I1)') n
-          write (scaling,'(F6.2)') Model%diagnostic_radiation_call_co2_scale_factors(n)
+          write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
 
           idx = idx + 1
           Diag(idx)%axes = 2

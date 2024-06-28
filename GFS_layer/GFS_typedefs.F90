@@ -571,7 +571,7 @@ module GFS_typedefs
     logical              :: fixed_sollat    !< flag to fix solar latitude
     logical              :: daily_mean      !< flag to replace cosz with daily mean value
     logical              :: do_diagnostic_radiation_with_scaled_co2 !< flag to call radiation multiple times with scaled carbon dioxide for diagnostic purposes (does not affect evolution of simulation)
-    real(kind=kind_phys), dimension(8) :: diagnostic_radiation_call_co2_scale_factors !< factors to scale carbon dioxide by in diagnostic radiation calls
+    real(kind=kind_phys), dimension(8) :: diagnostic_radiation_co2_scale_factors !< factors to scale carbon dioxide by in diagnostic radiation calls
     integer              :: n_diagnostic_radiation_calls  !< number of diagnostic radiation calls
 
     !--- microphysical switch
@@ -2282,7 +2282,7 @@ end subroutine overrides_create
     logical              :: fixed_sollat   = .false.         !< flag to fix solar latitude
     logical              :: daily_mean     = .false.         !< flag to replace cosz with daily mean value
     logical              :: do_diagnostic_radiation_with_scaled_co2 = .false.  !< flag to call radiation a second time with scaled carbon dioxide
-    real(kind=kind_phys), dimension(8) :: diagnostic_radiation_call_co2_scale_factors = -999.0  !< factors to scale carbon dioxide by in radiation double calls
+    real(kind=kind_phys), dimension(8) :: diagnostic_radiation_co2_scale_factors = -999.0  !< factors to scale carbon dioxide by in radiation double calls
 
     !--- GFDL microphysical parameters
     logical              :: do_sat_adj   = .false.           !< flag for fast saturation adjustment
@@ -2574,7 +2574,7 @@ end subroutine overrides_create
                                isubc_lw, crick_proof, ccnorm, lwhtr, swhtr, nkld,           &
                                fixed_date, fixed_solhr, fixed_sollat, daily_mean, sollat,   &
                                do_diagnostic_radiation_with_scaled_co2,                                    &
-                               diagnostic_radiation_call_co2_scale_factors,                     &
+                               diagnostic_radiation_co2_scale_factors,                     &
                           !--- microphysical parameterizations
                                ncld, do_sat_adj, zhao_mic, psautco, prautco,                &
                                evpco, wminco, fprcp, mg_dcs, mg_qcvar,                      &
@@ -2753,8 +2753,8 @@ end subroutine overrides_create
     Model%fixed_sollat     = fixed_sollat
     Model%daily_mean       = daily_mean
     Model%do_diagnostic_radiation_with_scaled_co2 = do_diagnostic_radiation_with_scaled_co2
-    Model%diagnostic_radiation_call_co2_scale_factors = diagnostic_radiation_call_co2_scale_factors
-    Model%n_diagnostic_radiation_calls = count(Model%diagnostic_radiation_call_co2_scale_factors .ne. -999.0)
+    Model%diagnostic_radiation_co2_scale_factors = diagnostic_radiation_co2_scale_factors
+    Model%n_diagnostic_radiation_calls = count(Model%diagnostic_radiation_co2_scale_factors .ne. -999.0)
 
     !--- microphysical switch
     Model%ncld             = ncld
@@ -3455,7 +3455,7 @@ end subroutine overrides_create
       print *, ' fixed_sollat      : ', Model%fixed_sollat
       print *, ' daily_mean        : ', Model%daily_mean
       print *, ' do_diagnostic_radiation_with_scaled_co2 : ', Model%do_diagnostic_radiation_with_scaled_co2
-      print *, ' diagnostic_radiation_call_co2_scale_factors : ', Model%diagnostic_radiation_call_co2_scale_factors
+      print *, ' diagnostic_radiation_co2_scale_factors : ', Model%diagnostic_radiation_co2_scale_factors
       print *, ' n_diagnostic_radiation_calls : ', Model%n_diagnostic_radiation_calls
       print *, ' '
       print *, 'microphysical switch'
