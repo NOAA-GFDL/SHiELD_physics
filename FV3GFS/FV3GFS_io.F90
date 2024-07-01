@@ -877,6 +877,7 @@ module FV3GFS_io_mod
     real(kind=kind_phys) :: masslai, masssai,snd
     real(kind=kind_phys) :: ddz,expon,aa,bb,smc,func,dfunc,dx
     real(kind=kind_phys) :: bexp, smcmax, smcwlt,dwsat,dksat,psisat
+    real(kind=kind_phys) :: emg, emv
 
     real(kind=kind_phys), dimension(-2:0) :: dzsno
     real(kind=kind_phys), dimension(-2:4) :: dzsnso
@@ -1351,7 +1352,6 @@ module FV3GFS_io_mod
                 Sfcprop(nb)%albdnir(ix)  = 0.2
                 Sfcprop(nb)%albivis(ix)  = 0.2
                 Sfcprop(nb)%albinir(ix)  = 0.2
-                Sfcprop(nb)%emiss(ix)    = 0.95
 
                 Sfcprop(nb)%waxy(ix)     = 4900.0
                 Sfcprop(nb)%wtxy(ix)     = Sfcprop(nb)%waxy(ix)
@@ -1394,6 +1394,10 @@ module FV3GFS_io_mod
 
                 endif  ! non urban ...
 
+                emv = 1. - exp(-(Sfcprop(nb)%xlaixy(ix)+Sfcprop(nb)%xsaixy(ix))/1.0) ! Ignore snow-buried sai and lai during the initialization
+                emg = 0.97*(1.-Sfcprop(nb)%sncovr(ix)) + 1.0*Sfcprop(nb)%sncovr(ix)
+                Sfcprop(nb)%emiss(ix) = Sfcprop(nb)%vfrac(ix) * ( emg*(1-emv) + emv + emv*(1-emv)*(1-emg) ) + (1-Sfcprop(nb)%vfrac(ix)) * emg
+
                 if ( vegtyp == isice_table )  then
                   do lsoil = 1,Model%lsoil
                     Sfcprop(nb)%stc(ix,lsoil) = min(Sfcprop(nb)%stc(ix,lsoil),min(Sfcprop(nb)%tg3(ix),263.15))
@@ -1405,7 +1409,15 @@ module FV3GFS_io_mod
                 snd   = Sfcprop(nb)%snowd(ix)/1000.0  ! go to m from snwdph
 
                 if (Sfcprop(nb)%weasd(ix) /= 0.0 .and. snd == 0.0 ) then
-                  snd = Sfcprop(nb)%weasd(ix)/1000.0
+                  snd = Sfcprop(nb)%weasd(ix)*0.005
+                  Sfcprop(nb)%snowd(ix) = snd*1000.0
+                endif
+
+                ! cap SNOW at 2000, maintain density
+                if (Sfcprop(nb)%weasd(ix) > 2000.0 ) then
+                  snd = snd * 2000.0 / Sfcprop(nb)%weasd(ix)
+                  Sfcprop(nb)%weasd(ix) = 2000.0
+                  Sfcprop(nb)%snowd(ix) = snd*1000.0
                 endif
 
                 if (vegtyp == 15) then                      ! land ice in MODIS/IGBP
