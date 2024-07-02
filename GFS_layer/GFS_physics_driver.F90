@@ -1505,6 +1505,7 @@ module module_physics_driver
          if (dry(i)) then
           Sfcprop%t2m(i) = t2mmp(i)
           Sfcprop%q2m(i) = q2mp(i)
+          Sfcprop%emiss(i) = Radtend%semis(i)
          endif
         enddo
       endif 
@@ -3712,7 +3713,7 @@ module module_physics_driver
           Sfcprop%drainncprv(:)  = tem * (frain * rain1(:))
           Sfcprop%dsnowprv(:)    = tem * Diag%snow(:)
           Sfcprop%dgraupelprv(:) = tem * Diag%graupel(:)
-          Sfcprop%diceprv(:)     = tem * Diag%ice(:)
+          Sfcprop%diceprv(:)     = 0.0
         else
           Sfcprop%draincprv(:)   = 0.0
           Sfcprop%drainncprv(:)  = 0.0

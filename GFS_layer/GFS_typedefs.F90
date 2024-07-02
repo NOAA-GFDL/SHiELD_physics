@@ -608,7 +608,7 @@ module GFS_typedefs
     integer              :: iopt_frz  !supercooled liquid water (1-> ny06; 2->koren99)
     integer              :: iopt_inf  !frozen soil permeability (1-> ny06; 2->koren99)
     integer              :: iopt_rad  !radiation transfer (1->gap=f(3d,cosz); 2->gap=0; 3->gap=1-fveg)
-    integer              :: iopt_alb  !snow surface albedo (1->bats; 2->class)
+    integer              :: iopt_alb  !snow surface albedo (1->bats; 2->class; 3->climatology)
     integer              :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
     integer              :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
     integer              :: iopt_stc  !snow/soil temperature time scheme (only layer 1)
@@ -3932,6 +3932,8 @@ end subroutine overrides_create
     allocate (Diag%pfr(IM,Model%levs))
     allocate (Diag%pfs(IM,Model%levs))
     allocate (Diag%pfg(IM,Model%levs))
+    allocate (Diag%column_moles_co2_per_square_meter(IM))
+    allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
     !--- 3D diagnostics
     if (Model%ldiag3d) then
@@ -3949,8 +3951,6 @@ end subroutine overrides_create
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
       allocate (Diag%co2(IM,Model%levs))
-      allocate (Diag%column_moles_co2_per_square_meter(IM))
-      allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
       !--- needed to allocate GoCart coupling fields
       allocate (Diag%upd_mf (IM,Model%levs))

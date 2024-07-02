@@ -110,7 +110,8 @@ module module_sf_noahmplsm
 
   integer :: opt_alb  ! options for ground snow surface albedo
                       !   1 -> bats
-		      ! **2 -> class
+                      ! **2 -> class
+                      !   3 -> prescribed from fix file climatology
 
   integer :: opt_snf  ! options for partitioning  precipitation into rainfall & snowfall
                       ! **1 -> jordan (1991)
@@ -171,6 +172,7 @@ module module_sf_noahmplsm
     real (kind=kind_phys) :: den                !tree density (no. of trunks per m2)
     real (kind=kind_phys) :: rc                 !tree crown radius (m)
     real (kind=kind_phys) :: mfsno              !snowmelt m parameter ()
+    real (kind=kind_phys) :: scffac             !snow cover factor (m)
     real (kind=kind_phys) :: saim(12)           !monthly stem area index, one-sided
     real (kind=kind_phys) :: laim(12)           !monthly leaf area index, one-sided
     real (kind=kind_phys) :: sla                !single-side leaf area per kg [m2/kg]
@@ -285,6 +287,7 @@ contains
                    qc      , soldn   , lwdn    ,                               & ! in : forcing
 	           prcpconv, prcpnonc, prcpshcv, prcpsnow, prcpgrpl, prcphail, & ! in : forcing
                    tbot    , co2air  , o2air   , foln    , ficeold , zlvl    , & ! in : forcing
+                   snoalb  ,                                                   & ! in : forcing
                    albold  , sneqvo  ,                                         & ! in/out : 
                    stc     , sh2o    , smc     , tah     , eah     , fwet    , & ! in/out : 
                    canliq  , canice  , tv      , tg      , qsfc    , qsnow   , & ! in/out : 
@@ -355,6 +358,7 @@ contains
   real (kind=kind_phys)                           , intent(in)    :: dz8w   !thickness of lowest layer
   real (kind=kind_phys)                           , intent(in)    :: dx
   real (kind=kind_phys)                           , intent(in)    :: shdmax  !yearly max vegetation fraction
+  real (kind=kind_phys)                           , intent(in)    :: snoalb  ! prescribed snow albedo (only used if iopt_alb = 3)
 !jref:end
 
 
@@ -637,6 +641,7 @@ contains
                  elai   ,esai   ,fwet   ,foln   ,         & !in
                  fveg   ,pahv   ,pahg   ,pahb   ,                 & !in
                  qsnow  ,dzsnso ,lat    ,canliq ,canice ,iloc, jloc , & !in
+                 snoalb ,                                         & !in
 		 z0wrf  ,                                         &
                  imelt  ,snicev ,snliqv ,epore  ,t2m    ,fsno   , & !out
                  sav    ,sag    ,qmelt  ,fsa    ,fsr    ,taux   , & !out
@@ -779,7 +784,7 @@ contains
 
 !jref: seems like pair should be p1000mb??
        pair   = sfcprs                   ! atm bottom level pressure (pa)
-       thair  = sfctmp * (sfcprs/pair)**(rair/cpair) 
+       thair  = sfctmp * (100000./pair)**(rair/cpair) 
 
        qair   = q2                       ! in wrf, driver converts to specific humidity
 
@@ -1338,6 +1343,7 @@ contains
                      elai   ,esai   ,fwet   ,foln   ,         & !in
                      fveg   ,pahv   ,pahg   ,pahb   ,                 & !in
                      qsnow  ,dzsnso ,lat    ,canliq ,canice ,iloc   , jloc, & !in
+                     snoalb ,                                         & !in
 		     z0wrf  ,                                         &
                      imelt  ,snicev ,snliqv ,epore  ,t2m    ,fsno   , & !out
                      sav    ,sag    ,qmelt  ,fsa    ,fsr    ,taux   , & !out
@@ -1443,6 +1449,7 @@ contains
   real (kind=kind_phys)                              , intent(in)    :: dx     !horisontal resolution
   real (kind=kind_phys)                              , intent(in)    :: dz8w   !thickness of lowest layer
   real (kind=kind_phys)                              , intent(in)    :: q2     !mixing ratio (kg/kg)
+  real (kind=kind_phys)                              , intent(in)    :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 !jref:end
 
 ! outputs
@@ -1651,7 +1658,7 @@ contains
      if(snowh.gt.0.)  then
          bdsno    = sneqv / snowh
          fmelt    = (bdsno/100.)**parameters%mfsno
-         fsno     = tanh( snowh /(2.5* z0 * fmelt))
+         fsno     = tanh( snowh /(parameters%scffac * fmelt))
 !        print*,'bdsno=',bdsno,sneqv,snowh,parameters%mfsno,fmelt,fsno
      endif
 
@@ -1703,6 +1710,7 @@ contains
                    tg      ,tv      ,fsno    ,qsnow   ,fwet    , & !in
                    elai    ,esai    ,smc     ,solad   ,solai   , & !in
                    fveg    ,iloc    ,jloc    ,                   & !in
+                   snoalb  ,                                     & !in
                    albold  ,tauss   ,                            & !inout
                    fsun    ,laisun  ,laisha  ,parsun  ,parsha  , & !out
                    sav     ,sag     ,fsr     ,fsa     ,fsrv    , & 
@@ -2244,6 +2252,7 @@ contains
                         tg      ,tv      ,fsno    ,qsnow   ,fwet    , & !in
                         elai    ,esai    ,smc     ,solad   ,solai   , & !in
                         fveg    ,iloc    ,jloc    ,                   & !in
+                        snoalb  ,                                     & !in
                         albold  ,tauss   ,                            & !inout
                         fsun    ,laisun  ,laisha  ,parsun  ,parsha  , & !out
                         sav     ,sag     ,fsr     ,fsa     ,fsrv    , &
@@ -2276,6 +2285,7 @@ contains
   real (kind=kind_phys), dimension(1:2)    , intent(in) :: solai  !incoming diffuse solar radiation (w/m2)
   real (kind=kind_phys), intent(in)                     :: fsno   !snow cover fraction (-)
   real (kind=kind_phys), intent(in)                     :: fveg   !green vegetation fraction [0.0-1.0]
+  real (kind=kind_phys), intent(in)                     :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 
 ! inout
   real (kind=kind_phys),                  intent(inout) :: albold !snow albedo at last time step (class type)
@@ -2332,6 +2342,7 @@ contains
                 tg     ,tv     ,snowh  ,fsno   ,fwet   , & !in
                 smc    ,sneqvo ,sneqv  ,qsnow  ,fveg   , & !in
                 iloc   ,jloc   ,                         & !in
+                snoalb ,                                 & !in
                 albold ,tauss                          , & !inout
                 albgrd ,albgri ,albd   ,albi   ,fabd   , & !out
                 fabi   ,ftdd   ,ftid   ,ftii   ,fsun   , & !)   !out
@@ -2368,6 +2379,7 @@ contains
                      tg     ,tv     ,snowh  ,fsno   ,fwet   , & !in
                      smc    ,sneqvo ,sneqv  ,qsnow  ,fveg   , & !in
                      iloc   ,jloc   ,                         & !in
+                     snoalb ,                                 & !in
                      albold ,tauss                          , & !inout
                      albgrd ,albgri ,albd   ,albi   ,fabd   , & !out
                      fabi   ,ftdd   ,ftid   ,ftii   ,fsun   , & !out
@@ -2404,6 +2416,7 @@ contains
   real (kind=kind_phys),                     intent(in)  :: sneqv  !snow mass (mm)
   real (kind=kind_phys),                     intent(in)  :: fveg   !green vegetation fraction [0.0-1.0]
   real (kind=kind_phys), dimension(1:nsoil), intent(in)  :: smc    !volumetric soil water (m3/m3)
+  real (kind=kind_phys),                     intent(in)  :: snoalb !prescribed snow albedo (only used if iopt_alb = 3)
 
 ! inout
   real (kind=kind_phys),                  intent(inout)  :: albold !snow albedo at last time step (class type)
@@ -2492,11 +2505,14 @@ contains
 
 ! snow albedos: only if cosz > 0 and fsno > 0
 
-  if(opt_alb == 1) &
+  if(opt_alb == 1) then
      call snowalb_bats (parameters,nband, fsno,cosz,fage,albsnd,albsni)
-  if(opt_alb == 2) then
+  else if(opt_alb == 2) then
      call snowalb_class (parameters,nband,qsnow,dt,alb,albold,albsnd,albsni,iloc,jloc)
      albold = alb
+  else if(opt_alb == 3) then
+     albsnd = snoalb
+     albsni = snoalb
   end if
 
 ! ground surface albedo
@@ -8203,7 +8219,7 @@ end  subroutine shallowwatertable
   integer,  intent(in) :: iopt_frz  !supercooled liquid water (1-> ny06; 2->koren99)
   integer,  intent(in) :: iopt_inf  !frozen soil permeability (1-> ny06; 2->koren99)
   integer,  intent(in) :: iopt_rad  !radiation transfer (1->gap=f(3d,cosz); 2->gap=0; 3->gap=1-fveg)
-  integer,  intent(in) :: iopt_alb  !snow surface albedo (1->bats; 2->class)
+  integer,  intent(in) :: iopt_alb  !snow surface albedo (1->bats; 2->class; 3->climatology)
   integer,  intent(in) :: iopt_snf  !rainfall & snowfall (1-jordan91; 2->bats; 3->noah)
   integer,  intent(in) :: iopt_tbot !lower boundary of soil temperature (1->zero-flux; 2->noah)
 
