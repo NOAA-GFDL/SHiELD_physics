@@ -2711,7 +2711,9 @@ module FV3GFS_io_mod
     integer, intent(in) :: nblks
     integer, intent(in) :: axes(4)
 
-    integer :: nb
+    character(len=2) :: radiation_call
+    character(len=6) :: scaling
+    integer :: n, nb
     integer :: index = 1
 
     if (Model%ldiag3d) then
@@ -3079,6 +3081,26 @@ module FV3GFS_io_mod
        Diag_diag_manager_controlled(index)%data(nb)%var21 => IntDiag(nb)%column_moles_dry_air_per_square_meter
    enddo
 
+   if (Model%do_diagnostic_radiation_with_scaled_co2) then
+      do n = 1,Model%n_diagnostic_radiation_calls
+         write (radiation_call,'(I1)') n
+         write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
+
+         index = index + 1
+         Diag_diag_manager_controlled(index)%axes = 0
+         Diag_diag_manager_controlled(index)%name = 'global_mean_co2_' // radiation_call
+         Diag_diag_manager_controlled(index)%desc = trim(adjustl(scaling)) // 'x global mean carbon dioxide concentration'
+         Diag_diag_manager_controlled(index)%unit = 'volume mixing ratio'
+         Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+         Diag_diag_manager_controlled(index)%coarse_graining_method = AREA_WEIGHTED
+         allocate (Diag_diag_manager_controlled(index)%data(nblks))
+         do nb = 1,nblks
+            Diag_diag_manager_controlled(index)%data(nb)%var2 => IntDiag(nb)%column_moles_co2_per_square_meter_with_scaled_co2(n,:)
+            Diag_diag_manager_controlled(index)%data(nb)%var21 => IntDiag(nb)%column_moles_dry_air_per_square_meter
+         enddo
+      enddo
+   endif
+
    index = index + 1
    Diag_diag_manager_controlled(index)%axes = 2
    Diag_diag_manager_controlled(index)%name = 'ocean_fraction'
@@ -3194,9 +3216,10 @@ module FV3GFS_io_mod
     type (block_control_type), intent(in) :: Atm_block
     integer, dimension(4),     intent(in) :: axes
 !--- local variables
-    integer :: idx, num, nb, nblks, nx, ny, k
+    integer :: idx, num, nb, nblks, nx, ny, k, n
     integer, allocatable :: blksz(:)
     character(len=2) :: xtra
+    character(len=6) :: scaling
     real(kind=kind_phys), parameter :: cn_one = 1._kind_phys
     real(kind=kind_phys), parameter :: cn_100 = 100._kind_phys
     real(kind=kind_phys), parameter :: cn_th  = 1000._kind_phys
@@ -3507,6 +3530,58 @@ module FV3GFS_io_mod
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%fluxr(:,1)
     enddo
+
+    if (Model%do_diagnostic_radiation_with_scaled_co2) then
+       do n = 1,Model%n_diagnostic_radiation_calls
+         write (xtra,'(I1)') n
+         write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'DSWRFtoa_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'top of atmos downward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%time_avg = .TRUE.
+         Diag(idx)%time_avg_kind = 'rad_sw'
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswrftoa_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'USWRFtoa_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'top of atmos upward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%time_avg = .TRUE.
+         Diag(idx)%time_avg_kind = 'rad_sw'
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswrftoa_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'ULWRFtoa_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'top of atmos upward longwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%time_avg = .TRUE.
+         Diag(idx)%time_avg_kind = 'rad_lw'
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwrftoa_with_scaled_co2(n,:)
+         enddo
+       enddo
+    endif
 
     idx = idx + 1
     Diag(idx)%axes = 2
@@ -4172,6 +4247,69 @@ module FV3GFS_io_mod
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc(:)
     enddo
+
+    if (Model%do_diagnostic_radiation_with_scaled_co2) then
+       do n = 1,Model%n_diagnostic_radiation_calls
+          write (xtra,'(I1)') n
+          write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'DSWRF_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted downward shortwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%cnvfac = cn_one
+          Diag(idx)%time_avg = .TRUE.
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfc_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'USWRF_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted upward shortwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%cnvfac = cn_one
+          Diag(idx)%time_avg = .TRUE.
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfc_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'DLWRF_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted downward longwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%cnvfac = cn_one
+          Diag(idx)%time_avg = .TRUE.
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfc_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'ULWRF_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Interval-averaged surface-temperature-adjusted upward longwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%cnvfac = cn_one
+          Diag(idx)%time_avg = .TRUE.
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfc_with_scaled_co2(n,:)
+          enddo
+       enddo
+    endif
 
     idx = idx + 1
     Diag(idx)%axes = 2
@@ -4974,6 +5112,61 @@ module FV3GFS_io_mod
       do nb = 1,nblks
         Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci(:)
       enddo
+    endif
+
+    if (Model%do_diagnostic_radiation_with_scaled_co2) then
+       do n = 1,Model%n_diagnostic_radiation_calls
+          write (xtra,'(I1)') n
+          write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'DLWRFI_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted downward longwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+              Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dlwsfci_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'ULWRFI_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Instantaneous surface-temperature-adjusted upward longwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwsfci_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'DSWRFI_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted downward shortwave flux at the surface with ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswsfci_with_scaled_co2(n,:)
+          enddo
+
+          idx = idx + 1
+          Diag(idx)%axes = 2
+          Diag(idx)%name = 'USWRFI_with_scaled_co2_' // trim(xtra)
+          Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted upward shortwave flux at the surface ' // trim(adjustl(scaling)) // 'xCO2'
+          Diag(idx)%unit = 'w/m**2'
+          Diag(idx)%mod_name = 'gfs_phys'
+          Diag(idx)%intpl_method = 'bilinear'
+          allocate (Diag(idx)%data(nblks))
+          do nb = 1,nblks
+             Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswsfci_with_scaled_co2(n,:)
+          enddo
+       enddo
     endif
 
     idx = idx + 1
@@ -7388,13 +7581,13 @@ module FV3GFS_io_mod
               call mpp_error(FATAL, 'Invalid coarse-graining strategy provided.')
             endif
           endif
-        elseif (trim(Diag_diag_manager_controlled(index)%name) .eq. 'global_mean_co2') then
+        elseif (starts_with(Diag_diag_manager_controlled(index)%name, 'global_mean_co2')) then
           if (Diag_diag_manager_controlled(index)%id > 0) then
              call compute_global_mean_co2(Atm_block, IPD_Data, nx, ny, Diag_diag_manager_controlled(index), scalar)
              used = send_data(Diag_diag_manager_controlled(index)%id, scalar, Time)
           endif
           if (Diag_diag_manager_controlled_coarse(index)%id > 0) then
-             call mpp_error(FATAL, 'global_mean_co2_coarse is not a valid diagnostic; use global_mean_co2 instead.')
+             call mpp_error(FATAL, trim(Diag_diag_manager_controlled_coarse(index)%name) // ' is not a valid diagnostic; use ' // trim(Diag_diag_manager_controlled(index)%name) // ' instead.')
           endif
         endif
       endif
@@ -8200,6 +8393,15 @@ module FV3GFS_io_mod
     endif
     used = send_data(id, coarse, Time)
 end subroutine store_data3D_coarse_pressure_level
+
+function starts_with(string, prefix)
+   character(len=128), intent(in) :: string
+   character(len=*), intent(in) :: prefix
+   logical :: starts_with
+
+   starts_with = string(1:len(trim(prefix))) .eq. trim(prefix)
+   return
+end function starts_with
 
 end module FV3GFS_io_mod
 

@@ -1199,6 +1199,7 @@
       integer :: me, im, lm, nfxr, nkld, ntrac
       integer :: i, j, k, k1, lv, itop, ibtc, nday, LP1, LMK, LMP, kd,  &
                  lla, llb, lya, lyb, kt, kb
+      integer :: n
       integer, dimension(size(Grid%xlon,1)) :: idxday
       integer, dimension(size(Grid%xlon,1),3) :: mbota, mtopa
 
@@ -1387,6 +1388,12 @@
       ! radlw_main.f.  These can be used later to compute a global mean carbon
       ! dioxide volume mixing ratio diagnostic if requested.
       call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+
+      if (Model%do_diagnostic_radiation_with_scaled_co2) then
+         do n = 1, Model%n_diagnostic_radiation_calls
+            Diag%column_moles_co2_per_square_meter_with_scaled_co2(n,:) = Model%diagnostic_radiation_co2_scale_factors(n) * Diag%column_moles_co2_per_square_meter
+         enddo
+      endif
 
 !>  - Get temperature at layer interface, and layer moisture.
       do k = 2, LMK
@@ -1707,6 +1714,15 @@
                         FDNCMP=scmpsw, tau067=tau067)                  ! ---  optional 
           endif
 
+        if (Model%do_diagnostic_radiation_with_scaled_co2) then
+           call diagnostic_shortwave_radiation_with_scaled_co2(               &
+              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd,        &  ! in
+              nf_aesw, nf_vgas, nf_clds,                                      &  ! in
+              Coupling, Radtend, Diag                                         &  ! inout
+           )
+        endif
+
 !  ---  pass optical depth out, Linjiong Zhou
 
           diag%ctau(:,:,1) = tau067
@@ -1807,6 +1823,14 @@
                       tsfg, IM, LMK, LMP, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &
                       tau110=tau110)                                        !  ---  outputs
+        endif
+
+        if (Model%do_diagnostic_radiation_with_scaled_co2) then
+           call diagnostic_longwave_radiation_with_scaled_co2(                &
+              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,      &  ! in
+              Coupling, Radtend, Diag                                         &  ! inout
+           )
         endif
 
 !  ---  pass emissivity out, Linjiong Zhou
@@ -1964,6 +1988,204 @@
          enddo
       end subroutine compute_column_integrated_moles_of_dry_air_and_co2
 
+      subroutine diagnostic_shortwave_radiation_with_scaled_co2(              &
+         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd, nf_aesw,    &  ! in
+         nf_vgas, nf_clds,                                                    &  ! in
+         Coupling, Radtend, Diag                                              &  ! inout
+      )
+         type(GFS_control_type),  intent(in)                        :: Model
+         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
+         real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
+         real(kind=kind_phys),    intent(in)                        :: faersw(im,lmk,nf_aesw)
+         real(kind=kind_phys),    intent(in)                        :: sfcalb(im,nf_albd)
+         real(kind=kind_phys),    intent(in), dimension(im,lmk)     :: plyr, tlyr, qlyr, olyr
+         real(kind=kind_phys),    intent(in), dimension(im,lmk + 1) :: plvl, tlvl
+         integer,                 intent(in), dimension(im)         :: idxday
+         integer,                 intent(in)                        :: im, lm, lmk, lmp, nday, nf_albd, nf_aesw, nf_vgas, nf_clds
+         type(GFS_coupling_type), intent(inout)                     :: Coupling
+         type(GFS_radtend_type),  intent(inout)                     :: Radtend
+         type(GFS_diag_type),     intent(inout)                     :: Diag
+
+
+         integer :: i, k, k1, kd, n
+         real(kind=kind_phys)                             :: tem0d
+         real(kind=kind_phys), dimension(im,lmk)          :: htswc, htsw0, tau067
+         type (cmpfsw_type),   dimension(im)              :: scmpsw
+         real(kind=kind_phys), dimension(im,lmk,nf_vgas)  :: gasvmr_with_scaled_co2
+
+         if (nday > 0) then
+
+            do n = 1, Model%n_diagnostic_radiation_calls
+              gasvmr_with_scaled_co2 = gasvmr
+              gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_co2_scale_factors(n) * gasvmr(:,:,1)
+
+              if (Model%swhtr) then
+                call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
+                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            sfcalb, Radtend%coszen, Model%solcon,                                                              &
+                            nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
+                            htswc, Diag%topfsw_with_scaled_co2(n,:), Radtend%sfcfsw_with_scaled_co2(n,:),                      &    ! ---  outputs
+                            hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)                                                               ! ---  optional
+              else
+                call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
+                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            sfcalb, Radtend%coszen, Model%solcon,                                                              &
+                            nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
+                            htswc, Diag%topfsw_with_scaled_co2(n,:), Radtend%sfcfsw_with_scaled_co2(n,:),                      &    ! ---  outputs
+                            fdncmp=scmpsw, tau067=tau067)                                                                           ! ---  optional
+              endif  ! Model%swhtr
+
+              do k = 1, LM
+                 k1 = k + kd
+                 Radtend%htrsw_with_scaled_co2(n,:,k) = htswc(:,k1)
+              enddo
+
+              ! --- repopulate the points above levr
+              if (Model%levr < Model%levs) then
+                 do k = LM,Model%levs
+                    Radtend%htrsw_with_scaled_co2 (n,:,k) = Radtend%htrsw_with_scaled_co2 (n,:,LM)
+                 enddo
+              endif
+
+              if (Model%swhtr) then
+                 do k = 1, lm
+                    k1 = k + kd
+                    Radtend%swhc_with_scaled_co2(n,:,k) = htsw0(:,k1)
+                 enddo
+                 ! --- repopulate the points above levr
+                 if (Model%levr < Model%levs) then
+                    do k = LM,Model%levs
+                       Radtend%swhc_with_scaled_co2(n,:,k) = Radtend%swhc_with_scaled_co2(n,:,LM)
+                    enddo
+                 endif
+              endif
+
+              Coupling%nirbmdi_with_scaled_co2(n,:) = scmpsw%nirbm
+              Coupling%nirdfdi_with_scaled_co2(n,:) = scmpsw%nirdf
+              Coupling%visbmdi_with_scaled_co2(n,:) = scmpsw%visbm
+              Coupling%visdfdi_with_scaled_co2(n,:) = scmpsw%visdf
+
+              Coupling%nirbmui_with_scaled_co2(n,:) = scmpsw%nirbm * sfcalb(:,1)
+              Coupling%nirdfui_with_scaled_co2(n,:) = scmpsw%nirdf * sfcalb(:,2)
+              Coupling%visbmui_with_scaled_co2(n,:) = scmpsw%visbm * sfcalb(:,3)
+              Coupling%visdfui_with_scaled_co2(n,:) = scmpsw%visdf * sfcalb(:,4)
+
+            enddo  ! diagonstic radiation calls
+
+         else  ! nday > 0
+
+            Radtend%htrsw_with_scaled_co2 = 0.0
+
+            Radtend%sfcfsw_with_scaled_co2 = sfcfsw_type( 0.0, 0.0, 0.0, 0.0 )
+            Diag%topfsw_with_scaled_co2    = topfsw_type( 0.0, 0.0, 0.0 )
+            scmpsw                         = cmpfsw_type( 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 )
+
+            if (Model%swhtr) then
+               Radtend%swhc_with_scaled_co2 = 0
+            endif
+
+            Coupling%nirbmdi_with_scaled_co2 = 0.0
+            Coupling%nirdfdi_with_scaled_co2 = 0.0
+            Coupling%visbmdi_with_scaled_co2 = 0.0
+            Coupling%visdfdi_with_scaled_co2 = 0.0
+
+            Coupling%nirbmui_with_scaled_co2 = 0.0
+            Coupling%nirdfui_with_scaled_co2 = 0.0
+            Coupling%visbmui_with_scaled_co2 = 0.0
+            Coupling%visdfui_with_scaled_co2 = 0.0
+
+         endif  ! nday > 0
+
+         if (Model%do_diagnostic_radiation_with_scaled_co2) then
+            Coupling%sfcnsw_with_scaled_co2(:,:) = Radtend%sfcfsw_with_scaled_co2(:,:)%dnfxc - Radtend%sfcfsw_with_scaled_co2(:,:)%upfxc
+            Coupling%sfcdsw_with_scaled_co2(:,:) = Radtend%sfcfsw_with_scaled_co2(:,:)%dnfxc
+         endif
+
+         if (Model%lssav .and. Model%lsswr) then
+            do i = 1, IM
+               if (Radtend%coszen(i) > 0.) then
+                  tem0d = Model%fhswr * Radtend%coszdg(i)  / Radtend%coszen(i)
+                  Diag%uswrftoa_with_scaled_co2(:,i) = Diag%uswrftoa_with_scaled_co2(:,i) + Diag%topfsw_with_scaled_co2(:,i)%upfxc * tem0d  ! total sky top sw up
+                  Diag%dswrftoa_with_scaled_co2(:,i) = Diag%dswrftoa_with_scaled_co2(:,i) + Diag%topfsw_with_scaled_co2(:,i)%dnfxc * tem0d  ! top sw dn
+               endif
+            enddo
+         endif
+      end subroutine diagnostic_shortwave_radiation_with_scaled_co2
+
+      subroutine diagnostic_longwave_radiation_with_scaled_co2(               &
+         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,           &  ! in
+         Coupling, Radtend, Diag                                              &  ! inout
+      )
+         type(GFS_control_type),  intent(in)                        :: Model
+         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
+         real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
+         real(kind=kind_phys),    intent(in)                        :: faerlw(im,lmk,nf_aelw)
+         real(kind=kind_phys),    intent(in), dimension(im,lmk)     :: plyr, tlyr, qlyr, olyr
+         real(kind=kind_phys),    intent(in), dimension(im,lmk + 1) :: plvl, tlvl
+         real(kind=kind_phys),    intent(in), dimension(im)         :: tsfg
+         integer,                 intent(in)                        :: im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds
+         type(GFS_coupling_type), intent(inout)                     :: Coupling
+         type(GFS_radtend_type),  intent(inout)                     :: Radtend
+         type(GFS_diag_type),     intent(inout)                     :: Diag
+
+         integer :: k, kd, k1, n
+         real(kind=kind_phys), dimension(im,lmk)         :: htlwc, htlw0, tau110
+         real(kind=kind_phys), dimension(im,lmk,nf_vgas) :: gasvmr_with_scaled_co2
+
+         do n = 1, Model%n_diagnostic_radiation_calls
+            gasvmr_with_scaled_co2 = gasvmr
+            gasvmr_with_scaled_co2(:,:,1) = Model%diagnostic_radiation_co2_scale_factors(n) * gasvmr(:,:,1)
+
+            if (Model%lwhtr) then
+               call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
+                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           tsfg, im, lmk, lmp, Model%lprnt,                                                           &
+                           htlwc, Diag%topflw_with_scaled_co2(n,:), Radtend%sfcflw_with_scaled_co2(n,:),              &     !  ---  outputs
+                           hlw0=htlw0, tau110=tau110)                                                                       !  ---  optional
+             else
+               call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
+                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           tsfg, im, lmk, lmp, Model%lprnt,                                                           &
+                           htlwc, Diag%topflw_with_scaled_co2(n,:), Radtend%sfcflw_with_scaled_co2(n,:),              &     !  ---  outputs
+                           tau110=tau110)                                                                                   !  ---  optional
+             endif
+
+             do k = 1, LM
+                k1 = k + kd
+                Radtend%htrlw_with_scaled_co2(n,:,k) = htlwc(:,k1)
+             enddo
+             ! --- repopulate the points above levr
+             if (Model%levr < Model%levs) then
+                do k = LM,Model%levs
+                   Radtend%htrlw_with_scaled_co2 (n,:,k) = Radtend%htrlw_with_scaled_co2 (n,:,LM)
+                enddo
+             endif
+
+             if (Model%lwhtr) then
+                do k = 1, lm
+                   k1 = k + kd
+                   Radtend%lwhc_with_scaled_co2(n,:,k) = htlw0(:,k1)
+                enddo
+                ! --- repopulate the points above levr
+                if (Model%levr < Model%levs) then
+                   do k = LM,Model%levs
+                      Radtend%lwhc_with_scaled_co2(n,:,k) = Radtend%lwhc_with_scaled_co2(n,:,LM)
+                   enddo
+                endif
+             endif
+
+             Coupling%sfcdlw_with_scaled_co2(n,:) = Radtend%sfcflw_with_scaled_co2(n,:)%dnfxc
+
+             if (Model%lssav .and. Model%lslwr) then
+                Diag%ulwrftoa_with_scaled_co2(n,:) = Diag%ulwrftoa_with_scaled_co2(n,:) + Model%fhlwr * Diag%topflw_with_scaled_co2(n,:)%upfxc
+             endif
+
+          enddo  ! diagnostic radiation calls
+      end subroutine diagnostic_longwave_radiation_with_scaled_co2
 !
 !> @}
 !........................................!
