@@ -884,6 +884,13 @@ module module_physics_driver
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd                     &
            )
 
+        if (Model%do_diagnostic_radiation_with_scaled_co2) then
+           call compute_diagnostics_with_scaled_co2(                        &
+              Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im,     &
+              levs, Diag                                                    &
+           )
+        endif
+
 !
 ! save temp change due to radiation - need for sttp stochastic physics
 !---------------------------------------------------------------------
@@ -4264,6 +4271,60 @@ module module_physics_driver
         ! Compute the mass of dry air plus all hydrometeors at the end of the physics.
         delp = initial_mass_of_dry_air_plus_vapor * dry_air_plus_hydrometeor_mass_fraction_after_physics
       end subroutine compute_updated_delp_following_dynamics_definition
+
+  subroutine compute_diagnostics_with_scaled_co2(Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im, levs, Diag)
+     type(GFS_control_type),         intent(in)    :: Model
+     type(GFS_statein_type),         intent(in)    :: Statein
+     type(GFS_sfcprop_type),         intent(in)    :: Sfcprop
+     type(GFS_coupling_type),        intent(in)    :: Coupling
+     type(GFS_grid_type),            intent(in)    :: Grid
+     type(GFS_radtend_type),         intent(in)    :: Radtend
+     integer,                        intent(in)    :: ix, im, levs
+     type(GFS_diag_type),            intent(inout) :: Diag
+
+     integer :: n
+
+     ! Local variables that will get reused throughout the multi-call loop
+     real(kind=kind_phys), dimension(im,levs) :: dtdt, dtdtc
+     real(kind=kind_phys), dimension(im) :: adjsfcdsw, adjsfcnsw, adjsfcdlw, &
+        adjsfculw, adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,    &
+        adjnirdfd, adjvisbmd, adjvisdfd, xmu, xcosz
+
+     do n = 1, Model%n_diagnostic_radiation_calls
+        call dcyc2t3                                                                        &
+    !  ---  inputs:
+           ( Model%solhr, Model%slag, Model%sdec, Model%cdec, Grid%sinlat,                  &
+             Grid%coslat, Grid%xlon, Radtend%coszen, Sfcprop%tsfc,                          &
+             Statein%tgrs(1,1), Radtend%tsflw, Radtend%semis,                               &
+             Coupling%sfcdsw_with_scaled_co2(n,:), Coupling%sfcnsw_with_scaled_co2(n,:),    &
+             Coupling%sfcdlw_with_scaled_co2(n,:), Radtend%htrsw_with_scaled_co2(n,:,:),    &
+             Radtend%swhc_with_scaled_co2(n,:,:), Radtend%htrlw_with_scaled_co2(n,:,:),     &
+             Radtend%lwhc_with_scaled_co2(n,:,:), Coupling%nirbmui_with_scaled_co2(n,:),    &
+             Coupling%nirdfui_with_scaled_co2(n,:), Coupling%visbmui_with_scaled_co2(n,:),  &
+             Coupling%visdfui_with_scaled_co2(n,:), Coupling%nirbmdi_with_scaled_co2(n,:),  &
+             Coupling%nirdfdi_with_scaled_co2(n,:), Coupling%visbmdi_with_scaled_co2(n,:),  &
+             Coupling%visdfdi_with_scaled_co2(n,:), ix, im, levs, Model%daily_mean,         &
+    !  ---  input/output:
+             dtdt, dtdtc,                                                                   &
+    !  ---  outputs:
+             adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz, adjnirbmu, adjnirdfu,  &
+             adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd,                         &
+             adjvisdfd                                                                      &
+           )
+
+        Diag%dlwsfc_with_scaled_co2(n,:) = Diag%dlwsfc_with_scaled_co2(n,:) + adjsfcdlw * Model%dtf
+        Diag%ulwsfc_with_scaled_co2(n,:) = Diag%ulwsfc_with_scaled_co2(n,:) + adjsfculw * Model%dtf
+
+        Diag%dlwsfci_with_scaled_co2(n,:) = adjsfcdlw
+        Diag%ulwsfci_with_scaled_co2(n,:) = adjsfculw
+        Diag%uswsfci_with_scaled_co2(n,:) = adjsfcdsw - adjsfcnsw
+        Diag%dswsfci_with_scaled_co2(n,:) = adjsfcdsw
+
+        Diag%uswsfc_with_scaled_co2(n,:) = Diag%uswsfc_with_scaled_co2(n,:) + (adjsfcdsw - adjsfcnsw) * Model%dtf
+        Diag%dswsfc_with_scaled_co2(n,:) = Diag%dswsfc_with_scaled_co2(n,:) + adjsfcdsw * Model%dtf
+      enddo
+
+  end subroutine compute_diagnostics_with_scaled_co2
 !> @}
 
 end module module_physics_driver
