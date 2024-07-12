@@ -1,7 +1,22 @@
+      !NOTE:
+      ! This routine contains parameters added by Sofar Ocean to support
+      ! additional coupling between the atmosphere, waves, and
+      ! ocean models at high temporal and spatial resolutions.
+      !
+      ! Edits were made in 2023 by:
+      ! Stephen G. Penny, Sofar Ocean (steve.penny@sofarocean.com)
+      ! and
+      ! Christie Hegermiller, Sofar Ocean
+
       subroutine sfc_diff_gfdl(im,ps,u1,v1,t1,q1,z1,
      &                    snwdph,tskin,z0rl,ztrl,cm,ch,rb,
      &                    prsl1,prslki,islimsk,
      &                    stress,fm,fh,
+     &                    charnock,                             ! Sofar added Spring 2023
+     &                    rhoa,                                 ! Sofar added 9/22/23
+     &                    u10m_array,v10m_array,                ! Sofar added 11/17/23
+     &                    u10n,v10n,                            ! Sofar added 9/22/23
+     &                    fm10_neutral,                         ! Sofar added 10/19/23
      &                    ustar,wind,ddvel,fm10,fh2,
      &                    sigmaf,vegtype,shdmax,ivegsrc,
      &                    tsurf,flag_iter,redrag,
@@ -26,9 +41,16 @@
       real(kind=kind_phys), dimension(im)::ps,  u1, v1, t1, q1, z1
      &,                                    tskin, z0rl, ztrl, cm, ch, rb
      &,                                    prsl1, prslki, stress
-     &,                                    fm, fh, ustar, wind, ddvel
+     &,                                    fm, fh
+     &,                                    charnock                     ! Sofar added Spring 2023
+     &,                                    rhoa, u10n, v10n             ! Sofar added 9/22/23
+     &,                                    u10m_array, v10m_array       ! Sofar added 11/17/23
+     &,                                    ustar, wind 
+     &,                                    ddvel
      &,                                    fm10, fh2, sigmaf, shdmax
      &,                                    tsurf, snwdph
+     &,                                    fm_neutral, fm10_neutral     ! Sofar added Spring 2023
+      real(kind=kind_phys) :: ws1, ws10n                                ! Sofar added 10/19/23
       integer, dimension(im)             ::vegtype, islimsk
 
       logical   flag_iter(im)
@@ -44,6 +66,7 @@
      &                     hl1,    hl12,   pm,     ph,  pm10,  ph2, rat,
      &                     thv1,   tvs,    z1i,    z0, zt, z0max, ztmax,
      &                     fms,    fhs,    hl0,    hl0inf, hlinf,
+     &                     tv1,                                   ! Sofar added 9/22/23
      &                     hl110,  hlt,    hltinf, olinf,
      &                     restar, czilc,  tem1,   tem2,
      &                     u10m, v10m, ws10m, ws10m_moon,         !kgao
@@ -53,7 +76,8 @@
       real(kind=kind_phys),intent(in   ) :: z0s_max, wind_th_hwrf ! kgao 
 
       real(kind=kind_phys), parameter ::
-     &              charnock=.014, ca=.4 
+! CH     &              charnock=.014, ca=.4 
+     &              ca=.4 
      &,             vis=1.4e-5, rnu=1.51e-5, visi=1.0/vis
      &,             log01=log(0.01), log05=log(0.05), log07=log(0.07)
      &,             ztmin1=-999.0
@@ -72,6 +96,8 @@
      &                + max(0.0, min(ddvel(i), 30.0)), 1.0)
           tem1    = 1.0 + rvrdm1 * max(q1(i),1.e-8)
           thv1    = t1(i) * prslki(i) * tem1
+          tv1     = t1(i) * tem1                        ! Sofar added 9/22/23
+          rhoa(i)   = prsl1(i) / (rd*tv1)               ! Sofar added 9/22/23
           tvs     = 0.5 * (tsurf(i)+tskin(i)) * tem1
           qs1     = fpvs(t1(i))
           qs1     = max(1.0e-8, eps * qs1 / (prsl1(i) + epsm1 * qs1))
@@ -147,6 +173,7 @@
             call monin_obukhov_similarity
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
+     &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
 
           elseif (islimsk(i) == 0) then ! over water
@@ -159,6 +186,9 @@
 !    iteration 2 
 !         step 1 update z0/zt 
 !         step 2 call similarity 
+!
+! CH comment: Iteration 2 can be dropped because we have updated
+! z0rl with wave-dependent roughness. STEVE: does this still apply (10/19/2023)?
 !================================================
 
 ! === iteration 1
@@ -167,19 +197,20 @@
             z0      = 0.01 * z0rl(i)  
             zt      = 0.01 * ztrl(i)
 
-            z0max   = max(1.0e-6, min(z0,z1(i)))
+            z0max   = max(1.0e-6, min(z0,z1(i)))                       !STEVE: note that z1 is the layer 1 height (m)
             ztmax   = max(zt,1.0e-6)
 
             ! --- call similarity
             call monin_obukhov_similarity
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
+     &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
 
 ! === iteration 2
 
             ! --- get z0/zt following the old sfc_diff.f 
-            z0 = (charnock / grav) * ustar(i) * ustar(i)
+            z0 = (charnock(i) / grav) * ustar(i) * ustar(i)
             if (redrag) then
                z0 = max(min(z0, z0s_max), 1.e-7)
             else
@@ -187,12 +218,12 @@
             endif
 
             ! zt calculations copied from old sfc_diff.f
-            !ustar(i) = sqrt(grav * z0 / charnock)
+            !ustar(i) = sqrt(grav * z0 / charnock(i))
             !restar = max(ustar(i)*z0max*visi, 0.000001)
             !rat    = min(7.0, 2.67 * sqrt(sqrt(restar)) - 2.57)
             !ztmax  = z0max * exp(-rat)
 
-            ustar_1 = sqrt(grav * z0 / charnock)
+            ustar_1 = sqrt(grav * z0 / charnock(i))
             restar = max(ustar_1*z0max*visi, 0.000001)
             rat    = min(7.0, 2.67 * sqrt(sqrt(restar)) - 2.57)
             zt     = z0max * exp(-rat) ! zeng, zhao and dickinson 1997 (eq 25)
@@ -200,6 +231,41 @@
             ! --- update z0/zt with new options
             ! only z0 options in the following
             ! will add zt options in the future
+
+            ! ---------------------------------------------- - Sofar (start)
+            ! Compute neutral wind and u/v components at 10 m height
+            ! Following IFS calculation, p.52:
+            ! https://www.ecmwf.int/sites/default/files/elibrary/2021/20198-ifs-documentation-cy47r3-part-vi-physical-processes.pdf
+            ! In the open sea, with fetch at least 5 km, rougness length is about 0.0002 (m)
+            ! The equation below is for what ECMWF assumes for: z0M < 0.03 
+            ! This may need to be updated for larger waves (z0M > 0.03)
+
+            ! These didn't work:
+!           u10n = u1(i) * fm10_neutral(i) / fm_neutral(i) !(ADDED by Sofar) CH: I don't think this is correct yet, unfortunately.
+!           v10n = v1(i) * fm10_neutral(i) / fm_neutral(i) !(ADDED by Sofar) 
+!!          u10n = u1(i) * fm10_neutral(i) / fm !_neutral(i) !(ADDED by Sofar)
+!!          v10n = v1(i) * fm10_neutral(i) / fm !_neutral(i) !(ADDED by Sofar) SGP: see https://github.com/wavespotter/EarthSystemModel/issues/27
+
+            ! Trying to match ECMWF closely:
+            ! Compute lowest level wind speed
+!           ws1 = sqrt(u1(i)*u1(i) + v1(i)*v1(i))
+            ! Compute 10-meter equivalent neutral wind speed
+            ! example: u10n = u1(i) * (ws10n/ws1) * fm10_neutral(i) / fm(i)
+!           ws10n = ws1 * fm10_neutral(i) / fm_neutral(i) !(ADDED by Sofar)
+!           ws10n = ws1 * fm10(i) / fm(i) !(ADDED by Sofar) TEST
+!           ! Convert to components  by making use of the wind direction from the lowest model level
+!           u10n = (u1(i) / ws1) * ws10n
+!           v10n = (v1(i) / ws1) * ws10n
+
+            ! Compute neutral winds for output to Sfcprop
+            u10n(i) = u1(i) * fm10_neutral(i) / fm(i) 
+            v10n(i) = v1(i) * fm10_neutral(i) / fm(i)
+
+            ! Compute standard 10m winds for output to Sfcprop
+            u10m_array(i) = u1(i) * fm10(i) / fm(i)
+            v10m_array(i) = v1(i) * fm10(i) / fm(i)
+
+            ! ---------------------------------------------- - Sofar (end)
               
             u10m = u1(i) * fm10(i) / fm(i)
             v10m = v1(i) * fm10(i) / fm(i)
@@ -226,7 +292,7 @@
             ! option 4: Moon et al 2007 under high winds (same as in HiRAM)
                ws10m_moon = 2.458 + ustar(i)*(20.255-0.56*ustar(i))  ! Eq(7) Moon et al. 2007 
                if ( ws10m_moon > 20. ) then
-                  call cal_z0_moon(ws10m_moon, z0)
+                  call cal_z0_moon(ws10m_moon, z0, charnock(i))
                   z0 = max(min(z0, z0s_max), 1.e-7) ! must apply limiter here
                endif
             endif
@@ -238,6 +304,7 @@
             call monin_obukhov_similarity
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
+     &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
 
             z0rl(i) = 100.0 * z0max
@@ -414,7 +481,7 @@
 
 ! =======================================================================
 
-      subroutine cal_z0_moon(ws10m, z0)
+      subroutine cal_z0_moon(ws10m, z0, charnock)
       ! coded by Kun Gao (Kun.Gao@noaa.gov)
       use machine , only : kind_phys
       use physcons, grav => con_g
@@ -423,8 +490,8 @@
       real(kind=kind_phys) :: ustar_th, z0_adj 
 
       real(kind=kind_phys), parameter ::
-     &          charnock=.014
-     &,         wind_th_moon = 20. 
+!     &          charnock=.014
+     &          wind_th_moon = 20. 
      &,         a = 0.56
      &,         b = -20.255
      &,         c = wind_th_moon - 2.458
@@ -442,7 +509,9 @@
 
       subroutine monin_obukhov_similarity
      &     ( z1, snwdph, thv1, wind, z0max, ztmax, tvs,
-     &       rb, fm, fh, fm10, fh2, cm, ch, stress, ustar)
+     &       rb, fm, fh, fm10, fh2, 
+     &       fm_neutral, fm10_neutral,                                 !(ADDED by Sofar)
+     &       cm, ch, stress, ustar)
 
 ! --- input 
 ! z1     - lowest model level height 
@@ -457,6 +526,7 @@
 ! rb        - a bulk richardson number
 ! fm, fh    - similarity function defined at lowest model layer 
 ! fm10, fh2 - similarity function defined at 10m (for momentum) and 2m (for heat)
+! fm_neutral, fm10_neutral - similarity functions for neutral profile  !(ADDED by Sofar)
 ! cm, ch    - surface exchange coefficients for momentum and heat
 ! stress    - surface wind stress
 ! ustar     - surface frictional velocity 
@@ -470,7 +540,9 @@
 
 !  ---  outputs:
       real(kind=kind_phys), intent(out) ::
-     &       rb, fm, fh, fm10, fh2, cm, ch, stress, ustar
+     &       rb, fm, fh, fm10, fh2, 
+     &       fm_neutral, fm10_neutral,                                 !(ADDED by Sofar)
+     &       cm, ch, stress, ustar
 
 !  ---  locals:
 
@@ -513,6 +585,9 @@
           fh2     = log((ztmax+2.)  * tem2)
           hlinf   = rb * fm * fm / fh
           hlinf   = min(max(hlinf,ztmin1),ztmax1)
+
+          fm_neutral = fm                                              !(ADDED by Sofar)
+          fm10_neutral = fm10                                          !(ADDED by Sofar)
 !
 !  stable case
 !

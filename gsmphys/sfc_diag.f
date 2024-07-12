@@ -1,6 +1,7 @@
       subroutine sfc_diag(im,ps,u1,v1,t1,q1,
      &                    tskin,qsurf,f10m,u10m,v10m,t2m,q2m,
-     &                    prslki,evap,fm,fh,fm10,fh2)
+     &                    prslki,evap,fm,fh,fm10,fh2,
+     &                    fm10_neutral,u10n,v10n)    ! Sofar added: 10/19/23
 !
       use machine , only : kind_phys
       use funcphys, only : fpvs
@@ -11,7 +12,8 @@
       integer              im
       real, dimension(im) :: ps,   u1,   v1,   t1,  q1,  tskin,  qsurf,
      &                       f10m, u10m, v10m, t2m, q2m, prslki, evap,
-     &                       fm,   fh,   fm10, fh2
+     &                       fm,   fh,   fm10, fh2, 
+     &                       fm10_neutral, u10n, v10n    ! Added by Sofar: 10/19/23
 !
 !     locals
 !
@@ -36,6 +38,10 @@
 !       f10m(i) = min(f10m(i),1.)
         u10m(i) = f10m(i) * u1(i)
         v10m(i) = f10m(i) * v1(i)
+        ! Sofar - start
+        u10n(i) = u1(i) * fm10_neutral(i) / fm(i)
+        v10n(i) = v1(i) * fm10_neutral(i) / fm(i)
+        ! Sofar - end
         fhi     = fh2(i) / fh(i)
 !       t2m(i)  = tskin(i)*(1. - fhi) + t1(i) * prslki(i) * fhi
 !       sig2k   = 1. - (grav+grav) / (cp * t2m(i))

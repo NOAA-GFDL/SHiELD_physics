@@ -4765,6 +4765,31 @@ module FV3GFS_io_mod
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%evap(:)
     enddo
+    !Sofar added: start: (12/20/23)
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'u10n'
+    Diag(idx)%desc = '10 meter u-component neutral wind [m/s]'
+    Diag(idx)%unit = 'm/s'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%intpl_method = 'vector_bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%u10n(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'v10n'
+    Diag(idx)%desc = '10 meter v-component neutral wind [m/s]'
+    Diag(idx)%unit = 'm/s'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%intpl_method = 'vector_bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%v10n(:)
+    enddo
+    !Sofar added: end
 
     idx = idx + 1
     Diag(idx)%axes = 2
@@ -8464,6 +8489,3 @@ function starts_with(string, prefix)
 end function starts_with
 
 end module FV3GFS_io_mod
-
-
-

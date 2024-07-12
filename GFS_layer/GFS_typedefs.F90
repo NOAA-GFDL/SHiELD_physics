@@ -1,5 +1,15 @@
 module GFS_typedefs
 
+       !NOTE:
+       ! This routine contains parameters added by Sofar Ocean to support 
+       ! additional coupling between the atmosphere, waves, and
+       ! ocean models at high temporal and spatial resolutions.
+       !
+       ! Edits were made in 2023 by:
+       ! Stephen G. Penny, Sofar Ocean (steve.penny@sofarocean.com)
+       ! and
+       ! Christie Hegermiller, Sofar Ocean
+
        use machine,                  only: kind_phys, kind_evod
        use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
        use module_radlw_parameters,  only: topflw_type, sfcflw_type
@@ -22,6 +32,8 @@ module GFS_typedefs
        real(kind=kind_phys), parameter :: cn_100    = 100._kind_phys
        real(kind=kind_phys), parameter :: cn_th     = 1000._kind_phys
        real(kind=kind_phys), parameter :: cn_hr     = 3600._kind_phys
+       real(kind=kind_phys), parameter :: charn     = 0.014_kind_phys            ! Sofar added Spring 2023
+       real(kind=kind_phys), parameter :: surface_air_density = 1.225_kind_phys  ! Sofar added 9/22/23
 
 !----------------
 ! Data Containers
@@ -179,7 +191,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: tsfc   (:)   => null()  !< surface temperature in k
                                                               !< [tsea in gbphys.f]
     real (kind=kind_phys), pointer :: tsfco  (:)   => null()  !< sst in K
-    real (kind=kind_phys), pointer :: tsfcl  (:)   => null()  !< surface temperature over ice fraction
+    real (kind=kind_phys), pointer :: tsfcl  (:)   => null()  !< surface temperature over land
     real (kind=kind_phys), pointer :: qsfc   (:)   => null()  !< surface specific humidity in kg/kg
 !
     real (kind=kind_phys), pointer :: tsclim   (:)    => null()  !< climatological SST in k
@@ -202,6 +214,12 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: zorl   (:)   => null()  !< composite surface roughness in cm
     real (kind=kind_phys), pointer :: zorlo  (:)   => null()  !< ocean surface roughness in cm
     real (kind=kind_phys), pointer :: zorll  (:)   => null()  !< land surface roughness in cm
+    real (kind=kind_phys), pointer :: charnock  (:)   => null()  !< Charnock parameter         ! Sofar added Spring 2023
+    real (kind=kind_phys), pointer :: rhoa   (:)   => null()  !< surface air density in kg/m3  ! Sofar added 9/22/23
+    real (kind=kind_phys), pointer :: u10m   (:)   => null()  !< neutral U10 wind in m/s       ! Sofar added 11/17/23
+    real (kind=kind_phys), pointer :: v10m   (:)   => null()  !< neutral V10 wind in m/s       ! Sofar added 11/17/23
+    real (kind=kind_phys), pointer :: u10n   (:)   => null()  !< neutral U10 wind in m/s       ! Sofar added 9/22/23
+    real (kind=kind_phys), pointer :: v10n   (:)   => null()  !< neutral V10 wind in m/s       ! Sofar added 9/22/23
     real (kind=kind_phys), pointer :: ztrl   (:)   => null()  !< surface roughness for t and q in cm
     real (kind=kind_phys), pointer :: fice   (:)   => null()  !< ice fraction over open water grid
     real (kind=kind_phys), pointer :: hprim  (:)   => null()  !< topographic standard deviation in m            !
@@ -577,7 +595,7 @@ module GFS_typedefs
     integer              :: n_diagnostic_radiation_calls  !< number of diagnostic radiation calls
 
     !--- microphysical switch
-    integer              :: ncld            !< cnoice of cloud scheme
+    integer              :: ncld            !< choice of cloud scheme
 
     !--- dynamical core parameters
     logical              :: dycore_hydrostatic !< whether the dynamical core is hydrostatic
@@ -1310,6 +1328,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: v10m   (:)    => null()   !< 10 meter u/v wind speed
     real (kind=kind_phys), pointer :: hflx   (:)    => null()   !< sfc temp flux 
     real (kind=kind_phys), pointer :: evap   (:)    => null()   !< sfc moisture flux
+    real (kind=kind_phys), pointer :: u10n   (:)    => null()   !< 10 meter u/v neutral wind speed !Sofar added 10/19/23
+    real (kind=kind_phys), pointer :: v10n   (:)    => null()   !< 10 meter u/v neutral wind speed !Sofar added 10/19/23
     real (kind=kind_phys), pointer :: dpt2m  (:)    => null()   !< 2 meter dew point temperature
     real (kind=kind_phys), pointer :: zlvl   (:)    => null()   !< layer 1 height (m)
     real (kind=kind_phys), pointer :: psurf  (:)    => null()   !< surface pressure (Pa)
@@ -1614,6 +1634,12 @@ module GFS_typedefs
     allocate (Sfcprop%zorl     (IM))
     allocate (Sfcprop%zorlo    (IM))
     allocate (Sfcprop%zorll    (IM))
+    allocate (Sfcprop%charnock (IM)) ! Sofar added
+    allocate (Sfcprop%rhoa (IM))     ! Sofar added 9/22/23
+    allocate (Sfcprop%u10m (IM))     ! Sofar added 11/17/23
+    allocate (Sfcprop%v10m (IM))     ! Sofar added 11/17/23
+    allocate (Sfcprop%u10n (IM))     ! Sofar added 9/22/23
+    allocate (Sfcprop%v10n (IM))     ! Sofar added 9/22/23
     allocate (Sfcprop%ztrl   (IM))
     allocate (Sfcprop%fice   (IM))
     allocate (Sfcprop%hprim  (IM))
@@ -1645,6 +1671,12 @@ module GFS_typedefs
     Sfcprop%zorl      = clear_val
     Sfcprop%zorlo     = clear_val
     Sfcprop%zorll     = clear_val
+    Sfcprop%charnock  = charn                ! Sofar added
+    Sfcprop%rhoa    = surface_air_density    ! Sofar added 9/22/23
+    Sfcprop%u10m    = clear_val              ! Sofar added 11/17/23
+    Sfcprop%v10m    = clear_val              ! Sofar added 11/17/23
+    Sfcprop%u10n    = clear_val              ! Sofar added 9/22/23
+    Sfcprop%v10n    = clear_val              ! Sofar added 9/22/23
     Sfcprop%ztrl    = clear_val
     Sfcprop%fice    = clear_val
     Sfcprop%hprim   = clear_val
@@ -2361,7 +2393,7 @@ end subroutine overrides_create
     logical              :: pdfcld         = .false.                  !< flag for pdfcld
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
-    logical              :: sfc_gfdl       = .false.                  !< flag for using new sfc layer scheme by kgao at GFDL
+    logical              :: sfc_gfdl       = .true.                  !< flag for using new sfc layer scheme by kgao at GFDL
     logical              :: sfc_coupled    = .false.                !< flag for using sfc layer scheme designed for coupling 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
@@ -4040,6 +4072,8 @@ end subroutine overrides_create
     allocate (Diag%v10m    (IM))
     allocate (Diag%hflx    (IM))
     allocate (Diag%evap    (IM))
+    allocate (Diag%u10n    (IM))  ! Sofar added: 10/19/13
+    allocate (Diag%v10n    (IM))  ! Sofar added: 10/19/13
     allocate (Diag%dpt2m   (IM))
     allocate (Diag%zlvl    (IM))
     allocate (Diag%psurf   (IM))
@@ -4336,6 +4370,8 @@ end subroutine overrides_create
     Diag%v10m    = zero
     Diag%hflx    = zero
     Diag%evap    = zero
+    Diag%u10n    = zero  ! Sofar added: 10/19/23
+    Diag%v10n    = zero  ! Sofar added: 10/19/23
     Diag%dpt2m   = zero
     Diag%zlvl    = zero
     Diag%psurf   = zero

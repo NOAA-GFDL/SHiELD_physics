@@ -1,5 +1,15 @@
 module module_physics_driver
 
+  !NOTE:
+  ! This routine contains parameters added by Sofar Ocean to support
+  ! additional coupling between the atmosphere, waves, and
+  ! ocean models at high temporal and spatial resolutions.
+  !
+  ! Edits were made in 2023 by:
+  ! Stephen G. Penny, Sofar Ocean (steve.penny@sofarocean.com)
+  ! and
+  ! Christie Hegermiller, Sofar Ocean
+
   use machine,               only: kind_phys
   use physcons,              only: con_cp, con_fvirt, con_g, con_rd, &
                                    con_rv, con_hvap, con_hfus,       &
@@ -468,6 +478,8 @@ module module_physics_driver
            snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
            doms, psautco_l, prautco_l, ocalnirbm_cpl, ocalnirdf_cpl,    &
            ocalvisbm_cpl, ocalvisdf_cpl, dtzm, temrain1, t2mmp, q2mp,   &
+           !--  For coupling with wave model                              ! Sofar added 10/20/23
+           fm10_neutral,                                                & ! Sofar added 10/20/23
            !--- coupling inputs for physics
            dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, ulwsfc_cice, &
            tisfc_cice, tsea_cice, hice_cice, fice_cice,                 &
@@ -1201,7 +1213,13 @@ module module_physics_driver
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
                  Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
                  cdq, rb, Statein%prsl(1,1), work3, islmsk, stress, &
-                 Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
+                 Sfcprop%ffmm,  Sfcprop%ffhh,                       &
+                 Sfcprop%charnock,                                  &  ! Sofar added Spring 2023
+                 Sfcprop%rhoa,                                      &  ! Sofar added 9/22/23
+                 Sfcprop%u10m, Sfcprop%v10m,                        &  ! Sofar added 11/17/23
+                 Sfcprop%u10n, Sfcprop%v10n,                        &  ! Sofar added 9/22/23
+                 fm10_neutral,                                      &  ! Sofar added 10/19/23
+                 Sfcprop%uustar,                                    &
                  wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
                  sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
                  tsurf, flag_iter, Model%redrag, Model%z0s_max,     &
@@ -1502,7 +1520,8 @@ module module_physics_driver
               Statein%tgrs, Statein%qgrs, Sfcprop%tsfc, qss,   &
               Sfcprop%f10m, Diag%u10m, Diag%v10m,        &
               Sfcprop%t2m, Sfcprop%q2m, work3, evap,           &
-              Sfcprop%ffmm, Sfcprop%ffhh, fm10, fh2)
+              Sfcprop%ffmm, Sfcprop%ffhh, fm10, fh2, &
+              fm10_neutral, Diag%u10n, Diag%v10n)  ! Added by Sofar: 10/19/23
       !endif
 
       Tbd%phy_f2d(:,Model%num_p2d) = 0.0
@@ -3856,7 +3875,8 @@ module module_physics_driver
                        Stateout%gt0, Stateout%gq0, Sfcprop%tsfc, qss,   &
                        Sfcprop%f10m, Diag%u10m, Diag%v10m, Sfcprop%t2m, &
                        Sfcprop%q2m, work3, evap, Sfcprop%ffmm,          &
-                       Sfcprop%ffhh, fm10, fh2)
+                       Sfcprop%ffhh, fm10, fh2, &
+                       fm10_neutral, Diag%u10n, Diag%v10n)  ! Added by Sofar: 10/19/23
 
         if (Model%lssav) then
           Diag%tmpmax (:) = max(Diag%tmpmax (:),Sfcprop%t2m(:))
