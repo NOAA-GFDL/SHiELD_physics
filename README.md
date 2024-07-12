@@ -1,6 +1,6 @@
 # SHiELD_physics
 
-The source contained herein reflects the 202305 release of the SHiELD_physics from GFDL.
+The source contained herein reflects the main branch of the SHiELD_physics from GFDL.
 
 SHiELD_physics contains the infrastructure and physical parameterizations used within the SHiELD atmosphere model.
 
