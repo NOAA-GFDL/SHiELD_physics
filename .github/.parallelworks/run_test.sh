@@ -1,7 +1,7 @@
 #!/bin/bash -xe
 ulimit -s unlimited
 ##############################################################################
-## User set up veriables
+## User set up variables
 ## Root directory for CI
 dirRoot=/contrib/fv3
 ## Intel version to be used
@@ -9,12 +9,12 @@ intelVersion=2023.2.0
 ##############################################################################
 ## HPC-ME container
 container=/contrib/containers/noaa-intel-prototype_2023.09.25.sif
-container_env_script=/contrib/containers/load_spack_noaa-intel.sh
+container_env_script=/contrib/containers/load_spack_noaa-intel-mlong.sh
 ##############################################################################
 
 #Parse Arguments
 branch=main
-commit=""
+commit=none
 while [[ $# -gt 0 ]]; do
   case $1 in
     -b|--branch)
@@ -66,7 +66,7 @@ runDir=${BUILDDIR}/CI/BATCH-CI
 cd ${testscriptDir}
 set -o pipefail
 # Execute the test piping output to log file
-./${testname} " --partition=p2 --mpi=pmi2 --job-name=${commit}_${testname} singularity exec -B /contrib ${container} ${container_env_script}" |& tee ${logDir}/run_${testname}.log
+./${testname} " --partition=compute --mpi=pmi2 --job-name=${commit}_${testname} singularity exec -B /contrib -B /apps ${container} ${container_env_script}" |& tee ${logDir}/run_${testname}.log
 
 ## Compare Restarts to Baseline
 #The following tests are not expectred to have run-to-run reproducibility:
