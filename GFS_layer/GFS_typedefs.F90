@@ -486,6 +486,8 @@ module GFS_typedefs
     integer              :: sfcpress_id     !< valid for GFS only for get_prs/phi
     logical              :: gen_coord_hybrid!< for Henry's gen coord
     logical              :: sfc_override    !< use idealized surface conditions
+    real(kind=kind_phys) :: scale_awareness_factor !< Scale adjustment factor for physics parameterizations to ensure consistency
+                                                   !< across varying grid resolutions, optimized for 13 km reference resolution.
 
     !--- set some grid extent parameters
     integer              :: isc             !< starting i-index for this MPI-domain
@@ -2232,6 +2234,8 @@ end subroutine overrides_create
     integer              :: thermodyn_id   =  1              !< valid for GFS only for get_prs/phi
     integer              :: sfcpress_id    =  1              !< valid for GFS only for get_prs/phi
     logical              :: sfc_override   = .false.         !< use idealized surface conditions
+    real(kind=kind_phys) :: scale_awareness_factor = 1.      !< Scale adjustment factor for physics parameterizations to ensure consistency
+                                                             !< across varying grid resolutions, optimized for 13 km reference resolution.
 
     !--- coupling parameters
     logical              :: cplflx         = .false.         !< default no cplflx collection
@@ -2575,6 +2579,7 @@ end subroutine overrides_create
                           !--- general parameters
                                fhzero, ldiag3d, lssav, fhcyc, lgocart, fhgoc3d,             &
                                thermodyn_id, sfcpress_id, sfc_override,                     &
+                               scale_awareness_factor,                                      &
                           !--- coupling parameters
                                cplflx, cplwav, lsidea,                                      &
                           !--- radiation parameters
@@ -2692,6 +2697,7 @@ end subroutine overrides_create
     Model%sfcpress_id      = sfcpress_id
     Model%gen_coord_hybrid = gen_coord_hybrid
     Model%sfc_override     = sfc_override
+    Model%scale_awareness_factor = scale_awareness_factor
 
     !--- set some grid extent parameters
     Model%tile_num         = tile_num
@@ -3402,6 +3408,7 @@ end subroutine overrides_create
       print *, ' gen_coord_hybrid  : ', Model%gen_coord_hybrid
       print *, ' sfc_override      : ', Model%sfc_override
       print *, ' override_surface_radiative_fluxes: ', Model%override_surface_radiative_fluxes
+      print *, ' scale_awareness_factor: ', Model%scale_awareness_factor
       print *, ' '
       print *, 'grid extent parameters'
       print *, ' isc               : ', Model%isc
