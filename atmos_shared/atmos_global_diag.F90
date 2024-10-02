@@ -1,5 +1,4 @@
 module atmos_global_diag_mod
-#include <fms_platform.h>
 
 !----------------------------------------------------------------------
 !  Module for computed globally averaged atmospheric quantities

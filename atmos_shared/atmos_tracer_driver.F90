@@ -19,7 +19,6 @@
 !***********************************************************************
 
 module atmos_tracer_driver_mod
-#include <fms_platform.h>
 ! <CONTACT EMAIL="William.Cooke@noaa.gov">
 !   William Cooke
 ! </CONTACT>
