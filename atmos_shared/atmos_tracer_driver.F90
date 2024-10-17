@@ -103,6 +103,7 @@ module atmos_tracer_driver_mod
 
 !-----------------------------------------------------------------------
 
+use platform_mod, only: r8_kind, r4_kind
 use     time_manager_mod, only : time_type
 
 implicit none
@@ -377,7 +378,7 @@ type(time_type), intent(in)                                :: Time
 use coupler_types_mod, only: coupler_2d_bc_type
 
 type(coupler_2d_bc_type), intent(inout) :: gas_fields
-real, dimension(:,:,:), intent(in)      :: tr_bot
+real(r8_kind), dimension(:,:,:), intent(in)      :: tr_bot
 
 !-----------------------------------------------------------------------
 
@@ -393,7 +394,7 @@ real, dimension(:,:,:), intent(in)      :: tr_bot
  use coupler_types_mod, only: coupler_2d_bc_type
 
  type(coupler_2d_bc_type), intent(inout) :: gas_fields
- real, dimension(:,:,:), intent(in)      :: tr_bot
+ real(r8_kind), dimension(:,:,:), intent(in)      :: tr_bot
 
  return
 
@@ -414,8 +415,8 @@ end function
 ! the atmosphere for this tracer
 subroutine get_atmos_tracer_surf_setl_flux(tr, setl_flux, dsetl_dtr)
   integer, intent(in)  :: tr         ! tracer index
-  real,    intent(out) :: setl_flux(:,:) ! sedimentation flux at the bottom of the atmosphere
-  real,    intent(out) :: dsetl_dtr(:,:) ! derivative of sedimentation flux w.r.t.
+  real(r8_kind),    intent(out) :: setl_flux(:,:) ! sedimentation flux at the bottom of the atmosphere
+  real(r8_kind),    intent(out) :: dsetl_dtr(:,:) ! derivative of sedimentation flux w.r.t.
        ! the tracer concentration in the bottom layer
 
   setl_flux(:,:) = 0.0 ; dsetl_dtr(:,:) = 0.0
