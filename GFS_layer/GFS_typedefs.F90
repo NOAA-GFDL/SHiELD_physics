@@ -912,7 +912,7 @@ module GFS_typedefs
     character(len=240)   :: iau_inc_files(7)! list of increment files
     character(len=32)    :: iau_forcing_var(20)  ! list of tracers with IAU forcing
     real(kind=kind_phys) :: iaufhrs(7)      ! forecast hours associated with increment files
-    logical :: iau_filter_increments, iau_drymassfixer
+    logical :: iau_filter_increments, iau_drymassfixer, iau_interp_g2c
     logical :: override_surface_radiative_fluxes  ! Whether to use Overrides to override the surface radiative fluxes
 
     contains
@@ -2545,6 +2545,7 @@ end subroutine overrides_create
     real(kind=kind_phys)  :: iaufhrs(7)       = -1          !< forecast hours associated with increment files
     logical  :: iau_filter_increments         = .false.     !< filter IAU increments
     logical  :: iau_drymassfixer              = .false.     !< IAU dry mass fixer
+    logical  :: iau_interp_g2c                = .true.      !< Interpolate input increments from Gaussian grid to cubed sphere
 
     !--- debug flag
     logical              :: debug          = .false.
@@ -2625,7 +2626,7 @@ end subroutine overrides_create
                                do_sppt, do_shum, do_skeb, do_sfcperts,                      &
                           !--- IAU
                                iau_delthrs,iaufhrs,iau_inc_files,iau_forcing_var,           &
-                               iau_filter_increments,iau_drymassfixer,                      &
+                               iau_filter_increments,iau_drymassfixer, iau_interp_g2c       &
                           !--- debug options
                                debug, pre_rad, do_ocean, use_ifs_ini_sst, use_ext_sst, lprnt, &
                           !--- aerosol scavenging factors ('name:value' string array)
@@ -2977,6 +2978,7 @@ end subroutine overrides_create
     Model%iau_delthrs     = iau_delthrs
     Model%iau_filter_increments = iau_filter_increments
     Model%iau_drymassfixer = iau_drymassfixer
+    Model%iau_interp_g2c = iau_interp_g2c
     if(Model%me==0) print *,' model init,iaufhrs=',Model%iaufhrs
 
     !--- whether to enable overriding the surface radiative fluxes used by the
