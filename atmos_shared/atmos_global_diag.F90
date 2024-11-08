@@ -5,6 +5,7 @@ module atmos_global_diag_mod
 !  and then registering and sending this data to the diag_manager.
 !----------------------------------------------------------------------
 
+use platform_mod, only: r8_kind, r4_kind
 use mpp_mod,          only: input_nml_file
 use mpp_domains_mod,  only: domain2d, mpp_global_sum, BITWISE_EFP_SUM, &
                             null_domain2d, operator(.eq.)
@@ -267,7 +268,7 @@ end subroutine buffer_global_diag
 
 function send_global_diag_data (field_num, data, Time, area, mask)
 integer,           intent(in) :: field_num
-real,              intent(in) :: data(:,:)
+real(r8_kind),              intent(in) :: data(:,:)
 type(time_type),   intent(in) :: Time
 real,    optional, intent(in) :: area(:,:)
 logical, optional, intent(in) :: mask(:,:)
