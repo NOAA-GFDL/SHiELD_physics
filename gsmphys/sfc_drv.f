@@ -40,7 +40,7 @@
 !            sfcemis, dlwflx, dswsfc, snet, delt, tg3, cm, ch,          !
 !            prsl1, prslki, zf, land, wind,  slopetyp,                  !
 !            shdmin, shdmax, snoalb, sfalb, flag_iter, flag_guess,      !
-!            lheatstrg, isot, ivegsrc,                                  !
+!            lheatstrg, isot, ivegsrc, maxevap,                         !
 !  ---  in/outs:                                                        !
 !            weasd, snwdph, tskin, tprcp, srflag, smc, stc, slc,        !
 !            canopy, trans, tsurf, zorl,                                !
@@ -97,6 +97,7 @@
 !                         parameterization                              !
 !     isot     - integer, sfc soil type data source zobler or statsgo   !
 !     ivegsrc  - integer, sfc veg type data source umd or igbp          !
+!     maxevap  - real, maximum latent heat to be allowed           im   !
 !                                                                       !
 !  input/outputs:                                                       !
 !     weasd    - real, water equivalent accumulated snow depth (mm) im  !
@@ -144,7 +145,7 @@
      &       prsl1, prslki, zf, land, wind, slopetyp,                   &
      &       shdmin, shdmax, snoalb, sfalb, flag_iter, flag_guess,      &
      &       lheatstrg, isot, ivegsrc,                                  &
-     &       bexppert, xlaipert, vegfpert,pertvegf,                     &  ! sfc perts, mgehne
+     &       bexppert, xlaipert, vegfpert,pertvegf, maxevap,            &  ! sfc perts, mgehne
 !  ---  in/outs:
      &       weasd, snwdph, tskin, tprcp, srflag, smc, stc, slc,        &
      &       canopy, trans, tsurf, zorl,                                &
@@ -188,7 +189,7 @@
      &       t1, q1, sigmaf, sfcemis, dlwflx, dswsfc, snet, tg3, cm,    &
      &       ch, prsl1, prslki, wind, shdmin, shdmax,                   &
      &       snoalb, sfalb, zf,
-     &       bexppert, xlaipert, vegfpert
+     &       bexppert, xlaipert, vegfpert, maxevap
 
       real (kind=kind_phys),  intent(in) :: delt
 
@@ -566,6 +567,11 @@
           tem     = 1.0 / rho(i)
           hflx(i) = hflx(i) * tem * cpinv
           evap(i) = evap(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+            chh(i) = -maxevap(i)/evap(i)*chh(i)
+            hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+            evap(i) = -maxevap(i)
+          endif
         endif   ! flag_iter & flag
       enddo
 

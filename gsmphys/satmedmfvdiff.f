@@ -36,7 +36,7 @@
      &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,
      &     kinver,xkzm_mo,xkzm_ho,xkzm_ml,xkzm_hl,xkzm_mi,xkzm_hi,
      &     xkzm_s,xkzinv,do_dk_hb19,xkzm_lim,xkgdx,
-     &     rlmn, rlmx, cap_k0_land, dkt_out)
+     &     rlmn, rlmx, cap_k0_land, dkt_out, ck0, ck1, ch0, ch1)
 !
       use machine  , only : kind_phys
       use funcphys , only : fpvs
@@ -201,7 +201,8 @@
       parameter(dw2min=1.e-4,dkmax=1000.)
       parameter(qlcr=3.5e-5,zstblmax=2500.) !,xkzinv=0.15)
       parameter(h1=0.33333333)
-      parameter(ck0=0.4,ck1=0.15,ch0=0.4,ch1=0.15,ce0=0.4)
+!     parameter(ck0=0.4,ck1=0.15,ch0=0.4,ch1=0.15)
+      parameter(ce0=0.4)
       parameter(rchck=1.5,cdtn=25.)
 
       elmx = rlmx

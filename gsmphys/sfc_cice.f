@@ -3,7 +3,7 @@
 !...................................
 !  ---  inputs:
      &     ( im, u1, v1, t1, q1, cm, ch, prsl1, prslki,                 &
-     &       islimsk, ddvel, flag_iter, dqsfc, dtsfc,                   &
+     &       islimsk, ddvel, flag_iter, dqsfc, dtsfc, maxevap,          &
 !  ---  outputs:
      &       qsurf, cmm, chh, evap, hflx )
 
@@ -16,7 +16,7 @@
 !    call sfc_cice                                                      !
 !       inputs:                                                         !
 !          ( im, u1, v1, t1, q1, cm, ch, prsl1, prslki,                 !
-!            islimsk, ddvel, flag_iter, dqsfc, dtsfc,                   !
+!            islimsk, ddvel, flag_iter, dqsfc, dtsfc, maxevap,          !
 !       outputs:                                                        !
 !            qsurf, cmm, chh, evap, hflx)                       !
 !                                                                       !
@@ -36,6 +36,7 @@
 !     flag_iter- logical
 !     dqsfc    - real, latent heat flux
 !     dtsfc    - real, sensible heat flux
+!     maxevap  - real, maximum latent heat to be allowed
 !  outputs:
 !     qsurf    - real, specific humidity at sfc
 !     cmm      - real, ?
@@ -61,7 +62,7 @@
       integer, intent(in) :: im
 
       real (kind=kind_phys), dimension(im), intent(in) :: u1, v1,       &
-     &       t1, q1, cm, ch, prsl1, prslki, ddvel, dqsfc, dtsfc
+     &       t1, q1, cm, ch, prsl1, prslki, ddvel, dqsfc, dtsfc, maxevap
 
       integer, dimension(im), intent(in) :: islimsk
 
@@ -104,6 +105,11 @@
           tem     = 1.0 / rho(i)
           hflx(i) = dtsfc(i) * tem * cpinv
           evap(i) = dqsfc(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+            chh(i) = -maxevap(i)/evap(i)*chh(i)
+            hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+            evap(i) = -maxevap(i)
+          endif
         endif
       enddo
  

@@ -552,7 +552,7 @@
      &          '  May 01 2007'
         print *, VTAGRAD                !print out version tag
         print *,' - Selected Control Flag settings: ICTMflg=',ictmflg,  &
-     &    ' ISOLar =',isolar, ' ICO2flg=',ico2flg,' IAERflg=',iaerflg,  &
+     &    ' ISOLar =',isolar, ' ICO2flg=',ico2flg,' CO2_scaling=',co2_scaling, ' IAERflg=',iaerflg,  &
      &    ' IALBflg=',ialbflg,' IEMSflg=',iemsflg,' ICLDflg=',icldflg,  &
      &    ' ICMPHYS=',icmphys,' IOZNflg=',ioznflg
         print *,' IVFLIP=',ivflip,' IOVRSW=',iovrsw,' IOVRLW=',iovrlw,  &
@@ -1387,7 +1387,9 @@
       ! air and moles of co2 per square meter following the method in
       ! radlw_main.f.  These can be used later to compute a global mean carbon
       ! dioxide volume mixing ratio diagnostic if requested.
-      call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+      if (Model%ldiag3d) then
+        call compute_column_integrated_moles_of_dry_air_and_co2(Statein, gasvmr, IM, LMK, NF_VGAS, Diag)
+      endif
 
       if (Model%do_diagnostic_radiation_with_scaled_co2) then
          do n = 1, Model%n_diagnostic_radiation_calls
@@ -1627,7 +1629,7 @@
                          tracer1(:,1:lmk,Model%ntiw), &
                          tracer1(:,1:lmk,Model%ntsw), &
                          tracer1(:,1:lmk,Model%ntgl), qa, &
-                         Sfcprop%slmsk, Sfcprop%snowd, &
+                         Sfcprop%slmsk, &
                          tracer1(:,1:lmk,Model%ntclamt),&
                          im, lmk, lmp, clouds, cldsa, mtopa, mbota)    !  ---  outputs
           endif

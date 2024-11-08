@@ -12,9 +12,6 @@ More information is available on the [GFDL SHiELD page](https://www.gfdl.noaa.go
 
 ```IPD_layer``` was developed by GFDL personnel, with community input, under funding from NWS Office of Science and Technology Integration.
 
-```atmos_drivers``` is derivative code from the NOAA-GFDL [Atmospheric Drivers project](https://github.com/NOAA-GFDL/atmos_drivers).  This will be removed in a future release.
-
-```simple_coupler``` is derivative code from the NOAA-GFDL [FMS Coupler project](https://github.com/NOAA-GFDL/FMSCoupler).  This will be removed in a future release.
 
 # Disclaimer
 

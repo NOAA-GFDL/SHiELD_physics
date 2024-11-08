@@ -206,7 +206,7 @@ module GFS_driver
     si = (Init_parm%ak + Init_parm%bk * p_ref - Init_parm%ak(Model%levr+1)) &
              / (p_ref - Init_parm%ak(Model%levr+1))
     call rad_initialize (si, Model%levr, Model%ictm, Model%isol, &
-           Model%ico2, Model%iaer, Model%ialb,                   &
+           Model%ico2, Model%fco2_scaling , Model%iaer, Model%ialb, &
            Model%disable_radiation_quasi_sea_ice, Model%iems,    &
            Model%ntcw, Model%num_p2d,  Model%num_p3d,            &
            Model%npdf3d, Model%ntoz,                             &
@@ -266,9 +266,10 @@ module GFS_driver
 !-----------------------------------------------------------------------
 
     if (Model%do_cosp) then
-       do nb = 1, nblks
-          call cosp2_init (size(Grid(nb)%xlon,1), Model%levs)
-       enddo
+       !ONLY call with the first block, which will be equal to the blocksize.
+       ! this will (should?) allocate the right amount of data. Then calls to
+       ! COSP will have the right data set up.
+       call cosp2_init (size(Grid(1)%xlon,1), Model%levs)
     endif
 #endif
 
@@ -645,6 +646,9 @@ module GFS_driver
           !--- for testing purposes, replace numrdm with '100'
           Tbd(nb)%icsdsw(ix) = numrdm(i+Model%isc-1 + (j+Model%jsc-2)*Model%cnx)
           Tbd(nb)%icsdlw(ix) = numrdm(i+Model%isc-1 + (j+Model%jsc-2)*Model%cnx + Model%cnx*Model%cny)
+#if defined (USE_COSP)
+          !add random seeds for COSP here
+#endif
         enddo
       enddo
     endif  ! isubc_lw and isubc_sw
