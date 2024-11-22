@@ -4742,6 +4742,30 @@ module FV3GFS_io_mod
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%v10m(:)
     enddo
 
+    ! KGao
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'hflx'
+    Diag(idx)%desc = 'surface temp flux'
+    Diag(idx)%unit = 'K*m/s'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%hflx(:)
+    enddo
+
+    ! KGao
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'evap'
+    Diag(idx)%desc = 'surface moisture flux'
+    Diag(idx)%unit = 'm/s*kg/kg'
+    Diag(idx)%mod_name = 'gfs_phys'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%evap(:)
+    enddo
+
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'dpt2m'
@@ -6979,6 +7003,30 @@ module FV3GFS_io_mod
       Diag(idx)%data(nb)%var2 => Sfcprop(nb)%uustar(:)
     enddo
 
+    ! KGao
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'shflx'
+    Diag(idx)%desc = 'shflx from coupler'
+    Diag(idx)%unit = 'XXX'
+    Diag(idx)%mod_name = 'gfs_sfc'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%shflx(:)
+    enddo
+
+    ! KGao
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'lhflx'
+    Diag(idx)%desc = 'lhflx from coupler'
+    Diag(idx)%unit = 'XXX'
+    Diag(idx)%mod_name = 'gfs_sfc'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%lhflx(:)
+    enddo
+
     idx = idx + 1
     Diag(idx)%axes = 2
     Diag(idx)%name = 'slope'
@@ -7231,10 +7279,22 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'surface roughness [m]'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'gfs_sfc'
-    Diag(idx)%cnvfac = cn_one/cn_100
+    Diag(idx)%cnvfac = cn_one/cn_100 
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Sfcprop(nb)%zorl(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'ZTRLsfc'
+    Diag(idx)%desc = 'surface roughness for heat [m]'
+    Diag(idx)%unit = 'm'
+    Diag(idx)%mod_name = 'gfs_sfc'
+    Diag(idx)%cnvfac = cn_one/cn_100
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Sfcprop(nb)%ztrl(:)
     enddo
 
     idx = idx + 1

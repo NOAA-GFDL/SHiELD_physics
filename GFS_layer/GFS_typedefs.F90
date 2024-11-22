@@ -229,6 +229,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: uustar (:)   => null()  !< boundary layer parameter
     real (kind=kind_phys), pointer :: oro    (:)   => null()  !< orography
     real (kind=kind_phys), pointer :: oro_uf (:)   => null()  !< unfiltered orography
+    real (kind=kind_phys), pointer :: shflx  (:)   => null()  !< sen heat flux (kgao)
+    real (kind=kind_phys), pointer :: lhflx  (:)   => null()  !< latent heat flux (kgao)
 
     !--- IN/out MYJ scheme
     real (kind=kind_phys), pointer :: QZ0    (:) => null()  !< vapor mixing ratio at z=z0
@@ -653,6 +655,7 @@ module GFS_typedefs
     logical              :: shcnvcw         !< flag for shallow convective cloud
     logical              :: redrag          !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl        !< flag for using updated sfc layer scheme
+    logical              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupling
     real(kind=kind_phys) :: z0s_max         !< a limiting value for z0 under high winds
     logical              :: do_z0_moon      !< flag for using z0 scheme in Moon et al. 2007 (kgao)
     logical              :: do_z0_hwrf15    !< flag for using z0 scheme in 2015 HWRF (kgao)
@@ -1303,8 +1306,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: totgrpb(:)    => null()   !< accumulated graupel precipitation in bucket (kg/m2)
 
     ! Output - only in physics
-    real (kind=kind_phys), pointer :: u10m   (:)    => null()   !< 10 meater u/v wind speed
-    real (kind=kind_phys), pointer :: v10m   (:)    => null()   !< 10 meater u/v wind speed
+    real (kind=kind_phys), pointer :: u10m   (:)    => null()   !< 10 meter u/v wind speed
+    real (kind=kind_phys), pointer :: v10m   (:)    => null()   !< 10 meter u/v wind speed
+    real (kind=kind_phys), pointer :: hflx   (:)    => null()   !< sfc temp flux 
+    real (kind=kind_phys), pointer :: evap   (:)    => null()   !< sfc moisture flux
     real (kind=kind_phys), pointer :: dpt2m  (:)    => null()   !< 2 meter dew point temperature
     real (kind=kind_phys), pointer :: zlvl   (:)    => null()   !< layer 1 height (m)
     real (kind=kind_phys), pointer :: psurf  (:)    => null()   !< surface pressure (Pa)
@@ -1678,6 +1683,8 @@ module GFS_typedefs
     allocate (Sfcprop%uustar  (IM))
     allocate (Sfcprop%oro     (IM))
     allocate (Sfcprop%oro_uf  (IM))
+    allocate (Sfcprop%shflx   (IM))
+    allocate (Sfcprop%lhflx   (IM))
 
     Sfcprop%slope   = clear_val
     Sfcprop%shdmin  = clear_val
@@ -1691,6 +1698,8 @@ module GFS_typedefs
     Sfcprop%uustar  = clear_val
     Sfcprop%oro     = clear_val
     Sfcprop%oro_uf  = clear_val
+    Sfcprop%shflx   = clear_val
+    Sfcprop%lhflx   = clear_val
 
     if (Model%myj_pbl) then
        allocate (Sfcprop%QZ0  (IM))
@@ -2353,6 +2362,7 @@ end subroutine overrides_create
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl       = .false.                  !< flag for using new sfc layer scheme by kgao at GFDL
+    logical              :: sfc_coupled    = .false.                !< flag for using sfc layer scheme designed for coupling 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
     logical              :: do_z0_hwrf15   = .false.                  !< flag for using z0 scheme in 2015 HWRF
@@ -2590,7 +2600,7 @@ end subroutine overrides_create
                                ras, trans_trac, old_monin, cnvgwd, mstrat, moist_adj,       &
                                cscnv, cal_pre, do_aw, do_shoc, shocaftcnv, shoc_cld,        &
                                h2o_phys, pdfcld, shcnvcw, redrag, sfc_gfdl, z0s_max,        &
-                               do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,                      &
+                               sfc_coupled, do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,         &
                                do_z0_hwrf17_hwonly, wind_th_hwrf,                           &
                                hybedmf, dspheat, lheatstrg, hour_canopy, afac_canopy,       &
                                cnvcld, no_pbl, xkzm_lim, xkzm_fac, xkgdx,                   &
@@ -2825,6 +2835,7 @@ end subroutine overrides_create
     Model%shcnvcw          = shcnvcw
     Model%redrag           = redrag
     Model%sfc_gfdl         = sfc_gfdl
+    Model%sfc_coupled      = sfc_coupled
     Model%z0s_max          = z0s_max
     Model%do_z0_moon       = do_z0_moon
     Model%do_z0_hwrf15     = do_z0_hwrf15
@@ -3531,6 +3542,7 @@ end subroutine overrides_create
       print *, ' shcnvcw           : ', Model%shcnvcw
       print *, ' redrag            : ', Model%redrag
       print *, ' sfc_gfdl          : ', Model%sfc_gfdl
+      print *, ' sfc_coupled       : ', Model%sfc_coupled
       print *, ' z0s_max           : ', Model%z0s_max
       print *, ' do_z0_moon        : ', Model%do_z0_moon
       print *, ' do_z0_hwrf15      : ', Model%do_z0_hwrf15
@@ -4026,6 +4038,8 @@ end subroutine overrides_create
     allocate (Diag%totgrpb (IM))
     allocate (Diag%u10m    (IM))
     allocate (Diag%v10m    (IM))
+    allocate (Diag%hflx    (IM))
+    allocate (Diag%evap    (IM))
     allocate (Diag%dpt2m   (IM))
     allocate (Diag%zlvl    (IM))
     allocate (Diag%psurf   (IM))
@@ -4320,6 +4334,8 @@ end subroutine overrides_create
     !--- Out
     Diag%u10m    = zero
     Diag%v10m    = zero
+    Diag%hflx    = zero
+    Diag%evap    = zero
     Diag%dpt2m   = zero
     Diag%zlvl    = zero
     Diag%psurf   = zero
