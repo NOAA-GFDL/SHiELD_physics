@@ -422,14 +422,14 @@
           tem1 = (tvx(i,k+1)-tvx(i,k)) * rdzt(i,k)
 
           if (cap_k0_land) then
-            if(tem1 > 1.e-5) then
+            if(tem1 > 1.d-5) then
                xkzo(i,k)  = min(xkzo(i,k),xkzinv)
                xkzmo(i,k) = min(xkzmo(i,k),xkzinv)
             endif
           else 
             ! kgao note: do not apply upper-limiter over land and sea ice points 
             ! (consistent with change in satmedmfdifq.f in Jun 2020)
-            if(tem1 > 0. .and. islimsk(i) == 0 ) then
+            if(tem1 > 0.d0 .and. islimsk(i) == 0 ) then
                xkzo(i,k)  = min(xkzo(i,k), xkzinv)
                xkzmo(i,k) = min(xkzmo(i,k), xkzinv)
             endif
@@ -883,11 +883,11 @@
       do k = 1, km1
         do i = 1, im
           tem = vk * zl(i,k)
-          if (zol(i) < 0.) then
+          if (zol(i) < 0.d0) then
             ptem = 1. - 100. * zol(i)
             ptem1 = ptem**0.2
             zk = tem * ptem1
-          elseif (zol(i) >= 1.) then
+          elseif (zol(i) >= 1.d0) then
             zk = tem / 3.7
           else
             ptem = 1. + 2.7 * zol(i)
