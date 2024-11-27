@@ -108,7 +108,6 @@
      &                     ustar(im), wstar(im),   hpblx(im),
      &                     ust3(im),  wst3(im),
      &                     z0(im),    crb(im),
-     &                     hgamt(im), hgamq(im),
      &                     wscale(im),vpert(im),
      &                     zol(im),   sflux(im),   radj(im),
      &                     tx1(im),   tx2(im)
@@ -629,9 +628,7 @@
 !
       do i = 1,im
          if(pcnvflg(i)) then
-           hgamt(i) = heat(i)/wscale(i)
-           hgamq(i) = evap(i)/wscale(i)
-           vpert(i) = hgamt(i) + hgamq(i)*fv*theta(i,1)
+           vpert(i) = (heat(i) + evap(i)*fv*theta(i,1))/wscale(i)
            vpert(i) = max(vpert(i),0.)
            tem = min(cfac*vpert(i),gamcrt)
            thermal(i)= thermal(i) + tem
