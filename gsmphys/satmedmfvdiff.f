@@ -105,8 +105,7 @@
       real(kind=kind_phys) dtdz1(im), gdx(im),
      &                     phih(im),  phim(im),    prn(im,km-1),
      &                     rbdn(im),  rbup(im),    thermal(im),
-     &                     ustar(im), wstar(im),   hpblx(im),
-     &                     ust3(im),  wst3(im),
+     &                     ustar(im),   hpblx(im),
      &                     z0(im),    crb(im),
      &                     wscale(im),vpert(im),
      &                     zol(im),   sflux(im),   radj(im),
@@ -615,10 +614,8 @@
           if(zol(i) < zolcru) then
             pcnvflg(i) = .true.
           endif
-          wst3(i) = gotvx(i,1)*sflux(i)*hpbl(i)
-          wstar(i)= wst3(i)**h1
-          ust3(i) = ustar(i)**3.
-          wscale(i)=(ust3(i)+wfac*vk*wst3(i)*sfcfrac)**h1
+          tem = gotvx(i,1)*sflux(i)*hpbl(i)
+          wscale(i)=(ustar(i)**3+wfac*vk*tem*sfcfrac)**h1
           ptem = ustar(i)/aphi5
           wscale(i) = max(wscale(i),ptem)
         endif
