@@ -2425,10 +2425,10 @@ end subroutine overrides_create
     real(kind=kind_phys) :: xkgdx          = 25.e3                    !< [in] background vertical diffusion threshold
     real(kind=kind_phys) :: rlmn           = 30.                      !< [in] lower-limter on asymtotic mixing length in satmedmfdiff.f
     real(kind=kind_phys) :: rlmx           = 300.                     !< [in] upper-limter on asymtotic mixing length in satmedmfdiff.f
-    real(kind=kind_phys) :: pbl_ck0        = 0.4                      !< [in] proportionality coefficient for momentum in PBL
-    real(kind=kind_phys) :: pbl_ck1        = 0.15                     !< [in] proportionality coefficient for momentum above PBL
-    real(kind=kind_phys) :: pbl_ch0        = 0.4                      !< [in] proportionality coefficient for heat & q in PBL
-    real(kind=kind_phys) :: pbl_ch1        = 0.15                     !< [in] proportionality coefficient for heat & q above PBL
+    real(kind=kind_phys) :: pbl_ck0        = 0.4d0                      !< [in] proportionality coefficient for momentum in PBL
+    real(kind=kind_phys) :: pbl_ck1        = 0.15d0                     !< [in] proportionality coefficient for momentum above PBL
+    real(kind=kind_phys) :: pbl_ch0        = 0.4d0                      !< [in] proportionality coefficient for heat & q in PBL
+    real(kind=kind_phys) :: pbl_ch1        = 0.15d0                     !< [in] proportionality coefficient for heat & q above PBL
     real(kind=kind_phys) :: zolcru         = -0.02                    !< [in] a threshold for activating the surface-driven updraft transports in satmedmfdifq.f
     real(kind=kind_phys) :: cs0            = 0.2                      !< [in] a parameter that controls the shear effect on the mixing length in satmedmfdifq.f
     real(kind=kind_phys) :: moninq_fac     = 1.0                      !< turbulence diffusion coefficient factor
