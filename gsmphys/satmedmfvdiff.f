@@ -105,10 +105,8 @@
       real(kind=kind_phys) dtdz1(im), gdx(im),
      &                     phih(im),  phim(im),    prn(im,km-1),
      &                     rbdn(im),  rbup(im),    thermal(im),
-     &                     ustar(im), wstar(im),   hpblx(im),
-     &                     ust3(im),  wst3(im),
+     &                     ustar(im),   hpblx(im),
      &                     z0(im),    crb(im),
-     &                     hgamt(im), hgamq(im),
      &                     wscale(im),vpert(im),
      &                     zol(im),   sflux(im),   radj(im),
      &                     tx1(im),   tx2(im)
@@ -181,29 +179,29 @@
 !
       real(kind=kind_phys) h1 
 !!
-      parameter(gravi=1.0/grav)
+      parameter(gravi=1.d0/grav)
       parameter(g=grav)
       parameter(gocp=g/cp)
-      parameter(cont=cp/g,conq=hvap/g,conw=1.0/g)  ! for del in pa
+      parameter(cont=cp/g,conq=hvap/g,conw=1.d0/g)  ! for del in pa
 !     parameter(cont=1000.*cp/g,conq=1000.*hvap/g,conw=1000./g) !kpa
       parameter(elocp=hvap/cp,el2orc=hvap*hvap/(rv*cp))
-      parameter(wfac=7.0,cfac=4.5)
-      parameter(gamcrt=3.,gamcrq=0.,sfcfrac=0.1)
-      parameter(vk=0.4,rimin=-100.)
-      parameter(rbcr=0.25,zolcru=-0.02,tdzmin=1.e-3)
+      parameter(wfac=7.d0,cfac=4.5d0)
+      parameter(gamcrt=3.d0,gamcrq=0.d0,sfcfrac=0.1d0)
+      parameter(vk=0.4d0,rimin=-100.0d0)
+      parameter(rbcr=0.25d0,zolcru=-0.02d0,tdzmin=1.d-3)
       !parameter(rlmn=30.,rlmx=500.,elmx=500.)
-      parameter(prmin=0.25,prmax=4.0,prtke=1.0,prscu=0.67)
-      parameter(f0=1.e-4,crbmin=0.15,crbmax=0.35)
-      parameter(tkmin=1.e-9,dspfac=0.5,dspmax=10.0)
-      parameter(qmin=1.e-8,qlmin=1.e-12,zfmin=1.e-8)
-      parameter(aphi5=5.,aphi16=16.)
-      parameter(elmfac=1.0,elefac=1.0,cql=100.)
-      parameter(dw2min=1.e-4,dkmax=1000.)
-      parameter(qlcr=3.5e-5,zstblmax=2500.) !,xkzinv=0.15)
-      parameter(h1=0.33333333)
-!     parameter(ck0=0.4,ck1=0.15,ch0=0.4,ch1=0.15)
-      parameter(ce0=0.4)
-      parameter(rchck=1.5,cdtn=25.)
+      parameter(prmin=0.25d0,prmax=4.d0,prtke=1.d0,prscu=0.67d0)
+      parameter(f0=1.d-4,crbmin=0.15d0,crbmax=0.35d0)
+      parameter(tkmin=1.d-9,dspfac=0.5d0,dspmax=10.0d0)
+      parameter(qmin=1.d-8,qlmin=1.d-12,zfmin=1.d-8)
+      parameter(aphi5=5.0d0,aphi16=16.d0)
+      parameter(elmfac=1.d0,elefac=1.d0,cql=100.0d0)
+      parameter(dw2min=1.d-4,dkmax=1000.d0)
+      parameter(qlcr=3.5d-5,zstblmax=2500.d0) !,xkzinv=0.15)
+      parameter(h1=1.d0/3.d0)
+!      parameter(ck0=0.4d0,ck1=0.15d0,ch0=0.4d0,ch1=0.15d0)
+      parameter(ce0=0.4d0)
+      parameter(rchck=1.5d0,cdtn=25.d0)
 
       elmx = rlmx
 !
@@ -425,14 +423,14 @@
           tem1 = (tvx(i,k+1)-tvx(i,k)) * rdzt(i,k)
 
           if (cap_k0_land) then
-            if(tem1 > 1.e-5) then
+            if(tem1 > 1.d-5) then
                xkzo(i,k)  = min(xkzo(i,k),xkzinv)
                xkzmo(i,k) = min(xkzmo(i,k),xkzinv)
             endif
           else 
             ! kgao note: do not apply upper-limiter over land and sea ice points 
             ! (consistent with change in satmedmfdifq.f in Jun 2020)
-            if(tem1 > 0. .and. islimsk(i) == 0 ) then
+            if(tem1 > 0.d0 .and. islimsk(i) == 0 ) then
                xkzo(i,k)  = min(xkzo(i,k), xkzinv)
                xkzmo(i,k) = min(xkzmo(i,k), xkzinv)
             endif
@@ -617,10 +615,8 @@
           if(zol(i) < zolcru) then
             pcnvflg(i) = .true.
           endif
-          wst3(i) = gotvx(i,1)*sflux(i)*hpbl(i)
-          wstar(i)= wst3(i)**h1
-          ust3(i) = ustar(i)**3.
-          wscale(i)=(ust3(i)+wfac*vk*wst3(i)*sfcfrac)**h1
+          tem = gotvx(i,1)*sflux(i)*hpbl(i)
+          wscale(i)=(ustar(i)**3+wfac*vk*tem*sfcfrac)**h1
           ptem = ustar(i)/aphi5
           wscale(i) = max(wscale(i),ptem)
         endif
@@ -630,9 +626,7 @@
 !
       do i = 1,im
          if(pcnvflg(i)) then
-           hgamt(i) = heat(i)/wscale(i)
-           hgamq(i) = evap(i)/wscale(i)
-           vpert(i) = hgamt(i) + hgamq(i)*fv*theta(i,1)
+           vpert(i) = (heat(i) + evap(i)*fv*theta(i,1))/wscale(i)
            vpert(i) = max(vpert(i),0.)
            tem = min(cfac*vpert(i),gamcrt)
            thermal(i)= thermal(i) + tem
@@ -890,11 +884,11 @@
       do k = 1, km1
         do i = 1, im
           tem = vk * zl(i,k)
-          if (zol(i) < 0.) then
+          if (zol(i) < 0.d0) then
             ptem = 1. - 100. * zol(i)
             ptem1 = ptem**0.2
             zk = tem * ptem1
-          elseif (zol(i) >= 1.) then
+          elseif (zol(i) >= 1.d0) then
             zk = tem / 3.7
           else
             ptem = 1. + 2.7 * zol(i)
