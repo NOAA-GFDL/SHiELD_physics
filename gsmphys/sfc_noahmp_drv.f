@@ -12,7 +12,7 @@
      &       iopt_inf,iopt_rad, iopt_alb, iopt_snf,iopt_tbot,iopt_stc,  &
      &       iopt_gla,                                                  &
      &       xlatin,xcoszin, iyrlen, julian,imon,                       &
-     &       rainn_mp,rainc_mp,snow_mp,graupel_mp,hail_mp,               &
+     &       rainn_mp,rainc_mp,snow_mp,graupel_mp,hail_mp,maxevap,      &
 
 !  ---  in/outs:
      &       weasd, snwdph, tskin, tprcp, srflag, smc, stc, slc,        &
@@ -90,7 +90,7 @@
      &       t1, q1, sigmaf, dlwflx, dswsfc, snet, tg3, cm,             &
      &       ch, prsl1, prslki, wind, shdmin, shdmax,                   &
      &       snoalb, zf,                                                &
-     &       rainn_mp,rainc_mp,snow_mp,graupel_mp,hail_mp
+     &       rainn_mp,rainc_mp,snow_mp,graupel_mp,hail_mp,maxevap
 
       logical, dimension(im), intent(in) :: dry
 
@@ -819,6 +819,11 @@
           tem     = 1.0 / rho(i)
           hflx(i) = hflx(i) * tem * cpinv
           evap(i) = evap(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+            chh(i) = -maxevap(i)/evap(i)*chh(i)
+            hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+            evap(i) = -maxevap(i)
+          endif
         endif
       enddo
 

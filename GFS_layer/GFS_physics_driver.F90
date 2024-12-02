@@ -462,7 +462,7 @@ module module_physics_driver
            stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma,    &
            sigma, elvmax, wind, work1, work2, runof, xmu, fm10, fh2,    &
            tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
-           frland, adjsfculw,                                           &
+           frland, adjsfculw, maxevap,                                  &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
            adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
            snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
@@ -491,6 +491,11 @@ module module_physics_driver
       real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
           gsize, hs, land, water0, rain0, ice0, snow0, graupel0,        &
           dte, zvfun
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
+          mppcw, mppew, mppe1, mpper, mppdi, mppd1, mppds, mppdg,       &
+          mppsi, mpps1, mppss, mppsg, mppfw, mppfr, mppmi, mppms,       &
+          mppmg, mppm1, mppm2, mppm3, mppar, mppas, mppag, mpprs,       &
+          mpprg, mppxr, mppxs, mppxg
 #endif
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),4) ::           &
@@ -501,7 +506,7 @@ module module_physics_driver
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
           del, rhc, dtdt, dudt, dvdt, gwdcu, gwdcv, dtdtc, rainp,       &
-          ud_mf, dd_mf, dt_mf, prnum, dkt, flux_cg, flux_en,            &
+          ud_mf, dd_mf, dt_mf, prnum, dkt, flux_cg, flux_en, elm_pbl,   &
           prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
           sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
           wu2_shal,  eta_shal 
@@ -544,7 +549,7 @@ module module_physics_driver
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%nctp) ::  &
            sigmai, vverti 
 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,oz_coeff+5) ::  &
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,4) ::  &
            dq3dt_loc
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::  & ! for MYJ scheme
@@ -1051,6 +1056,12 @@ module module_physics_driver
 
       do iter = 1, 2
 
+!  --- ...  compute the maximum downward latent heat flux
+
+         do i=1,im
+            maxevap(i) = statein%qgrs(i,1,1)/(dtp/(statein%phii(i,2)-statein%phii(i,1))*con_g)
+         enddo
+!
 !  --- ...  surface exchange coefficients
 !
 !     if (lprnt) write(0,*)' tsea=',tsea(ipr),' tsurf=',tsurf(ipr),iter
@@ -1253,7 +1264,7 @@ module module_physics_driver
                         Radtend%semis, gabsbdlw, adjsfcnsw_for_coupling,   &
                         Sfcprop%tprcp, dtf, kdt, Model%solhr, xcosz,       &
                         Tbd%phy_f2d(1,Model%num_p2d), flag_iter,           &
-                        flag_guess, Model%nstf_name, lprnt, ipr,           &
+                        flag_guess, Model%nstf_name, lprnt, ipr, maxevap,  &
 !  --- Input/output
                         tseal, tsurf, Sfcprop%xt, Sfcprop%xs, Sfcprop%xu,  &
                         Sfcprop%xv, Sfcprop%xz, Sfcprop%zm, Sfcprop%xtts,  &
@@ -1316,6 +1327,7 @@ module module_physics_driver
            (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &  
             Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),     &  
             work3, islmsk, Tbd%phy_f2d(1,Model%num_p2d), flag_iter,     &  
+            maxevap,                                                    &
 !  ---  outputs:        
              qss, Diag%cmm, Diag%chh, gflx, evap, hflx, ep1d)
           endif
@@ -1344,7 +1356,7 @@ module module_physics_driver
             Sfcprop%shdmin, Sfcprop%shdmax, Sfcprop%snoalb,            &
             Radtend%sfalb, flag_iter, flag_guess,                      &
             Model%lheatstrg, Model%isot, Model%ivegsrc,                &
-            bexp1d, xlai1d, vegf1d, Model%pertvegf,                    &
+            bexp1d, xlai1d, vegf1d, Model%pertvegf, maxevap,           &
 !  ---  in/outs:
             Sfcprop%weasd, Sfcprop%snowd, Sfcprop%tsfc, Sfcprop%tprcp, &
             Sfcprop%srflag, smsoil, stsoil, slsoil, Sfcprop%canopy,    &
@@ -1374,7 +1386,7 @@ module module_physics_driver
             Model%iopt_snf,   Model%iopt_tbot, Model%iopt_stc, Model%iopt_gla, &
             grid%xlat, xcosz, Model%yearlen,   Model%julian, Model%imn,&
             Sfcprop%drainncprv, Sfcprop%draincprv, Sfcprop%dsnowprv,   &
-            Sfcprop%dgraupelprv, Sfcprop%diceprv,                      &
+            Sfcprop%dgraupelprv, Sfcprop%diceprv, maxevap,             &
 !  ---  in/outs:
             Sfcprop%weasd, Sfcprop%snowd, Sfcprop%tsfc, Sfcprop%tprcp, &
             Sfcprop%srflag, smsoil, stsoil, slsoil, Sfcprop%canopy,    &
@@ -1419,7 +1431,7 @@ module module_physics_driver
             adjsfcnsw_for_coupling, adjsfcdsw_for_coupling,             &
             Sfcprop%srflag, cd, cdq, Statein%prsl(1,1), work3, islmsk,  &
             Tbd%phy_f2d(1,Model%num_p2d), flag_iter, Model%mom4ice,     &
-            Model%lsm, lprnt, ipr,                                      &
+            Model%lsm, lprnt, ipr, maxevap,                             &
 !  ---  input/outputs:
             zice, cice, tice, Sfcprop%weasd, Sfcprop%tsfc,              &
             Sfcprop%tprcp, stsoil, ep1d,                                & 
@@ -1439,7 +1451,7 @@ module module_physics_driver
            (im, Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs, &
             cd, cdq, Statein%prsl(1,1), work3, islmsk_cice,             &
             Tbd%phy_f2d(1,Model%num_p2d),flag_iter, dqsfc_cice,         &
-            dtsfc_cice,                                                 &
+            dtsfc_cice, maxevap,                                        &
 !  ---     outputs:
             qss, Diag%cmm, Diag%chh, evap, hflx)
         endif
@@ -1713,7 +1725,8 @@ module module_physics_driver
                    Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  & 
                    Model%xkzm_s,  Model%xkzminv, Model%do_dk_hb19,              &
                    Model%xkzm_lim, Model%xkgdx,                                 &
-                   Model%rlmn, Model%rlmx, Model%cap_k0_land, dkt)
+                   Model%rlmn, Model%rlmx, Model%cap_k0_land, dkt,              &
+                   Model%pbl_ck0, Model%pbl_ck1, Model%pbl_ch0, Model%pbl_ch1)
 
              elseif (Model%isatmedmf == 1) then   
                 do i=1,im
@@ -1739,8 +1752,10 @@ module module_physics_driver
                        Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
                        Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
                        Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
-                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr, dkt,             &
-                       flux_cg, flux_en) !cg as up and en as down
+                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
+                       Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
+                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
+                       dkt, flux_cg, flux_en, elm_pbl) !cg as up and en as down
         endif
 
         elseif (Model%ysupbl) then
@@ -1940,6 +1955,7 @@ module module_physics_driver
          do i=1,im
             Diag%flux_cg(i,k) = flux_cg(i,k)
             Diag%flux_en(i,k) = flux_en(i,k)
+            Diag%elm_pbl(i,k) = elm_pbl(i,k)
          enddo
          enddo
 
@@ -2009,7 +2025,8 @@ module module_physics_driver
         if (Model%do_ocean) then
            call update_ocean (im, dtp, Grid, islmsk, kdt, Model%kdt_prev, netflxsfc, dusfc1*(-1.), dvsfc1*(-1.),  &
                            Sfcprop%tprcp, Statein%tgrs(:,1), qflux_restore, Sfcprop%qfluxadj,                     &
-                           Sfcprop%mldclim, Sfcprop%tsclim,Sfcprop%ts_clim_iano, Statein%sst, Sfcprop%ts_som,     &
+                           Sfcprop%mldclim,Sfcprop%tsclim,Sfcprop%ts_clim_iano, Statein%sst + Model%sst_perturbation,&
+                           Sfcprop%ts_som, &
                            Sfcprop%tsfc, Sfcprop%tml, Sfcprop%tml0, Sfcprop%mld, Sfcprop%mld0,                    &
                            Sfcprop%huml, Sfcprop%hvml, Sfcprop%tmoml, Sfcprop%tmoml0, Model%iau_offset)
         endif
@@ -2020,7 +2037,7 @@ module module_physics_driver
 !
         if (Model%use_ext_sst .and. .not. Model%do_ocean) then
            do i = 1, im 
-              if (islmsk(i) == 0 ) Sfcprop%tsfc(i) = Statein%sst(i)
+              if (islmsk(i) == 0 ) Sfcprop%tsfc(i) = Statein%sst(i) + Model%sst_perturbation
            enddo
         endif
 !-------------------------------------------------------lssav if loop ----------
@@ -2207,18 +2224,19 @@ module module_physics_driver
 !  --- ...  ozone physics
 
       if ((Model%ntoz > 0) .and. (ntrac >= Model%ntoz)) then
+         dq3dt_loc = 0.0
         if (oz_coeff > 4) then
           call ozphys_2015 (ix, im, levs, levozp, dtp,               &
                             Stateout%gq0(1,1,Model%ntoz),            &
                             Stateout%gq0(1,1,Model%ntoz),            &
                             Stateout%gt0, oz_pres, Statein%prsl,     &
                             Tbd%ozpl, oz_coeff, del, Model%ldiag3d,  &
-                            dq3dt_loc(1,1,6), me)
+                            dq3dt_loc, me)
           if (Model%ldiag3d) then
-            Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,6)
-            Diag%dq3dt(:,:,7) = dq3dt_loc(:,:,7)
-            Diag%dq3dt(:,:,8) = dq3dt_loc(:,:,8)
-            Diag%dq3dt(:,:,9) = dq3dt_loc(:,:,9)
+            Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,1)
+            Diag%dq3dt(:,:,7) = dq3dt_loc(:,:,2)
+            Diag%dq3dt(:,:,8) = dq3dt_loc(:,:,3)
+            Diag%dq3dt(:,:,9) = dq3dt_loc(:,:,4)
           endif
         else
           call ozphys (ix, im, levs, levozp, dtp,                 &
@@ -2226,12 +2244,12 @@ module module_physics_driver
                        Stateout%gq0(1,1,Model%ntoz),              &
                        Stateout%gt0, oz_pres, Statein%prsl,       &
                        Tbd%ozpl, oz_coeff, del, Model%ldiag3d,    &
-                       dq3dt_loc(1,1,6), me)
+                       dq3dt_loc, me)
           if (Model%ldiag3d) then
-            Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,6)
-            Diag%dq3dt(:,:,7) = dq3dt_loc(:,:,7)
-            Diag%dq3dt(:,:,8) = dq3dt_loc(:,:,8)
-            Diag%dq3dt(:,:,9) = dq3dt_loc(:,:,9)
+            Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,1)
+            Diag%dq3dt(:,:,7) = dq3dt_loc(:,:,2)
+            Diag%dq3dt(:,:,8) = dq3dt_loc(:,:,3)
+            Diag%dq3dt(:,:,9) = dq3dt_loc(:,:,4)
           endif
         endif
       endif
@@ -2505,7 +2523,7 @@ module module_physics_driver
                             Model%clam_deep, Model%c0s_deep,                       &
                             Model%c1_deep, Model%betal_deep, Model%betas_deep,     &
                             Model%evfact_deep, Model%evfactl_deep,                 &
-                            Model%pgcon_deep, Model%asolfac_deep)
+                            Model%pgcon_deep, Model%asolfac_deep, Model%dxcrtas)
 !           if (lprnt) print *,' rain1=',rain1(ipr)
             if (Model%ncld == 5 .and. Model%ext_rain_deep) then
                 Stateout%gq0(:,:,Model%ntrw) = qrn(:,:)
@@ -2531,7 +2549,8 @@ module module_physics_driver
                              Model%clam_deep,   Model%c0s_deep,                    &
                              Model%c1_deep,  Model%betal_deep, Model%betas_deep,   &
                              Model%evfact_deep, Model%evfactl_deep,                &
-                             Model%pgcon_deep,  Model%asolfac_deep)
+                             Model%pgcon_deep,  Model%asolfac_deep, Model%dxcrtas, &
+                             Model%use_tke_conv, Model%use_shear_conv)
 
           elseif (Model%imfdeepcnv == 0) then         ! random cloud top
             call sascnv (im, ix, levs, Model%jcap, dtp, del,              &
@@ -3020,7 +3039,10 @@ module module_physics_driver
                               Statein%vvl, Model%ncld, Diag%hpbl, ud_mf,           &
                               dt_mf, cnvw, cnvc,                                   &
                               Model%clam_shal,  Model%c0s_shal, Model%c1_shal,     &
-                              Model%pgcon_shal, Model%asolfac_shal)
+                              Model%cthk_shal, Model%top_shal, Model%betaw_shal,   &
+                              Model%dxcrt_shal, Model%pgcon_shal,                  & 
+                              Model%asolfac_shal, Model%limit_shal_conv,           &
+                              Model%use_tke_conv, Model%use_shear_conv)
 
 
             raincs(:)     = frain * rain1(:)
@@ -3448,11 +3470,44 @@ module module_physics_driver
 
       elseif (Model%ncld == 5) then       ! GFDL Cloud microphysics
 
+        mppcw = 0.0
+        mppew = 0.0
+        mppe1 = 0.0
+        mpper = 0.0
+        mppdi = 0.0
+        mppd1 = 0.0
+        mppds = 0.0
+        mppdg = 0.0
+        mppsi = 0.0
+        mpps1 = 0.0
+        mppss = 0.0
+        mppsg = 0.0
+        mppfw = 0.0
+        mppfr = 0.0
+        mppmi = 0.0
+        mppms = 0.0
+        mppmg = 0.0
+        mppm1 = 0.0
+        mppm2 = 0.0
+        mppm3 = 0.0
+        mppar = 0.0
+        mppas = 0.0
+        mppag = 0.0
+        mpprs = 0.0
+        mpprg = 0.0
+        mppxr = 0.0
+        mppxs = 0.0
+        mppxg = 0.0
+
         if (Model%do_sat_adj) then         ! Fast Saturation adjustment
 
         hs        = Sfcprop%oro(:) * con_g
         gsize     = sqrt(Grid%area(:))
-        qnl1      = 0.0
+        if (Model%ntal .gt. 0) then
+          qnl1    = Stateout%gq0(:,1:levs,Model%ntal)
+        else
+          qnl1    = 0.0
+        endif
         qni1      = 0.0
         do k = 1, levs
           w    (:,k) = -Statein%vvl(:,levs-k+1)*con_rd*Stateout%gt0(:,levs-k+1)     &
@@ -3467,7 +3522,10 @@ module module_physics_driver
                          Stateout%gq0(:,levs:1:-1,Model%ntsw), Stateout%gq0(:,levs:1:-1,Model%ntgl), &
                          Stateout%gq0(:,levs:1:-1,Model%ntclamt), qnl1(:,levs:1:-1), qni1(:,levs:1:-1), &
                          hs, dz, Stateout%gt0(:,levs:1:-1), delp, q_con(:,levs:1:-1), cappa(:,levs:1:-1), &
-                         gsize, .true., Model%do_sat_adj)
+                         gsize, mppcw, mppew, mppe1, mpper, mppdi, mppd1, mppds, mppdg, mppsi, mpps1, &
+                         mppss, mppsg, mppfw, mppfr, mppmi, mppms, mppmg, mppm1, mppm2, mppm3, mppar, &
+                         mppas, mppag, mpprs, &
+                         mpprg, mppxr, mppxs, mppxg, .true., Model%do_sat_adj, .true., .true.)
 
         endif
 
@@ -3598,7 +3656,11 @@ module module_physics_driver
         ice0      = 0.0
         snow0     = 0.0
         graupel0  = 0.0
-        qnl1      = 0.0
+        if (Model%ntal .gt. 0) then
+          qnl1    = Stateout%gq0(:,1:levs,Model%ntal)
+        else
+          qnl1    = 0.0
+        endif
         qni1      = 0.0
         prefluxw  = 0.0
         prefluxr  = 0.0
@@ -3618,11 +3680,14 @@ module module_physics_driver
                                 Stateout%gq0(:,levs:1:-1,Model%ntclamt), qnl1(:,levs:1:-1), qni1(:,levs:1:-1), &
                                 Stateout%gt0(:,levs:1:-1), w, Stateout%gu0(:,levs:1:-1), &
                                 Stateout%gv0(:,levs:1:-1), dz, delp, gsize, dtp, hs, water0, rain0, ice0, snow0, &
-                                graupel0, .false., 1, im, 1, levs, q_con(:,levs:1:-1), cappa(:,levs:1:-1), &
+                                graupel0, Model%dycore_hydrostatic, 1, im, 1, levs, q_con(:,levs:1:-1), cappa(:,levs:1:-1), &
                                 .false., adj_vmr(:,levs:1:-1), te(:,levs:1:-1), dte, &
                                 prefluxw(:,levs:1:-1), prefluxr(:,levs:1:-1), &
                                 prefluxi(:,levs:1:-1), prefluxs(:,levs:1:-1), prefluxg(:,levs:1:-1), &
-                                .true., Model%do_inline_mp)
+                                mppcw, mppew, mppe1, mpper, mppdi, mppd1, mppds, mppdg, mppsi, mpps1, &
+                                mppss, mppsg, mppfw, mppfr, mppmi, mppms, mppmg, mppm1, mppm2, mppm3, &
+                                mppar, mppas, mppag, mpprs, mpprg, mppxr, mppxs, mppxg, .true., Model%do_inline_mp, &
+                                .true., .true.)
 
         tem = dtp * con_p001 / con_day
         water0(:)   = water0(:)   * tem

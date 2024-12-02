@@ -1,6 +1,7 @@
       subroutine mfpbltq(im,ix,km,kmpbl,ntcw,ntrac1,delt,
      &   cnvflg,zl,zm,q1,t1,u1,v1,plyr,pix,thlx,thvx,
-     &   gdx,hpbl,kpbl,vpert,buo,xmf,
+     &   gdx,hpbl,kpbl,vpert,buo,use_shear,wush, 
+     &   use_tke_ent_det,tkemean,vez0fun,xmf,
      &   tcko,qcko,ucko,vcko,xlamue,a1)
 !
       use machine , only : kind_phys
@@ -21,11 +22,14 @@
      &                     t1(ix,km),  u1(ix,km), v1(ix,km),
      &                     plyr(im,km),pix(im,km),thlx(im,km),
      &                     thvx(im,km),zl(im,km), zm(im,km),
+     &                     wush(im,km),
      &                     gdx(im),    hpbl(im),  vpert(im),
+     &                     tkemean(im), vez0fun(im),
      &                     buo(im,km), xmf(im,km),
      &                     tcko(im,km),qcko(im,km,ntrac1),
      &                     ucko(im,km),vcko(im,km),
      &                     xlamue(im,km-1)
+      logical use_tke_ent_det,use_shear
 !
 c  local variables and arrays
 !
@@ -39,7 +43,8 @@ c  local variables and arrays
      &                     alp,     vprtmax, a1,      pgcon,
      &                     qmin,    qlmin,   xmmx,    rbint,
      &                     tem,     tem1,    tem2,
-     &                     ptem,    ptem1,   ptem2
+     &                     ptem,    ptem1,   ptem2,
+     &                     tkcrt,   cmxfac
 !
       real(kind=kind_phys) elocp,   el2orc,  qs,      es,
      &                     tlu,     gamma,   qlu,
@@ -47,7 +52,7 @@ c  local variables and arrays
 !
       real(kind=kind_phys) rbdn(im), rbup(im), hpblx(im),
      &                     xlamuem(im,km-1)
-      real(kind=kind_phys) delz(im), xlamax(im)
+      real(kind=kind_phys) delz(im), xlamax(im), ce0t(im)
 !
       real(kind=kind_phys) wu2(im,km), thlu(im,km),
      &                     qtx(im,km), qtu(im,km)
@@ -62,6 +67,7 @@ c  local variables and arrays
       parameter(gocp=g/cp)
       parameter(elocp=hvap/cp,el2orc=hvap*hvap/(rv*cp))
       parameter(ce0=0.4,cm=1.0)
+      parameter(tkcrt=2.,cmxfac=5.)
       parameter(qmin=1.e-8,qlmin=1.e-12)
       parameter(alp=1.5,vprtmax=3.0,pgcon=0.55)
       parameter(b1=0.5,f1=0.15)
@@ -99,6 +105,22 @@ c  local variables and arrays
         endif
       enddo
 !
+! kgao 12/08/2023: adjust entrainment/detrainment rate based on pbl-mean tke  
+!
+!  if tkemean>tkcrt, ce0t=sqrt(tkemean/tkcrt)*ce0
+!
+      do i=1,im
+        if( use_tke_ent_det .and. cnvflg(i) ) then
+          ce0t(i) = ce0 * vez0fun(i)
+          if(tkemean(i) > tkcrt) then
+            tem = sqrt(tkemean(i)/tkcrt)
+            tem1 = min(tem, cmxfac)
+            tem2 = tem1 * ce0
+            ce0t(i) = max(ce0t(i), tem2)
+          endif
+        endif
+      enddo
+!
 !  compute entrainment rate
 !
       do i=1,im
@@ -106,7 +128,12 @@ c  local variables and arrays
           k = kpbl(i) / 2
           k = max(k, 1)
           delz(i) = zl(i,k+1) - zl(i,k)
-          xlamax(i) = ce0 / delz(i)
+          ! kgao 12/08/2023
+          if (use_tke_ent_det) then
+             xlamax(i) = ce0t(i) / delz(i)
+          else
+             xlamax(i) = ce0 / delz(i)
+          endif 
         endif
       enddo
 !
@@ -117,7 +144,12 @@ c  local variables and arrays
               ptem = 1./(zm(i,k)+delz(i))
               tem = max((hpbl(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              xlamue(i,k) = ce0 * (ptem+ptem1)
+              ! kgao 12/08/2023
+              if (use_tke_ent_det) then
+                 xlamue(i,k) = ce0t(i) * (ptem+ptem1)
+              else
+                 xlamue(i,k) = ce0 * (ptem+ptem1)
+              endif
             else
               xlamue(i,k) = xlamax(i)
             endif
@@ -193,11 +225,21 @@ c  local variables and arrays
         do i = 1, im
           if(cnvflg(i)) then
             dz    = zm(i,k) - zm(i,k-1)
-            tem  = 0.25*bb1*(xlamue(i,k)+xlamue(i,k-1))*dz
-            tem1 = bb2 * buo(i,k) * dz
-            ptem = (1. - tem) * wu2(i,k-1)
-            ptem1 = 1. + tem
-            wu2(i,k) = (ptem + tem1) / ptem1
+            tem  = 0.25*bb1*(xlamue(i,k-1)+xlamue(i,k))*dz
+            ! kgao 12/15/2023 - consider shear effect on wu diagnosis
+            if (use_shear) then
+              tem1 = max(wu2(i,k-1), 0.)
+              tem1 = bb2 * buo(i,k) - wush(i,k) * sqrt(tem1)
+              tem2 = tem1 * dz
+              ptem = (1. - tem) * wu2(i,k-1)
+              ptem1 = 1. + tem
+              wu2(i,k) = (ptem + tem1) / ptem1
+            else
+              tem1 = bb2 * buo(i,k) * dz
+              ptem = (1. - tem) * wu2(i,k-1)
+              ptem1 = 1. + tem
+              wu2(i,k) = (ptem + tem1) / ptem1
+             endif
           endif
         enddo
       enddo
@@ -254,7 +296,12 @@ c  local variables and arrays
           k = kpbl(i) / 2
           k = max(k, 1)
           delz(i) = zl(i,k+1) - zl(i,k)
-          xlamax(i) = ce0 / delz(i)
+          ! kgao 12/08/2023
+          if (use_tke_ent_det) then
+            xlamax(i) = ce0t(i) / delz(i)
+          else
+            xlamax(i) = ce0 / delz(i)
+          endif
         endif
       enddo
 !
@@ -266,7 +313,12 @@ c  local variables and arrays
               ptem = 1./(zm(i,k)+delz(i))
               tem = max((hpbl(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              xlamue(i,k) = ce0 * (ptem+ptem1)
+              ! kgao 12/08/2023
+              if (use_tke_ent_det) then
+                xlamue(i,k) = ce0t(i) * (ptem+ptem1)
+              else
+                xlamue(i,k) = ce0 * (ptem+ptem1)
+              endif
             else 
               xlamue(i,k) = xlamax(i)
             endif

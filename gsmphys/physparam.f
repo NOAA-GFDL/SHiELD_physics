@@ -230,6 +230,8 @@
       data co2gbl_file   / 'INPUT/co2historicaldata_glob.txt' /
       data co2usr_file   / 'INPUT/co2userdata.txt           ' /
       data co2cyc_file   / 'INPUT/co2monthlycyc.txt         ' /
+!> scaling of the CO2 level
+      real (kind=kind_phys), save :: co2_scaling = 1.0
 
 ! ............................................. !
 !>\name  -2.4- For module radiation_clouds 
