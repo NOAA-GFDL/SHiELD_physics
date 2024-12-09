@@ -137,7 +137,7 @@
 
       ictmflg= ictm                     ! data ic time/date control flag
       ico2flg= ico2                     ! co2 data source control flag
-      co2_scaling= fco2_scaling         ! co2 level scaling
+      co2_scaling= fco2_scaling         ! reset co2_scaling in physparam.f
       ioznflg= ntoz                     ! ozone data source control flag
 
       if ( ictm==0 .or. ictm==-2 ) then

@@ -230,7 +230,7 @@
       data co2gbl_file   / 'INPUT/co2historicaldata_glob.txt' /
       data co2usr_file   / 'INPUT/co2userdata.txt           ' /
       data co2cyc_file   / 'INPUT/co2monthlycyc.txt         ' /
-!> scaling of the CO2 level
+!> scaling of the CO2 level, which is reset by the namelist fco2_scaling through rad_initialize()
       real (kind=kind_phys), save :: co2_scaling = 1.0
 
 ! ............................................. !

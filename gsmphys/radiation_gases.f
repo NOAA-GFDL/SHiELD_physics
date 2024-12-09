@@ -392,6 +392,7 @@
                 print *,' - Using co2 global annual mean value from',   &
      &                  ' user provided data set:',co2usr_file
                 print *, iyr,cline(1:94),co2g1 * co2_scaling,           &
+     &                  ' scaled by ',co2_scaling,                      &
      &                  '  GROWTH RATE =', co2g2
               endif
             elseif ( ico2flg == 2 ) then
@@ -413,6 +414,7 @@
                 print *,' - Using co2 monthly 2-d data from user',      &
      &                ' provided data set:',co2usr_file
                 print *, iyr,cline(1:94),co2g1 * co2_scaling,           &
+     &                  ' scaled by ',co2_scaling,                      &
      &                  '  GROWTH RATE =', co2g2
 
                 print *,' CHECK: Sample of selected months of CO2 data'
@@ -710,7 +712,8 @@
               endif
 
               if ( me == 0 ) print *,'   Co2 data for year',iyear,      &
-     &                               co2_glb
+     &                                co2_glb * co2_scaling,            &
+     &                               ' scaled by ', co2_scaling 
               exit Lab_dowhile1
             else
 !check        if ( me == 0 ) print *,'   Skip co2 data for year',i
@@ -796,7 +799,7 @@
         co2_glb = (co2g1 * co2_scaling + rate) * 1.0e-6
         if ( me == 0 ) then
           print *,'   Global annual mean CO2 data for year',            &
-     &              iyear, co2_glb
+     &              iyear, co2_glb, 'scaled by ', co2_scaling 
         endif
 
         if ( ictmflg == -2 ) then     ! need to calc ic time annual mean first
