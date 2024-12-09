@@ -5,7 +5,7 @@
      &     ( im, km, ps, u1, v1, t1, q1, delt,                          &
      &       sfcemis, dlwflx, sfcnsw, sfcdsw, srflag,                   &
      &       cm, ch, prsl1, prslki, islimsk, ddvel,                     &
-     &       flag_iter, mom4ice, lsm, lprnt,ipr,                        &
+     &       flag_iter, mom4ice, lsm, lprnt,ipr, maxevap,                &
 !  ---  input/outputs:
      &       hice, fice, tice, weasd, tskin, tprcp, stc, ep,            &
 !  ---  outputs:
@@ -22,7 +22,7 @@
 !          ( im, km, ps, u1, v1, t1, q1, delt,                          !
 !            sfcemis, dlwflx, sfcnsw, sfcdsw, srflag,                   !
 !            cm, ch, prsl1, prslki, islimsk, ddvel,                     !
-!            flag_iter, mom4ice, lsm,                                   !
+!            flag_iter, mom4ice, lsm, maxevap,                          !
 !       input/outputs:                                                  !
 !            hice, fice, tice, weasd, tskin, tprcp, stc, ep,            !
 !       outputs:                                                        !
@@ -71,6 +71,7 @@
 !     mom4ice  - logical,                                          im   !
 !     lsm      - integer, flag for land surface model scheme       1    !
 !                =0: use osu scheme; =1: use noah scheme                !
+!     maxevap  - real, maximum latent heat to be allowed           im   !
 !                                                                       !
 !  input/outputs:                                                       !
 !     hice     - real, sea-ice thickness                           im   !
@@ -122,7 +123,7 @@
 
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
      &       t1, q1, sfcemis, dlwflx, sfcnsw, sfcdsw, srflag, cm, ch,   &
-     &       prsl1, prslki, ddvel
+     &       prsl1, prslki, ddvel, maxevap
 
       integer, dimension(im), intent(in) :: islimsk
       real (kind=kind_phys), intent(in)  :: delt
@@ -259,7 +260,7 @@
 
           evapi(i) = elocp * rch(i) * (qssi - q0)
           evapw(i) = elocp * rch(i) * (qssw - q0)
-!         evap(i)  = fice(i)*evapi(i) + ffw(i)*evapw(i)
+          !evap(i)  = fice(i)*evapi(i) + ffw(i)*evapw(i)
 
 !     if (lprnt) write(0,*)' tice=',tice(ipr)
 
@@ -371,6 +372,11 @@
           tem     = 1.0 / rho(i)
           hflx(i) = hflx(i) * tem * cpinv
           evap(i) = evap(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+              chh(i) = -maxevap(i)/evap(i)*chh(i)
+              hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+              evap(i) = -maxevap(i)
+          endif
         endif
       enddo
 !

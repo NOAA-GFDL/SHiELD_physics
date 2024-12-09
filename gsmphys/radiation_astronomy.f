@@ -637,10 +637,10 @@
 
       anginc = pid12 * dtswh / float(nstp-1)          ! solar angle inc during each calc step
 
-      if ( me == 0 ) then
-        print *,'   for cosz calculations: nswr,deltim,deltsw,dtswh =', &
-     &          nswr,deltim,deltsw,dtswh,'  anginc,nstp =',anginc,nstp
-      endif
+!      if ( me == 0 ) then
+!        print *,'   for cosz calculations: nswr,deltim,deltsw,dtswh =', &
+!     &          nswr,deltim,deltsw,dtswh,'  anginc,nstp =',anginc,nstp
+!      endif
 
 !     if (me == 0) print*,'in sol_update completed sr solar'
 !
@@ -1036,19 +1036,21 @@
       eqt  = 228.55735 * sollag
       eqsec= sixty * eqt
 
-      print 101, iday, month(imon), iyear, ihr, xmin, jd, fjd
- 101  format('0 FORECAST DATE',9x,i3,a5,i6,' AT',i3,' HRS',f6.2,' MINS'/&
-     &       '  JULIAN DAY',12x,i8,2x,'PLUS',f11.6)
-
-      print 102, r1, halp, ihalp, iyy, asec
- 102  format('  RADIUS VECTOR',9x,f10.7/'  RIGHT ASCENSION OF SUN',     &
-     &       f12.7,' HRS, OR',i4,' HRS',i4,' MINS',f6.1,' SECS')
-
-      print 103, dltd, dsig, ltd, ltm, dlts, eqt, eqsec, sollag, solc
- 103  format('  DECLINATION OF THE SUN',f12.7,' DEGS, OR ',a1,i3,       &
-     &       ' DEGS',i4,' MINS',f6.1,' SECS'/'  EQUATION OF TIME',6x,   &
-     &       f12.7,' MINS, OR',f10.2,' SECS, OR',f9.6,' RADIANS'/       &
-     &       '  SOLAR CONSTANT',8X,F12.7,' (DISTANCE AJUSTED)'//)
+      print 101, iday, month(imon), iyear, ihr, xmin
+ 101  format('0 FORECAST DATE',9x,i3,a5,i6,' AT',i3,' HRS',f6.2,' MINS')
+c$$$      print 101, iday, month(imon), iyear, ihr, xmin, jd, fjd
+c$$$ 101  format('0 FORECAST DATE',9x,i3,a5,i6,' AT',i3,' HRS',f6.2,' MINS'/&
+c$$$     &       '  JULIAN DAY',12x,i8,2x,'PLUS',f11.6)
+c$$$
+c$$$      print 102, r1, halp, ihalp, iyy, asec
+c$$$ 102  format('  RADIUS VECTOR',9x,f10.7/'  RIGHT ASCENSION OF SUN',     &
+c$$$     &       f12.7,' HRS, OR',i4,' HRS',i4,' MINS',f6.1,' SECS')
+c$$$
+c$$$      print 103, dltd, dsig, ltd, ltm, dlts, eqt, eqsec, sollag, solc
+c$$$ 103  format('  DECLINATION OF THE SUN',f12.7,' DEGS, OR ',a1,i3,       &
+c$$$     &       ' DEGS',i4,' MINS',f6.1,' SECS'/'  EQUATION OF TIME',6x,   &
+c$$$     &       f12.7,' MINS, OR',f10.2,' SECS, OR',f9.6,' RADIANS'/       &
+c$$$     &       '  SOLAR CONSTANT',8X,F12.7,' (DISTANCE AJUSTED)'//)
 
 !
       return

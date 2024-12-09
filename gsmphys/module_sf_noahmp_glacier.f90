@@ -77,13 +77,13 @@ module noahmp_glacier_routines
   private ::               csnow_glacier
   private ::       radiation_glacier
   private ::               snow_age_glacier
-  private ::               snowalb_bats_glacier  
+  private ::               snowalb_bats_glacier
   private ::               snowalb_class_glacier
   private ::       glacier_flux
-  private ::               sfcdif1_glacier                  
+  private ::               sfcdif1_glacier
   private ::       tsnosoi_glacier
   private ::               hrt_glacier
-  private ::               hstep_glacier   
+  private ::               hstep_glacier
   private ::                         rosr12_glacier
   private ::       phasechange_glacier
 
@@ -107,13 +107,13 @@ contains
                    sfctmp  ,sfcprs  ,uu      ,vv      ,q2      ,soldn   , & ! in : forcing
                    prcp    ,lwdn    ,tbot    ,zlvl    ,ficeold ,zsoil   , & ! in : forcing
                    snoalb  ,                                              & ! in : forcing
-                   qsnow   ,sneqvo  ,albold  ,cm      ,ch      ,isnow   , & ! in/out : 
+                   qsnow   ,sneqvo  ,albold  ,cm      ,ch      ,isnow   , & ! in/out :
                    sneqv   ,smc     ,zsnso   ,snowh   ,snice   ,snliq   , & ! in/out :
-                   tg      ,stc     ,sh2o    ,tauss   ,qsfc    ,          & ! in/out : 
-                   fsa     ,fsr     ,fira    ,fsh     ,fgev    ,ssoil   , & ! out : 
+                   tg      ,stc     ,sh2o    ,tauss   ,qsfc    ,          & ! in/out :
+                   fsa     ,fsr     ,fira    ,fsh     ,fgev    ,ssoil   , & ! out :
                    trad    ,edir    ,runsrf  ,runsub  ,sag     ,albedo  , & ! out :
                    qsnbot  ,ponding ,ponding1,ponding2,t2m     ,q2e     , & ! out :
-                   emissi,  fpice   ,ch2b    ,qmelt   ,esnow  ,albsnd  ,albsni) 
+                   emissi,  fpice   ,ch2b    ,qmelt   ,esnow  ,albsnd  ,albsni)
 
 ! --------------------------------------------------------------------------------------------------
 ! initial code: guo-yue niu, oct. 2007
@@ -125,8 +125,8 @@ contains
   integer                        , intent(in)    :: iloc   !grid index
   integer                        , intent(in)    :: jloc   !grid index
   real (kind=kind_phys)                           , intent(in)    :: cosz   !cosine solar zenith angle [0-1]
-  integer                        , intent(in)    :: nsnow  !maximum no. of snow layers        
-  integer                        , intent(in)    :: nsoil  !no. of soil layers        
+  integer                        , intent(in)    :: nsnow  !maximum no. of snow layers
+  integer                        , intent(in)    :: nsoil  !no. of soil layers
   real (kind=kind_phys)                           , intent(in)    :: dt     !time step [sec]
   real (kind=kind_phys)                           , intent(in)    :: sfctmp !surface air temperature [k]
   real (kind=kind_phys)                           , intent(in)    :: sfcprs !pressure (pa)
@@ -172,7 +172,7 @@ contains
   real (kind=kind_phys)                           , intent(out)   :: ssoil  !ground heat flux (w/m2)   [+ to soil]
   real (kind=kind_phys)                           , intent(out)   :: trad   !surface radiative temperature (k)
   real (kind=kind_phys)                           , intent(out)   :: edir   !soil surface evaporation rate (mm/s]
-  real (kind=kind_phys)                           , intent(out)   :: runsrf !surface runoff [mm/s] 
+  real (kind=kind_phys)                           , intent(out)   :: runsrf !surface runoff [mm/s]
   real (kind=kind_phys)                           , intent(out)   :: runsub !baseflow (saturation excess) [mm/s]
   real (kind=kind_phys)                           , intent(out)   :: sag    !solar rad absorbed by ground (w/m2)
   real (kind=kind_phys)                           , intent(out)   :: albedo !surface albedo [-]
@@ -189,7 +189,7 @@ contains
   real (kind=kind_phys), dimension(1:2)           , intent(out)   :: albsnd !snow albedo (direct)
   real (kind=kind_phys), dimension(1:2)           , intent(out)   :: albsni !snow albedo (diffuse)
   real (kind=kind_phys)                           , intent(out)   :: qmelt  !internal pack melt due to phase change [mm/s]
-  
+
 ! local
   integer                                        :: iz     !do-loop index
   integer, dimension(-nsnow+1:nsoil)             :: imelt  !phase change index [1-melt; 2-freeze]
@@ -209,14 +209,14 @@ contains
   real (kind=kind_phys)                                           :: lathea !latent heat [j/kg]
   real (kind=kind_phys)                                           :: swdown !downward solar [w/m2]
   real (kind=kind_phys)                                           :: beg_wb !beginning water for error check
-  real (kind=kind_phys)                                           :: zbot = -8.0 
+  real (kind=kind_phys)                                           :: zbot = -8.0
 
   character*256 message
 
 ! --------------------------------------------------------------------------------------------------
 ! re-process atmospheric forcing
 
-   call atm_glacier (sfcprs ,sfctmp ,q2     ,soldn  ,cosz   ,thair  , & 
+   call atm_glacier (sfcprs ,sfctmp ,q2     ,soldn  ,cosz   ,thair  , &
                      qair   ,eair   ,rhoair ,solad  ,solai  ,swdown )
 
    beg_wb = sneqv
@@ -231,7 +231,7 @@ contains
          end if
      end do
 
-! compute energy budget (momentum & energy fluxes and phase changes) 
+! compute energy budget (momentum & energy fluxes and phase changes)
 
     call energy_glacier (nsnow  ,nsoil  ,isnow  ,dt     ,qsnow  ,rhoair , & !in
                          eair   ,sfcprs ,qair   ,sfctmp ,lwdn   ,uu     , & !in
@@ -245,7 +245,7 @@ contains
                          trad   ,t2m    ,ssoil  ,lathea ,q2e    ,emissi , &
                          ch2b   ,albsnd ,albsni                         )   !out
 
-    sice = max(0.0, smc - sh2o)   
+    sice = max(0.0, smc - sh2o)
     sneqvo  = sneqv
 
     qvap = max( fgev/lathea, 0.)       ! positive part of fgev [mm/s] > 0
@@ -270,7 +270,7 @@ contains
        write(message,*) "glacier has melted at:",iloc,jloc," are you sure this should be a glacier point?"
        !call wrf_debug(10,trim(message))
      end if
-     
+
 ! water and energy balance check
 
      call error_glacier (iloc   ,jloc   ,swdown ,fsa    ,fsr    ,fira   , &
@@ -287,13 +287,13 @@ contains
     else
       albedo = -999.9
     end if
-    
+
 
   end subroutine noahmp_glacier
 ! ==================================================================================================
   subroutine atm_glacier (sfcprs ,sfctmp ,q2     ,soldn  ,cosz   ,thair  , &
                           qair   ,eair   ,rhoair ,solad  ,solai  , &
-                          swdown )     
+                          swdown )
 ! --------------------------------------------------------------------------------------------------
 ! re-process atmospheric forcing
 ! --------------------------------------------------------------------------------------------------
@@ -323,18 +323,18 @@ contains
 ! --------------------------------------------------------------------------------------------------
 
        pair   = sfcprs                   ! atm bottom level pressure (pa)
-       thair  = sfctmp * (sfcprs/pair)**(rair/cpair) 
+       thair  = sfctmp * (sfcprs/pair)**(rair/cpair)
 !       qair   = q2 / (1.0+q2)           ! mixing ratio to specific humidity [kg/kg]
        qair   = q2                       ! in wrf, driver converts to specific humidity
 
        eair   = qair*sfcprs / (0.622+0.378*qair)
        rhoair = (sfcprs-0.378*eair) / (rair*sfctmp)
 
-       if(cosz <= 0.) then 
+       if(cosz <= 0.) then
           swdown = 0.
        else
           swdown = soldn
-       end if 
+       end if
 
        solad(1) = swdown*0.7*0.5     ! direct  vis
        solad(2) = swdown*0.7*0.5     ! direct  nir
@@ -364,7 +364,7 @@ contains
   implicit none
 ! --------------------------------------------------------------------------------------------------
 ! inputs
-  integer                           , intent(in)    :: nsnow  !maximum no. of snow layers        
+  integer                           , intent(in)    :: nsnow  !maximum no. of snow layers
   integer                           , intent(in)    :: nsoil  !number of soil layers
   integer                           , intent(in)    :: isnow  !actual no. of snow layers
   real (kind=kind_phys)                              , intent(in)    :: dt     !time step [sec]
@@ -381,7 +381,7 @@ contains
   real (kind=kind_phys)   , dimension(       1:    2), intent(in)    :: solai  !incoming diffuse solar rad. (w/m2)
   real (kind=kind_phys)                              , intent(in)    :: cosz   !cosine solar zenith angle (0-1)
   real (kind=kind_phys)                              , intent(in)    :: zref   !reference height (m)
-  real (kind=kind_phys)                              , intent(in)    :: tbot   !bottom condition for soil temp. (k) 
+  real (kind=kind_phys)                              , intent(in)    :: tbot   !bottom condition for soil temp. (k)
   real (kind=kind_phys)                              , intent(in)    :: zbot   !depth for tbot [m]
   real (kind=kind_phys)   , dimension(-nsnow+1:nsoil), intent(in)    :: zsnso  !layer-bottom depth from snow surf [m]
   real (kind=kind_phys)   , dimension(-nsnow+1:nsoil), intent(in)    :: dzsnso !depth of snow & soil layer-bottom [m]
@@ -490,7 +490,7 @@ contains
                        eair    ,stc     ,sag     ,snowh   ,lathea  ,sh2o    , & !in
                        cm      ,ch      ,tg      ,qsfc    ,          & !inout
                        fira    ,fsh     ,fgev    ,ssoil   ,          & !out
-                       t2m     ,q2e     ,ch2b)                         !out 
+                       t2m     ,q2e     ,ch2b)                         !out
 
 !energy balance at surface: sag=(irb+shb+evb+ghb)
 
@@ -504,7 +504,7 @@ contains
     ! when we're computing a trad, subtract from the emitted ir the
     ! reflected portion of the incoming lwdn, so we're just
     ! considering the ir originating in the canopy/ground system.
-    
+
     trad = ( ( fire - (1-emissi)*lwdn ) / (emissi*sb) ) ** 0.25
 
 ! 3l snow & 4l soil temperatures
@@ -534,13 +534,13 @@ contains
                                  dt      ,snowh   ,snice   ,snliq   , & !in
                                  df      ,hcpct   ,snicev  ,snliqv  ,epore   , & !out
                                  fact    )                                       !out
-! ------------------------------------------------------------------------------------------------- 
+! -------------------------------------------------------------------------------------------------
 ! -------------------------------------------------------------------------------------------------
   implicit none
 ! --------------------------------------------------------------------------------------------------
 ! inputs
   integer                        , intent(in)  :: nsoil   !number of soil layers
-  integer                        , intent(in)  :: nsnow   !maximum no. of snow layers        
+  integer                        , intent(in)  :: nsnow   !maximum no. of snow layers
   integer                        , intent(in)  :: isnow   !actual no. of snow layers
   real (kind=kind_phys)                           , intent(in)  :: dt      !time step [s]
   real (kind=kind_phys), dimension(-nsnow+1:    0), intent(in)  :: snice   !snow ice mass (kg/m2)
@@ -584,7 +584,7 @@ contains
        hcpct(iz) = 1.e6 * ( 0.8194 + 0.1309*zmid )
        df(iz)    = 0.32333 + ( 0.10073 * zmid )
     end do
-       
+
 ! combine a temporary variable used for melting/freezing of snow and frozen soil
 
     do iz = isnow+1,nsoil
@@ -594,7 +594,7 @@ contains
 ! snow/soil interface
 
     if(isnow == 0) then
-       df(1) = (df(1)*dzsnso(1)+0.35*snowh)      / (snowh    +dzsnso(1)) 
+       df(1) = (df(1)*dzsnso(1)+0.35*snowh)      / (snowh    +dzsnso(1))
     else
        df(1) = (df(1)*dzsnso(1)+df(0)*dzsnso(0)) / (dzsnso(0)+dzsnso(1))
     end if
@@ -612,11 +612,11 @@ contains
 !---------------------------------------------------------------------------------------------------
 ! inputs
 
-  integer,                          intent(in) :: isnow  !number of snow layers (-)            
-  integer                        ,  intent(in) :: nsnow  !maximum no. of snow layers        
+  integer,                          intent(in) :: isnow  !number of snow layers (-)
+  integer                        ,  intent(in) :: nsnow  !maximum no. of snow layers
   integer                        ,  intent(in) :: nsoil  !number of soil layers
   real (kind=kind_phys), dimension(-nsnow+1:    0),  intent(in) :: snice  !snow ice mass (kg/m2)
-  real (kind=kind_phys), dimension(-nsnow+1:    0),  intent(in) :: snliq  !snow liq mass (kg/m2) 
+  real (kind=kind_phys), dimension(-nsnow+1:    0),  intent(in) :: snliq  !snow liq mass (kg/m2)
   real (kind=kind_phys), dimension(-nsnow+1:nsoil),  intent(in) :: dzsnso !snow/soil layer thickness [m]
 
 ! outputs
@@ -734,7 +734,7 @@ contains
    sag = 0.
    fsa = 0.
    fsr = 0.
-   
+
    fsno = 0.0
    if(sneqv > 0.0) fsno = 1.0
 
@@ -750,10 +750,10 @@ contains
     abs = solad(ib)*(1.-albsnd(ib)) + solai(ib)*(1.-albsni(ib))
     sag = sag + abs
     fsa = fsa + abs
-    
+
     ref = solad(ib)*albsnd(ib) + solai(ib)*albsni(ib)
     fsr = fsr + ref
-    
+
   end do
 
   end subroutine radiation_glacier
@@ -834,7 +834,7 @@ contains
   real (kind=kind_phys) :: sl2                  !2.*sl
   real (kind=kind_phys) :: sl1                  !1/sl
   real (kind=kind_phys) :: sl                   !adjustable parameter
-  real (kind=kind_phys), parameter :: c1 = 0.2  !default in bats 
+  real (kind=kind_phys), parameter :: c1 = 0.2  !default in bats
   real (kind=kind_phys), parameter :: c2 = 0.5  !default in bats
 !  real (kind=kind_phys), parameter :: c1 = 0.2 * 2. ! double the default to match sleepers river's
 !  real (kind=kind_phys), parameter :: c2 = 0.5 * 2. ! snow surface albedo (double aging effects)
@@ -852,8 +852,8 @@ contains
         cf1=((1.+sl1)/(1.+sl2*cosz)-sl1)
         fzen=amax1(cf1,0.)
 
-        albsni(1)=0.95*(1.-c1*fage)         
-        albsni(2)=0.65*(1.-c2*fage)        
+        albsni(1)=0.95*(1.-c1*fage)
+        albsni(2)=0.65*(1.-c2*fage)
 
         albsnd(1)=albsni(1)+0.4*fzen*(1.-albsni(1))    !  vis direct
         albsnd(2)=albsni(2)+0.4*fzen*(1.-albsni(2))    !  nir direct
@@ -875,7 +875,7 @@ contains
 
 ! in & out
 
-  real (kind=kind_phys),                intent(inout) :: alb        ! 
+  real (kind=kind_phys),                intent(inout) :: alb        !
 ! output
 
   real (kind=kind_phys), dimension(1:2),intent(out) :: albsnd !snow albedo for direct(1=vis, 2=nir)
@@ -912,7 +912,7 @@ contains
                            eair    ,stc     ,sag     ,snowh   ,lathea  ,sh2o    , & !in
                            cm      ,ch      ,tgb     ,qsfc    ,          & !inout
                            irb     ,shb     ,evb     ,ghb     ,          & !out
-                           t2mb    ,q2b     ,ehb2)                         !out 
+                           t2mb    ,q2b     ,ehb2)                         !out
 
 ! --------------------------------------------------------------------------------------------------
 ! use newton-raphson iteration to solve ground (tg) temperature
@@ -926,7 +926,7 @@ contains
   implicit none
 ! ----------------------------------------------------------------------
 ! input
-  integer, intent(in)                         :: nsnow  !maximum no. of snow layers        
+  integer, intent(in)                         :: nsnow  !maximum no. of snow layers
   integer, intent(in)                         :: nsoil  !number of soil layers
   real (kind=kind_phys),                            intent(in) :: emg    !ground emissivity
   integer,                         intent(in) :: isnow  !actual no. of snow layers
@@ -969,7 +969,7 @@ contains
   real (kind=kind_phys),                           intent(out) :: ehb2   !sensible heat conductance for diagnostics
 
 
-! local variables 
+! local variables
   integer :: niterb  !number of iterations for surface temperature
   real (kind=kind_phys)    :: mpe     !prevents overflow error if division by zero
   real (kind=kind_phys)    :: dtg        !change in tg, last iteration (k)
@@ -1024,7 +1024,7 @@ contains
 ! -----------------------------------------------------------------
       loop3: do iter = 1, niterb  ! begin stability iteration
 
-        z0h = z0m 
+        z0h = z0m
 
 !       for now, only allow sfcdif1 until others can be fixed
 
@@ -1054,7 +1054,7 @@ contains
           cev = rhoair*cpair/gamma/(rsurf+rawb)
         else
           cev = 0.0   ! don't allow any sublimation of glacier in opt_gla=2
-        end if   
+        end if
 
 ! surface fluxes and dtg
 
@@ -1118,7 +1118,7 @@ contains
        q2b   = qsfc - evb/(lathea*rhoair)*(1./cq2b + rsurf)
      endif
 
-! update ch 
+! update ch
      ch = 1./rahb
 
   end subroutine glacier_flux
@@ -1204,7 +1204,7 @@ contains
     real (kind=kind_phys),              intent(inout) :: fh     !sen heat stability correction, weighted by prior iters
     real (kind=kind_phys),              intent(inout) :: fm2    !sen heat stability correction, weighted by prior iters
     real (kind=kind_phys),              intent(inout) :: fh2    !sen heat stability correction, weighted by prior iters
-    real (kind=kind_phys),              intent(inout) :: fv     !friction velocity (m/s)                                                                                                                                           
+    real (kind=kind_phys),              intent(inout) :: fv     !friction velocity (m/s)
 
 ! outputs
 
@@ -1235,7 +1235,7 @@ contains
 ! monin-obukhov stability parameter moz for next iteration
 
     mozold = moz
-  
+
     if(zlvl <= zpd) then
        write(*,*) 'critical glacier problem: zlvl <= zpd; model stops', zlvl, zpd
        call wrf_error_fatal("stop in noah-mp glacier")
@@ -1326,7 +1326,7 @@ contains
     cm  = vkc*vkc/(cmfm*cmfm)
     ch  = vkc*vkc/(cmfm*chfh)
     ch2  = vkc*vkc/(cm2fm2*ch2fh2)
-        
+
 ! friction velocity
 
     fv = ur * sqrt(cm)
@@ -1392,7 +1392,7 @@ contains
 
       call hstep_glacier (nsnow     ,nsoil     ,isnow     ,dt        , &
                           ai        ,bi        ,ci        ,rhsts     , &
-                          stc       ) 
+                          stc       )
 
   end subroutine tsnosoi_glacier
 ! ==================================================================================================
@@ -1460,7 +1460,7 @@ contains
            denom(k)  = (zsnso(k-1) - zsnso(k)) * hcpct(k)
            temp1     =  zsnso(k-1) - zsnso(k)
            if(opt_tbot == 1) then
-               botflx     = 0. 
+               botflx     = 0.
            end if
            if(opt_tbot == 2) then
                dtsdz(k)  = (stc(k) - tbot) / ( 0.5*(zsnso(k-1)+zsnso(k)) - zbot)
@@ -1476,16 +1476,16 @@ contains
            ci(k)    = - df(k)   * ddz(k) / denom(k)
            if (opt_stc == 1 .or. opt_stc == 3) then
               bi(k) = - ci(k)
-           end if                                        
+           end if
            if (opt_stc == 2) then
               bi(k) = - ci(k) + df(k)/(0.5*zsnso(k)*zsnso(k)*hcpct(k))
            end if
         else if (k < nsoil) then
-           ai(k)    = - df(k-1) * ddz(k-1) / denom(k) 
-           ci(k)    = - df(k  ) * ddz(k  ) / denom(k) 
+           ai(k)    = - df(k-1) * ddz(k-1) / denom(k)
+           ci(k)    = - df(k  ) * ddz(k  ) / denom(k)
            bi(k)    = - (ai(k) + ci (k))
         else if (k == nsoil) then
-           ai(k)    = - df(k-1) * ddz(k-1) / denom(k) 
+           ai(k)    = - df(k-1) * ddz(k-1) / denom(k)
            ci(k)    = 0.0
            bi(k)    = - (ai(k) + ci(k))
         end if
@@ -1570,7 +1570,7 @@ contains
 ! ----------------------------------------------------------------------
     implicit none
 
-    integer, intent(in)   :: ntop           
+    integer, intent(in)   :: ntop
     integer, intent(in)   :: nsoil,nsnow
     integer               :: k, kk
 
@@ -1649,8 +1649,8 @@ contains
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: hm        !energy residual [w/m2]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: xm        !melting or freezing water [kg/m2]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: wmass0
-  real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: wice0 
-  real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: wliq0 
+  real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: wice0
+  real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: wliq0
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: mice      !soil/snow ice mass [mm]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: mliq      !soil/snow liquid water mass [mm]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil) :: heatr     !energy residual or loss after melting/freezing
@@ -1678,12 +1678,12 @@ contains
          wliq0(j)    = mliq(j)
          wmass0(j)   = mice(j) + mliq(j)
     enddo
-    
+
     do j = isnow+1,0
-         if (mice(j) > 0. .and. stc(j) >= tfrz) then  ! melting 
+         if (mice(j) > 0. .and. stc(j) >= tfrz) then  ! melting
              imelt(j) = 1
          endif
-         if (mliq(j) > 0. .and. stc(j)  < tfrz) then  ! freezing 
+         if (mliq(j) > 0. .and. stc(j)  < tfrz) then  ! freezing
              imelt(j) = 2
          endif
 
@@ -1705,17 +1705,17 @@ contains
             hm(j) = 0.
             imelt(j) = 0
          endif
-         xm(j) = hm(j)*dt/hfus                           
+         xm(j) = hm(j)*dt/hfus
     enddo
 
 ! the rate of melting and freezing for snow without a layer, opt_gla==1 treated below
 
-if (opt_gla == 2) then 
+if (opt_gla == 2) then
 
-    if (isnow == 0 .and. sneqv > 0. .and. stc(1) >= tfrz) then  
+    if (isnow == 0 .and. sneqv > 0. .and. stc(1) >= tfrz) then
         hm(1)    = (stc(1)-tfrz)/fact(1)             ! available heat
         stc(1)   = tfrz                              ! set t to freezing
-        xm(1)    = hm(1)*dt/hfus                     ! total snow melt possible       
+        xm(1)    = hm(1)*dt/hfus                     ! total snow melt possible
 
         temp1  = sneqv
         sneqv  = max(0.,temp1-xm(1))                 ! snow remaining
@@ -1723,7 +1723,7 @@ if (opt_gla == 2) then
         snowh  = max(0.,propor * snowh)              ! new snow height
         heatr(1)  = hm(1) - hfus*(temp1-sneqv)/dt    ! excess heat
         if (heatr(1) > 0.) then
-              xm(1)  = heatr(1)*dt/hfus             
+              xm(1)  = heatr(1)*dt/hfus
               stc(1) = stc(1) + fact(1)*heatr(1)     ! re-heat ice
         else
               xm(1) = 0.                             ! heat used up
@@ -1742,11 +1742,11 @@ end if  ! opt_gla == 2
       if (imelt(j) > 0 .and. abs(hm(j)) > 0.) then
 
          heatr(j) = 0.
-         if (xm(j) > 0.) then                            
+         if (xm(j) > 0.) then
             mice(j) = max(0., wice0(j)-xm(j))
             heatr(j) = hm(j) - hfus*(wice0(j)-mice(j))/dt
-         else if (xm(j) < 0.) then                      
-            mice(j) = min(wmass0(j), wice0(j)-xm(j))  
+         else if (xm(j) < 0.) then
+            mice(j) = min(wmass0(j), wice0(j)-xm(j))
             heatr(j) = hm(j) - hfus*(wice0(j)-mice(j))/dt
          endif
 
@@ -1777,12 +1777,12 @@ if (opt_gla == 1) then     ! operate on the ice layers
          wliq0(j)    = mliq(j)
          wmass0(j)   = mice(j) + mliq(j)
     enddo
-    
+
     do j = 1,nsoil
-         if (mice(j) > 0. .and. stc(j) >= tfrz) then  ! melting 
+         if (mice(j) > 0. .and. stc(j) >= tfrz) then  ! melting
              imelt(j) = 1
          endif
-         if (mliq(j) > 0. .and. stc(j)  < tfrz) then  ! freezing 
+         if (mliq(j) > 0. .and. stc(j)  < tfrz) then  ! freezing
              imelt(j) = 2
          endif
 
@@ -1810,25 +1810,25 @@ if (opt_gla == 1) then     ! operate on the ice layers
             hm(j) = 0.
             imelt(j) = 0
          endif
-         xm(j) = hm(j)*dt/hfus                           
+         xm(j) = hm(j)*dt/hfus
     enddo
 
 ! the rate of melting and freezing for snow without a layer, needs more work.
 
-    if (isnow == 0 .and. sneqv > 0. .and. xm(1) > 0.) then  
+    if (isnow == 0 .and. sneqv > 0. .and. xm(1) > 0.) then
         temp1  = sneqv
-        sneqv  = max(0.,temp1-xm(1))  
+        sneqv  = max(0.,temp1-xm(1))
         propor = sneqv/temp1
         snowh  = max(0.,propor * snowh)
-        heatr(1)  = hm(1) - hfus*(temp1-sneqv)/dt  
+        heatr(1)  = hm(1) - hfus*(temp1-sneqv)/dt
         if (heatr(1) > 0.) then
-              xm(1) = heatr(1)*dt/hfus             
-              hm(1) = heatr(1) 
-              imelt(1) = 1                   
+              xm(1) = heatr(1)*dt/hfus
+              hm(1) = heatr(1)
+              imelt(1) = 1
         else
               xm(1) = 0.
               hm(1) = 0.
-              imelt(1) = 0                   
+              imelt(1) = 0
         endif
         qmelt   = max(0.,(temp1-sneqv))/dt
         xmf     = hfus*qmelt
@@ -1841,11 +1841,11 @@ if (opt_gla == 1) then     ! operate on the ice layers
       if (imelt(j) > 0 .and. abs(hm(j)) > 0.) then
 
          heatr(j) = 0.
-         if (xm(j) > 0.) then                            
+         if (xm(j) > 0.) then
             mice(j) = max(0., wice0(j)-xm(j))
             heatr(j) = hm(j) - hfus*(wice0(j)-mice(j))/dt
-         else if (xm(j) < 0.) then                      
-            mice(j) = min(wmass0(j), wice0(j)-xm(j))  
+         else if (xm(j) < 0.) then
+            mice(j) = min(wmass0(j), wice0(j)-xm(j))
             heatr(j) = hm(j) - hfus*(wice0(j)-mice(j))/dt
          endif
 
@@ -1874,7 +1874,7 @@ if (opt_gla == 1) then     ! operate on the ice layers
 
     if (any(stc(1:4) > tfrz) .and. any(stc(1:4) < tfrz)) then
       do j = 1,nsoil
-        if ( stc(j) > tfrz ) then                                       
+        if ( stc(j) > tfrz ) then
           heatr(j) = (stc(j)-tfrz)/fact(j)
           do k = 1,nsoil
             if (j .ne. k .and. stc(k) < tfrz .and. heatr(j) > 0.1) then
@@ -1899,7 +1899,7 @@ if (opt_gla == 1) then     ! operate on the ice layers
 
     if (any(stc(1:4) > tfrz) .and. any(stc(1:4) < tfrz)) then
       do j = 1,nsoil
-        if ( stc(j) < tfrz ) then                                       
+        if ( stc(j) < tfrz ) then
           heatr(j) = (stc(j)-tfrz)/fact(j)
           do k = 1,nsoil
             if (j .ne. k .and. stc(k) > tfrz .and. heatr(j) < -0.1) then
@@ -1924,9 +1924,9 @@ if (opt_gla == 1) then     ! operate on the ice layers
 
     if (any(stc(1:4) > tfrz) .and. any(mice(1:4) > 0.)) then
       do j = 1,nsoil
-        if ( stc(j) > tfrz ) then                                       
+        if ( stc(j) > tfrz ) then
           heatr(j) = (stc(j)-tfrz)/fact(j)
-          xm(j) = heatr(j)*dt/hfus                           
+          xm(j) = heatr(j)*dt/hfus
           do k = 1,nsoil
             if (j .ne. k .and. mice(k) > 0. .and. xm(j) > 0.1) then
               if (mice(k) > xm(j)) then  ! layer absorbs all
@@ -1953,9 +1953,9 @@ if (opt_gla == 1) then     ! operate on the ice layers
 
     if (any(stc(1:4) < tfrz) .and. any(mliq(1:4) > 0.)) then
       do j = 1,nsoil
-        if ( stc(j) < tfrz ) then                                       
+        if ( stc(j) < tfrz ) then
           heatr(j) = (stc(j)-tfrz)/fact(j)
-          xm(j) = heatr(j)*dt/hfus                           
+          xm(j) = heatr(j)*dt/hfus
           do k = 1,nsoil
             if (j .ne. k .and. mliq(k) > 0. .and. xm(j) < -0.1) then
               if (mliq(k) > abs(xm(j))) then  ! layer absorbs all
@@ -1977,7 +1977,7 @@ if (opt_gla == 1) then     ! operate on the ice layers
         end if
       end do
     end if
-    
+
 end if   ! opt_gla == 1
 
     do j = isnow+1,0             ! snow
@@ -1986,16 +1986,16 @@ end if   ! opt_gla == 1
     end do
 
     do j = 1, nsoil              ! soil
-      if(opt_gla == 1) then 
+      if(opt_gla == 1) then
        sh2o(j) =  mliq(j)            / (1000. * dzsnso(j))
        sh2o(j) =  max(0.0,min(1.0,sh2o(j)))
 !       smc(j)  = (mliq(j) + mice(j)) / (1000. * dzsnso(j))
-      elseif(opt_gla == 2) then 
+      elseif(opt_gla == 2) then
        sh2o(j) = 0.0             ! ice, assume all frozen...forever
       end if
-      smc(j)  = 1.0 
+      smc(j)  = 1.0
     end do
-   
+
   end subroutine phasechange_glacier
 ! ==================================================================================================
   subroutine water_glacier (nsnow  ,nsoil  ,imelt  ,dt     ,prcp   ,sfctmp , & !in
@@ -2004,7 +2004,7 @@ end if   ! opt_gla == 1
                             dzsnso ,sh2o   ,sice   ,ponding,zsnso  ,fsh    , & !inout
                             runsrf ,runsub ,qsnow  ,ponding1 ,ponding2,qsnbot,fpice,esnow     &   !out
                             )  !out
-! ----------------------------------------------------------------------  
+! ----------------------------------------------------------------------
 ! code history:
 ! initial code: guo-yue niu, oct. 2007
 ! ----------------------------------------------------------------------
@@ -2034,10 +2034,10 @@ end if   ! opt_gla == 1
   real (kind=kind_phys), dimension(       1:nsoil), intent(inout) :: sice    !soil ice content [m3/m3]
   real (kind=kind_phys)                           , intent(inout) :: ponding ![mm]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(inout) :: zsnso   !layer-bottom depth from snow surf [m]
-  real (kind=kind_phys),                            intent(inout) :: fsh     !total sensible heat (w/m2) [+ to atm]                                                                                                                                                                                               
+  real (kind=kind_phys),                            intent(inout) :: fsh     !total sensible heat (w/m2) [+ to atm]
 
 ! output
-  real (kind=kind_phys),                            intent(out)   :: runsrf  !surface runoff [mm/s] 
+  real (kind=kind_phys),                            intent(out)   :: runsrf  !surface runoff [mm/s]
   real (kind=kind_phys),                            intent(out)   :: runsub  !baseflow (sturation excess) [mm/s]
   real (kind=kind_phys),                            intent(out)   :: qsnow   !snow at ground srf (mm/s) [+]
   real (kind=kind_phys),                            intent(out)   :: ponding1
@@ -2128,13 +2128,13 @@ end if   ! opt_gla == 1
                              ficeold,zsoil  ,                         & !in
                              isnow  ,snowh  ,sneqv  ,snice  ,snliq  , & !inout
                              sh2o   ,sice   ,stc    ,dzsnso ,zsnso  , & !inout
-                                                         fsh    ,                                 & !inout                                                                                                
+                                                         fsh    ,                                 & !inout
                              qsnbot ,snoflow,ponding1       ,ponding2)  !out
 !print *, 'after snowwater', sneqv,snowh,snice,snliq,sh2o,sice
 !print *, 'ponding', ponding,ponding1,ponding2
 
     !ponding: melting water from snow when there is no layer
-    
+
     runsrf = (ponding+ponding1+ponding2)/dt
 
     if(isnow == 0) then
@@ -2143,21 +2143,21 @@ end if   ! opt_gla == 1
       runsrf = runsrf + qsnbot
     endif
 
-    
+
     if(opt_gla == 1) then
       replace = 0.0
       do ilev = 1,nsoil
        replace = replace + dzsnso(ilev)*(sice(ilev) - sice_save(ilev) + sh2o(ilev) - sh2o_save(ilev))
       end do
       replace = replace * 1000.0 / dt     ! convert to [mm/s]
-    
+
       sice = min(1.0,sice_save)
     elseif(opt_gla == 2) then
       sice = 1.0
     end if
     sh2o = 1.0 - sice
-                                                        
-    
+
+
     ! use runsub as a water balancer, snoflow is snow that disappears, replace is
     !   water from below that replaces glacier loss
 
@@ -2167,7 +2167,7 @@ end if   ! opt_gla == 1
       runsub       = snoflow
       qvap = qsnsub
       qdew = qsnfro
-    end if        
+    end if
 
   end subroutine water_glacier
 ! ==================================================================================================
@@ -2177,7 +2177,7 @@ end if   ! opt_gla == 1
                                 ficeold,zsoil  ,                         & !in
                                 isnow  ,snowh  ,sneqv  ,snice  ,snliq  , & !inout
                                 sh2o   ,sice   ,stc    ,dzsnso ,zsnso  , & !inout
-                                                                fsh    ,                                 & !inout                                        
+                                                                fsh    ,                                 & !inout
                                 qsnbot ,snoflow,ponding1       ,ponding2)  !out
 ! ----------------------------------------------------------------------
   implicit none
@@ -2207,7 +2207,7 @@ end if   ! opt_gla == 1
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(inout) :: stc    !snow layer temperature [k]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(inout) :: dzsnso !snow/soil layer thickness [m]
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(inout) :: zsnso  !layer-bottom depth from snow surf [m]
-  real (kind=kind_phys),                            intent(inout) :: fsh    !total sensible heat (w/m2) [+ to atm]                                                                                                                                                                                                
+  real (kind=kind_phys),                            intent(inout) :: fsh    !total sensible heat (w/m2) [+ to atm]
 
 ! output
   real (kind=kind_phys),                              intent(out) :: qsnbot !total liquid water (snowmelt + rain through pack)out of snowpack bottom [mm/s]
@@ -2253,7 +2253,7 @@ end if   ! opt_gla == 1
         zsnso(iz) = 0.
    enddo
 
-   call  snowh2o_glacier (nsnow  ,nsoil  ,dt     ,qsnfro ,qsnsub , & !in 
+   call  snowh2o_glacier (nsnow  ,nsoil  ,dt     ,qsnfro ,qsnsub , & !in
                           qrain  ,                                 & !in
                           isnow  ,dzsnso ,snowh  ,sneqv  ,snice  , & !inout
                           snliq  ,sh2o   ,sice   ,stc    ,         & !inout
@@ -2261,11 +2261,11 @@ end if   ! opt_gla == 1
                           qsnbot )                                   !out
 
 !to obtain equilibrium state of snow in glacier region
-       
+
    if(sneqv > mwd .and. isnow /= 0) then
       bdsnow      = snice(0) / dzsnso(0)
       snoflow     = (sneqv - mwd)
-      snice(0)    = snice(0)  - snoflow 
+      snice(0)    = snice(0)  - snoflow
       dzsnso(0)   = dzsnso(0) - snoflow/bdsnow
       snoflow     = snoflow / dt
    end if
@@ -2346,7 +2346,7 @@ end if   ! opt_gla == 1
     end if
 
 ! creating a new layer
- 
+
     if(isnow == 0  .and. qsnow>0. .and. snowh >= 0.05) then
       isnow    = -1
       newnode  =  1
@@ -2391,11 +2391,11 @@ end if   ! opt_gla == 1
 
 ! local
    real (kind=kind_phys), parameter     :: c2 = 21.e-3   ![m3/kg] ! default 21.e-3
-   real (kind=kind_phys), parameter     :: c3 = 2.5e-6   ![1/s]  
+   real (kind=kind_phys), parameter     :: c3 = 2.5e-6   ![1/s]
    real (kind=kind_phys), parameter     :: c4 = 0.04     ![1/k]
    real (kind=kind_phys), parameter     :: c5 = 2.0      !
    real (kind=kind_phys), parameter     :: dm = 100.0    !upper limit on destructive metamorphism compaction [kg/m3]
-   real (kind=kind_phys), parameter     :: eta0 = 0.8e+6 !viscosity coefficient [kg-s/m2] 
+   real (kind=kind_phys), parameter     :: eta0 = 0.8e+6 !viscosity coefficient [kg-s/m2]
                                         !according to anderson, it is between 0.52e6~1.38e6
    real (kind=kind_phys) :: burden !pressure of overlying snow [kg/m2]
    real (kind=kind_phys) :: ddz1   !rate of settling of snow pack due to destructive metamorphism.
@@ -2657,7 +2657,7 @@ end if   ! opt_gla == 1
     real (kind=kind_phys), intent(inout) :: wice  !ice of element 1 [kg/m2]
     real (kind=kind_phys), intent(inout) :: t     !node temperature of element 1 [k]
 
-! local 
+! local
 
     real (kind=kind_phys)                :: dzc   !total thickness of nodes 1 and 2 (dzc=dz+dz2).
     real (kind=kind_phys)                :: wliqc !combined liquid water [kg/m2]
@@ -2703,7 +2703,7 @@ end if   ! opt_gla == 1
 
 ! input and output
 
-    integer                        , intent(inout) :: isnow !actual no. of snow layers 
+    integer                        , intent(inout) :: isnow !actual no. of snow layers
     real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(inout) :: stc   !snow layer temperature [k]
     real (kind=kind_phys), dimension(-nsnow+1:    0), intent(inout) :: snice !snow layer ice [mm]
     real (kind=kind_phys), dimension(-nsnow+1:    0), intent(inout) :: snliq !snow layer liquid water [mm]
@@ -2816,7 +2816,7 @@ end if   ! opt_gla == 1
 
   end subroutine divide_glacier
 ! ==================================================================================================
-  subroutine snowh2o_glacier (nsnow  ,nsoil  ,dt     ,qsnfro ,qsnsub , & !in 
+  subroutine snowh2o_glacier (nsnow  ,nsoil  ,dt     ,qsnfro ,qsnsub , & !in
                               qrain  ,                                 & !in
                               isnow  ,dzsnso ,snowh  ,sneqv  ,snice  , & !inout
                               snliq  ,sh2o   ,sice   ,stc    ,         & !inout
@@ -2882,7 +2882,7 @@ end if   ! opt_gla == 1
 
 ! for shallow snow without a layer
 ! snow surface sublimation may be larger than existing snow mass. to conserve water,
-! excessive sublimation is used to reduce soil water. smaller time steps would tend 
+! excessive sublimation is used to reduce soil water. smaller time steps would tend
 ! to aviod this problem.
 
    if(isnow == 0 .and. sneqv > 0.) then
@@ -2930,7 +2930,7 @@ end if   ! opt_gla == 1
          snliq(isnow+1) = snliq(isnow+1) + qrain * dt
          snliq(isnow+1) = max(0., snliq(isnow+1))
       endif
-      
+
    endif !kwm  -- can the endif be moved toward the end of the subroutine (just set qsnbot=0)?
 
 ! porosity and partial volume
@@ -2998,7 +2998,7 @@ end if   ! opt_gla == 1
 
   real (kind=kind_phys)                           , intent(in) :: prcp   !precipitation rate (kg m-2 s-1)
   real (kind=kind_phys)                           , intent(in) :: edir   !soil surface evaporation rate[mm/s]
-  real (kind=kind_phys)                           , intent(in) :: runsrf !surface runoff [mm/s] 
+  real (kind=kind_phys)                           , intent(in) :: runsrf !surface runoff [mm/s]
   real (kind=kind_phys)                           , intent(in) :: runsub !baseflow (saturation excess) [mm/s]
   real (kind=kind_phys)                           , intent(in) :: sneqv  !snow water eqv. [mm]
   real (kind=kind_phys)                           , intent(in) :: dt     !time step [sec]
@@ -3049,14 +3049,14 @@ end if   ! opt_gla == 1
 
 ! -------------------------------------------------------------------------------------------------
 
-  opt_alb  = iopt_alb  
-  opt_snf  = iopt_snf  
-  opt_tbot = iopt_tbot 
+  opt_alb  = iopt_alb
+  opt_snf  = iopt_snf
+  opt_tbot = iopt_tbot
   opt_stc  = iopt_stc
   opt_gla  = iopt_gla
-  
+
   end subroutine noahmp_options_glacier
- 
+
 end module noahmp_glacier_routines
 ! ==================================================================================================
 
@@ -3066,5 +3066,3 @@ module module_sf_noahmp_glacier
   use noahmp_glacier_globals
 
 end module module_sf_noahmp_glacier
-
-

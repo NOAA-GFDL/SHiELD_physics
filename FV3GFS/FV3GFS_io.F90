@@ -48,7 +48,7 @@ module FV3GFS_io_mod
 !
 !--- GFS_typedefs
   use GFS_typedefs,       only: GFS_sfcprop_type, GFS_diag_type, GFS_grid_type
-  use GFS_typedefs,       only: GFS_cldprop_type
+  use GFS_typedefs,       only: GFS_cldprop_type, landseaprt
   use ozne_def,           only: oz_coeff
 !
 !--- IPD typdefs
@@ -60,10 +60,16 @@ module FV3GFS_io_mod
   use ozne_def,           only: oz_coeff
 !--- needed for cold-start capability to initialize q2m
   use gfdl_cld_mp_mod,    only: wqs, qs_init
-  use coarse_graining_mod, only: block_mode, block_upsample, block_min, block_max, block_sum, weighted_block_average
-  use coarse_graining_mod, only: MODEL_LEVEL, PRESSURE_LEVEL
+  use coarse_graining_mod, only: block_mode, block_upsample, block_sum, weighted_block_average
+  use coarse_graining_mod, only: MODEL_LEVEL_MASS_WEIGHTED, MODEL_LEVEL_AREA_WEIGHTED
+  use coarse_graining_mod, only: PRESSURE_LEVEL, PRESSURE_LEVEL_EXTRAPOLATE, BLENDED_AREA_WEIGHTED
   use coarse_graining_mod, only: vertical_remapping_requirements, get_coarse_array_bounds
   use coarse_graining_mod, only: vertically_remap_field, mask_area_weights
+  use coarse_graining_mod, only: blended_area_weighted_coarse_grain_field
+
+#if defined (USE_COSP)
+  use MOD_COSP_CONFIG,     only: ntau, npres, tau_binBounds, pres_binBounds
+#endif
 !
 !-----------------------------------------------------------------------
   implicit none
@@ -105,12 +111,16 @@ module FV3GFS_io_mod
   type(FmsNetcdfDomainFile_t) :: Sfc_restart_coarse
 
   integer :: isco, ieco, jsco, jeco, levo
+  real(kind=kind_phys), parameter :: missing_value = 9.99e20
+#if defined (USE_COSP)
+  real(kind=kind_phys), parameter :: COSP_missing_value = -1.0E30
+#endif
 
 !-RAB
   type data_subtype
     real(kind=kind_phys), dimension(:),   pointer :: var2 => NULL()
     real(kind=kind_phys), dimension(:,:), pointer :: var3 => NULL()
-    real(kind=kind_phys), dimension(:),   pointer :: var21 => NULL()
+    real(kind=kind_phys), dimension(:),   pointer :: var21 => NULL() !used to specify a mask
   end type data_subtype
   !--- data type definition for use with GFDL FMS diagnostic manager until write component is working
   type gfdl_diag_type
@@ -125,7 +135,9 @@ module FV3GFS_io_mod
     character(len=64)    :: mask = ''
     character(len=64)    :: intpl_method = ''
     real(kind=kind_phys) :: cnvfac
+    real(kind=kind_phys) :: missing_value = missing_value
     type(data_subtype), dimension(:), allocatable :: data
+
 
     ! Add an attribute that specifies the coarse-graining method for the
     ! variable.  By default we will set this as unspecified and raise an error
@@ -145,7 +157,6 @@ module FV3GFS_io_mod
 !
    integer :: tot_diag_idx = 0
    integer, parameter :: DIAG_SIZE = 500
-   real(kind=kind_phys), parameter :: missing_value = 9.99e20
    type(gfdl_diag_type), dimension(DIAG_SIZE) :: Diag, Diag_coarse, Diag_diag_manager_controlled, Diag_diag_manager_controlled_coarse
 !-RAB
 
@@ -2233,7 +2244,7 @@ module FV3GFS_io_mod
       ! Then coarse-grain the vegetation and soil types and upsample them too
       call block_mode(sfc_var2(:,:,17), sfc_type_mask, sfc_var2_coarse(:,:,17))
       call block_upsample(sfc_var2_coarse(:,:,17), dominant_vtype)
-      call block_mode(sfc_var2(isc:iec,jsc:jec,18), sfc_type_mask, sfc_var2_coarse(:,:,18))
+      call block_mode(sfc_var2(:,:,18), sfc_type_mask, sfc_var2_coarse(:,:,18))
       call block_upsample(sfc_var2_coarse(:,:,18), dominant_stype)
 
       sfc_and_vtype_mask = (sfc_type_mask .and. (dominant_vtype .eq. sfc_var2(:,:,17)))
@@ -2299,15 +2310,15 @@ module FV3GFS_io_mod
       ! Take the area weighted average for snow depth
       call weighted_block_average(area, sfc_var2(:,:,27), sfc_var2_coarse(:,:,27))
 
-      ! Take the min and max over the dominant sfc type for shdmin and shdmax
-      call block_min(sfc_var2(:,:,28), sfc_type_mask, sfc_var2_coarse(:,:,28))
-      call block_max(sfc_var2(:,:,29), sfc_type_mask, sfc_var2_coarse(:,:,29))
+      ! Take the area weighted average over the dominant surface type for shdmin and shdmax
+      call weighted_block_average(area, sfc_var2(:,:,28), sfc_type_mask, sfc_var2_coarse(:,:,28))
+      call weighted_block_average(area, sfc_var2(:,:,29), sfc_type_mask, sfc_var2_coarse(:,:,29))
 
       ! Take the masked block mode over the dominant surface type for slope
       call block_mode(sfc_var2(:,:,30), sfc_type_mask, sfc_var2_coarse(:,:,30))
 
-      ! Take the block maximum for the snoalb
-      call block_max(sfc_var2(:,:,31), sfc_type_mask, sfc_var2_coarse(:,:,31))
+      ! Take the area weighted average over the dominant surface type for snoalb
+      call weighted_block_average(area, sfc_var2(:,:,31), sfc_type_mask, sfc_var2_coarse(:,:,31))
 
       ! Take the area weighted average over the dominant surface type for sncovr
       call weighted_block_average(area, sfc_var2(:,:,32), sfc_type_mask, sfc_var2_coarse(:,:,32))
@@ -3219,6 +3230,11 @@ module FV3GFS_io_mod
     integer :: idx, num, nb, nblks, nx, ny, k, n
     integer, allocatable :: blksz(:)
     character(len=2) :: xtra
+#if defined (USE_COSP)
+    integer :: nt, np
+    character(len=2) :: ntc, npc
+    character(len=10) :: ntl, ntr, npl, npr
+#endif
     character(len=6) :: scaling
     real(kind=kind_phys), parameter :: cn_one = 1._kind_phys
     real(kind=kind_phys), parameter :: cn_100 = 100._kind_phys
@@ -5315,6 +5331,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltisccp(:)
@@ -5326,6 +5343,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP all-sky 10.5 micron brightness temperature / toa_brightness_temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%meantbisccp(:)
@@ -5337,6 +5355,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP clear-sky 10.5 micron brightness temperature / toa_brightness_temperature_assuming_clear_sky'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%meantbclrisccp(:)
@@ -5348,6 +5367,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP Mean Cloud Top Pressure / air_pressure_at_cloud_top'
     Diag(idx)%unit = 'hPa'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%pctisccp(:)
@@ -5359,6 +5379,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP Mean Optical Depth / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tauisccp(:)
@@ -5370,9 +5391,32 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ISCCP Mean Cloud Albedo / cloud_albedo'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%albisccp(:)
+    enddo
+
+    do nt = 1, ntau
+      write (ntc,'(I0.2)') nt
+      write (ntl,'(f10.1)') tau_binBounds(nt)
+      write (ntr,'(f10.1)') tau_binBounds(nt+1)
+      do np = 1, npres
+        write (npc,'(I0.2)') np
+        write (npl,'(f10.1)') pres_binBounds(nt)
+        write (npr,'(f10.1)') pres_binBounds(nt+1)
+        idx = idx + 1
+        Diag(idx)%axes = 2
+        Diag(idx)%name = 'clisccp_'//trim(ntc)//'_'//trim(npc)
+        Diag(idx)%desc = 'The fraction of the model grid box covered by each of the ISCCP cloud types (tau = '//trim(adjustl(ntl))//'-'//trim(adjustl(ntr))//', pres = '//trim(adjustl(npl))//'-'//trim(adjustl(npr))//')'
+        Diag(idx)%unit = '%'
+        Diag(idx)%mod_name = 'cosp'
+        Diag(idx)%missing_value = COSP_missing_value
+        allocate (Diag(idx)%data(nblks))
+        do nb = 1,nblks
+          Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clisccp(:,nt,np)
+        enddo
+      enddo
     enddo
 
     idx = idx + 1
@@ -5381,6 +5425,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MISR Mean Cloud Top Height / cloud_top_altitude'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%misr_meanztop(:)
@@ -5392,6 +5437,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MISR cloud cover / cloud_area_fraction'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%misr_cldarea(:)
@@ -5403,6 +5449,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltmodis(:)
@@ -5414,6 +5461,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Liquid Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clwmodis(:)
@@ -5425,6 +5473,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Ice Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%climodis(:)
@@ -5436,6 +5485,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS High Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhmodis(:)
@@ -5447,6 +5497,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Mid Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmmodis(:)
@@ -5458,6 +5509,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Low Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllmodis(:)
@@ -5469,6 +5521,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Total Cloud Optical Thickness / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tautmodis(:)
@@ -5480,6 +5533,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Liquid Cloud Optical Thickness / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tauwmodis(:)
@@ -5491,6 +5545,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Ice Cloud Optical Thickness / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tauimodis(:)
@@ -5502,6 +5557,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Total Cloud Optical Thickness (Log10 Mean) / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tautlogmodis(:)
@@ -5513,6 +5569,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Liquid Cloud Optical Thickness (Log10 Mean) / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tauwlogmodis(:)
@@ -5524,6 +5581,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Ice Cloud Optical Thickness (Log10 Mean) / atmosphere_optical_thickness_due_to_cloud'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%tauilogmodis(:)
@@ -5535,6 +5593,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Liquid Cloud Particle Size / effective_radius_of_cloud_liquid_water_particle'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%reffclwmodis(:)
@@ -5546,6 +5605,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Ice Cloud Particle Size / effective_radius_of_cloud_liquid_water_particle'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%reffclimodis(:)
@@ -5557,6 +5617,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Cloud Top Pressure / air_pressure_at_cloud_top'
     Diag(idx)%unit = 'hPa'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%pctmodis(:)
@@ -5568,6 +5629,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Cloud Liquid Water Path / atmosphere_cloud_liquid_water_content'
     Diag(idx)%unit = 'kg m-2'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%lwpmodis(:)
@@ -5579,6 +5641,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'MODIS Cloud Ice Water Path / atmosphere_mass_content_of_cloud_ice'
     Diag(idx)%unit = 'kg m-2'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%iwpmodis(:)
@@ -5590,6 +5653,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO and CloudSat Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltlidarradar(:)
@@ -5601,6 +5665,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Ice Low Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllcalipsoice(:)
@@ -5612,6 +5677,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Ice Mid Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmcalipsoice(:)
@@ -5623,6 +5689,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Ice High Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhcalipsoice(:)
@@ -5634,6 +5701,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Ice Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltcalipsoice(:)
@@ -5645,6 +5713,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Liquid Low Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllcalipsoliq(:)
@@ -5656,6 +5725,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Liquid Mid Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmcalipsoliq(:)
@@ -5667,6 +5737,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Liquid High Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhcalipsoliq(:)
@@ -5678,6 +5749,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Liquid Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltcalipsoliq(:)
@@ -5689,6 +5761,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Undefined-Phase Low Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllcalipsoun(:)
@@ -5700,6 +5773,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Undefined-Phase Mid Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmcalipsoun(:)
@@ -5711,6 +5785,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Undefined-Phase High Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhcalipsoun(:)
@@ -5722,6 +5797,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Undefined-Phase Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltcalipsoun(:)
@@ -5733,6 +5809,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Low Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllcalipso(:)
@@ -5744,6 +5821,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Mid Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmcalipso(:)
@@ -5755,6 +5833,8 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO High Level Cloud Fraction / cloud_area_fraction_in_atmosphere_layer'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhcalipso(:)
@@ -5766,6 +5846,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltcalipso(:)
@@ -5777,6 +5858,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Opaque Cloud Cover / opaque_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clopaquecalipso(:)
@@ -5788,6 +5870,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Thin Cloud Cover / thin_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clthincalipso(:)
@@ -5799,6 +5882,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO z_opaque Altitude / z_opaque'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clzopaquecalipso(:)
@@ -5810,6 +5894,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Opaque Cloud Temperature / opaque_cloud_temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clopaquetemp(:)
@@ -5821,6 +5906,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Thin Cloud Temperature / thin_cloud_temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clthintemp(:)
@@ -5832,6 +5918,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO z_opaque Temperature / z_opaque_temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clzopaquetemp(:)
@@ -5843,6 +5930,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Opaque Cloud Altitude / opaque_cloud_altitude'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clopaquemeanz(:)
@@ -5854,6 +5942,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Thin Cloud Altitude / thin_cloud_altitude'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clthinmeanz(:)
@@ -5865,6 +5954,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Thin Cloud Emissivity / thin_cloud_emissivity'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clthinemis(:)
@@ -5876,6 +5966,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Opaque Cloud Altitude with respect to SE / opaque_cloud_altitude_se'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clopaquemeanzse(:)
@@ -5887,6 +5978,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO Thin Cloud Altitude with respect to SE / thin_cloud_altitude_se'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clthinmeanzse(:)
@@ -5898,6 +5990,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CALIPSO z_opaque Altitude with respect to SE / z_opaque_se'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clzopaquecalipsose(:)
@@ -5909,6 +6002,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'GROUND LIDAR Low Level Cloud Cover / grLidar532_low_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllgrLidar532(:)
@@ -5920,6 +6014,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'GROUND LIDAR Mid Level Cloud Cover / grLidar532_mid_cloud_cover'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmgrLidar532(:)
@@ -5931,6 +6026,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'GROUND LIDAR High Level Cloud Cover / grLidar532_high_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhgrLidar532(:)
@@ -5942,6 +6038,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'GROUND LIDAR Total Cloud Cover / grLidar532_total_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltgrLidar532(:)
@@ -5953,6 +6050,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ATLID Low Level Cloud Cover / atlid_low_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cllatlid(:)
@@ -5964,6 +6062,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ATLID Mid Level Cloud Cover / atlid_mid_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clmatlid(:)
@@ -5975,6 +6074,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ATLID High Level Cloud Cover /  atlid_high_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%clhatlid(:)
@@ -5986,6 +6086,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'ATLID Total Cloud Cover / atlid_total_cloud_cover'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cltatlid(:)
@@ -5997,6 +6098,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag0'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag0(:)
@@ -6008,6 +6110,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag1'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag1(:)
@@ -6019,6 +6122,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag2'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag2(:)
@@ -6030,6 +6134,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag3'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag3(:)
@@ -6041,6 +6146,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag4'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag4(:)
@@ -6052,6 +6158,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag5'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag5(:)
@@ -6063,6 +6170,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag6'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag6(:)
@@ -6074,6 +6182,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag7'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag7(:)
@@ -6085,6 +6194,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag8'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag8(:)
@@ -6096,6 +6206,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat precipitation cover for flag9'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%ptcloudsatflag9(:)
@@ -6107,6 +6218,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Cloudsat path integrated attenuation'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cloudsatpia(:)
@@ -6118,6 +6230,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CloudSat Total Cloud Fraction / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cloudsat_tcc(:)
@@ -6129,6 +6242,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'CloudSat Total Cloud Fraction (no 1km) / cloud_area_fraction'
     Diag(idx)%unit = '%'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%cloudsat_tcc2(:)
@@ -6140,6 +6254,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '# of Non-Precipitating Clouds / number_of_slwc_nonprecip'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%npdfcld(:)
@@ -6151,6 +6266,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '# of Drizzling Clouds / number_of_slwc_drizzle'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%npdfdrz(:)
@@ -6162,6 +6278,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '# of Precipitating Clouds / number_of_slwc_precip'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%npdfrain(:)
@@ -6177,6 +6294,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Skin temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%skt(:)
@@ -6188,6 +6306,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Surface Elevation'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%surfelev(:)
@@ -6199,6 +6318,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Land/sea mask'
     Diag(idx)%unit = '0/1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%landmask(:)
@@ -6210,6 +6330,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Sunlit flag'
     Diag(idx)%unit = 'none'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%cosp%sunlit(:)
@@ -6221,6 +6342,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Model pressure levels'
     Diag(idx)%unit = 'pa'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%p(:,:)
@@ -6232,6 +6354,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Moddel pressure at half levels'
     Diag(idx)%unit = 'pa'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%ph(:,:)
@@ -6243,6 +6366,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Model level height'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%zlev(:,:)
@@ -6254,6 +6378,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Model level height at half-levels'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%zlev_half(:,:)
@@ -6265,6 +6390,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Temperature'
     Diag(idx)%unit = 'K'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%T(:,:)
@@ -6276,6 +6402,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Specific humidity'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%sh(:,:)
@@ -6287,6 +6414,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Total cloud fraction'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%tca(:,:)
@@ -6298,6 +6426,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Convective cloud fraction'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%cca(:,:)
@@ -6309,6 +6438,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'U-component of wind'
     Diag(idx)%unit = 'm/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%u_wind(:,:)
@@ -6320,6 +6450,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'V-component of wind'
     Diag(idx)%unit = 'm/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%v_wind(:,:)
@@ -6331,6 +6462,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Mass mixing ratio for stratiform cloud liquid'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_lsliq(:,:)
@@ -6342,6 +6474,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Mass mixing ratio for stratiform cloud ice'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_lsice(:,:)
@@ -6353,6 +6486,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Mass mixing ratio for convective cloud liquid'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ccliq(:,:)
@@ -6364,6 +6498,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Mass mixing ratio for convective cloud ice'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ccice(:,:)
@@ -6375,6 +6510,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Mass mixing ratio for ozone'
     Diag(idx)%unit = 'kg/kg'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%mr_ozone(:,:)
@@ -6386,6 +6522,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Precipitation flux (rain) for stratiform cloud'
     Diag(idx)%unit = 'kg/m^2/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lsrain(:,:)
@@ -6397,6 +6534,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Precipitation flux (snow) for stratiform cloud'
     Diag(idx)%unit = 'kg/m^2/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lssnow(:,:)
@@ -6408,6 +6546,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Precipitation flux (groupel) for stratiform cloud'
     Diag(idx)%unit = 'kg/m^2/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_lsgrpl(:,:)
@@ -6419,6 +6558,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Precipitation flux (rain) for convective cloud'
     Diag(idx)%unit = 'kg/m^2/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_ccrain(:,:)
@@ -6430,6 +6570,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Precipitation flux (snow) for convective cloud'
     Diag(idx)%unit = 'kg/m^2/s'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%fl_ccsnow(:,:)
@@ -6441,6 +6582,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '0.67micron optical depth (stratiform cloud)'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dtau_s(:,:)
@@ -6452,6 +6594,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '0.67micron optical depth (convective cloud)'
     Diag(idx)%unit = '1'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dtau_c(:,:)
@@ -6463,6 +6606,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '11micron emissivity (stratiform cloud)'
     Diag(idx)%unit = 'none'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dem_s(:,:)
@@ -6474,6 +6618,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = '11microm emissivity (convective cloud)'
     Diag(idx)%unit = 'none'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%dem_c(:,:)
@@ -6485,6 +6630,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Subcolumn effective radius for stratiform cloud liquid'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSCLIQ(:,:)
@@ -6496,6 +6642,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Subcolumn effective radius for stratiform cloud ice'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSCICE(:,:)
@@ -6507,6 +6654,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Subcolumn effective radius for stratiform rain'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSRAIN(:,:)
@@ -6518,6 +6666,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Subcolumn effective radius for stratiform snow'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSSNOW(:,:)
@@ -6529,6 +6678,7 @@ module FV3GFS_io_mod
     Diag(idx)%desc = 'Subcolumn effective radius for stratiform graupel'
     Diag(idx)%unit = 'm'
     Diag(idx)%mod_name = 'cosp'
+    Diag(idx)%missing_value = COSP_missing_value
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%cosp%Reff_LSGRPL(:,:)
@@ -7484,7 +7634,7 @@ module FV3GFS_io_mod
       endif
       Diag(idx)%id = register_diag_field (trim(Diag(idx)%mod_name), trim(Diag(idx)%name),  &
                                           axes(1:Diag(idx)%axes), Time, trim(Diag(idx)%desc), &
-                                          trim(Diag(idx)%unit), missing_value=real(missing_value))
+                                          trim(Diag(idx)%unit), missing_value=real(Diag(idx)%missing_value))
     enddo
 
   end subroutine gfdl_diag_register
@@ -7550,14 +7700,17 @@ module FV3GFS_io_mod
     real(kind=kind_phys),      intent(in) :: ptop
 
     logical :: require_area, require_masked_area, require_mass, require_masked_mass, require_vertical_remapping
+    logical :: extrapolate
     real(kind=kind_phys), allocatable :: area(:,:)
     real(kind=kind_phys), allocatable :: mass(:,:,:), phalf(:,:,:), phalf_coarse_on_fine(:,:,:)
     real(kind=kind_phys), allocatable :: masked_area(:,:,:)
+    real(kind=kind_phys), allocatable :: blending_weights(:,:,:)
 
     real(kind=kind_phys) :: scalar
     real(kind=kind_phys) :: var2d(nx, ny)
     real(kind=kind_phys) :: var3d(nx, ny, levs)
     integer :: i, j, ii, jj, k, isc, jsc, ix, nb, index, used
+    integer :: nx_coarse, ny_coarse, is_coarse, ie_coarse, js_coarse, je_coarse
 
     isc   = atm_block%isc
     jsc   = atm_block%jsc
@@ -7579,9 +7732,18 @@ module FV3GFS_io_mod
         allocate(phalf(nx, ny, levs + 1))
         allocate(phalf_coarse_on_fine(nx, ny, levs + 1))
         allocate(masked_area(nx, ny, levs))
+        extrapolate = trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE
         call get_area(Atm_block, IPD_Data, nx, ny, area)
-        call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine)
-        call mask_area_weights(area, phalf, phalf_coarse_on_fine, masked_area)
+        if (trim(coarsening_strategy) .eq. PRESSURE_LEVEL .or. trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE) then
+          call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine)
+        else
+          call get_coarse_array_bounds(is_coarse, ie_coarse, js_coarse, je_coarse)
+          nx_coarse = ie_coarse - is_coarse + 1
+          ny_coarse = je_coarse - js_coarse + 1
+          allocate(blending_weights(nx_coarse, ny_coarse, levs))
+          call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine, blending_weights)
+        endif
+        call mask_area_weights(area, phalf, phalf_coarse_on_fine, extrapolate, masked_area)
       endif
     endif
 
@@ -7627,18 +7789,29 @@ module FV3GFS_io_mod
             used = send_data(Diag_diag_manager_controlled(index)%id, var3d, Time)
           endif
           if (Diag_diag_manager_controlled_coarse(index)%id > 0) then
-            if (trim(coarsening_strategy) .eq. MODEL_LEVEL) then
-              call store_data3D_coarse_model_level(Diag_diag_manager_controlled_coarse(index)%id, &
+            if (trim(coarsening_strategy) .eq. MODEL_LEVEL_MASS_WEIGHTED) then
+              call store_data3D_coarse_model_level_mass_weighted(Diag_diag_manager_controlled_coarse(index)%id, &
                   & Diag_diag_manager_controlled_coarse(index)%name, &
                   & Diag_diag_manager_controlled_coarse(index)%coarse_graining_method, &
                   & nx, ny, levs, var3d, area, mass, Time)
-            elseif (trim(coarsening_strategy) .eq. PRESSURE_LEVEL) then
+            elseif (trim(coarsening_strategy) .eq. MODEL_LEVEL_AREA_WEIGHTED) then
+              call store_data3D_coarse_model_level_area_weighted(Diag_diag_manager_controlled_coarse(index)%id, &
+                  & Diag_diag_manager_controlled_coarse(index)%name, &
+                  & Diag_diag_manager_controlled_coarse(index)%coarse_graining_method, &
+                  & nx, ny, levs, var3d, area, Time)
+            elseif (trim(coarsening_strategy) .eq. PRESSURE_LEVEL .or. &
+                    trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE) then
               call store_data3D_coarse_pressure_level(Diag_diag_manager_controlled_coarse(index)%id, &
                   & Diag_diag_manager_controlled_coarse(index)%name, &
                   & Diag_diag_manager_controlled_coarse(index)%coarse_graining_method, &
                   & nx, ny, levs, var3d, phalf, phalf_coarse_on_fine, masked_area, Time, ptop)
+            elseif (trim(coarsening_strategy) .eq. BLENDED_AREA_WEIGHTED) then
+              call store_data3D_coarse_blended_area_weighted(Diag_diag_manager_controlled_coarse(index)%id, &
+                   Diag_diag_manager_controlled_coarse(index)%name, &
+                   Diag_diag_manager_controlled_coarse(index)%coarse_graining_method, &
+                   nx, ny, levs, nx_coarse, ny_coarse, var3d, phalf, phalf_coarse_on_fine, masked_area, Time, ptop, area, blending_weights)
             else
-              call mpp_error(FATAL, 'Invalid coarse-graining strategy provided.')
+              call mpp_error(FATAL, 'FV3GFS_io invalid coarse-graining strategy provided.')
             endif
           endif
         elseif (starts_with(Diag_diag_manager_controlled(index)%name, 'global_mean_co2')) then
@@ -7688,6 +7861,7 @@ module FV3GFS_io_mod
 !--- local variables
     integer :: i, j, k, idx, nblks, nb, ix, ii, jj, kflip
     integer :: is_in, js_in, isc, jsc
+    integer :: nx_coarse, ny_coarse, is_coarse, ie_coarse, js_coarse, je_coarse
     character(len=2) :: xtra
     real(kind=kind_phys), dimension(nx*ny) :: var2p
     real(kind=kind_phys), dimension(nx*ny,levs) :: var3p
@@ -7699,8 +7873,10 @@ module FV3GFS_io_mod
 
     ! Local variables required for coarse-grianing
     logical :: require_area, require_masked_area, require_mass, require_masked_mass, require_vertical_remapping
+    logical :: extrapolate
     real(kind=kind_phys), allocatable :: mass(:,:,:), phalf(:,:,:), phalf_coarse_on_fine(:,:,:)
     real(kind=kind_phys), allocatable :: masked_area(:,:,:)
+    real(kind=kind_phys), allocatable :: blending_weights(:,:,:)
 
      nblks = Atm_block%nblks
      rdt = 1.0d0/dt
@@ -7743,8 +7919,17 @@ module FV3GFS_io_mod
           allocate(phalf(nx, ny, levs + 1))
           allocate(phalf_coarse_on_fine(nx, ny, levs + 1))
           allocate(masked_area(nx, ny, levs))
-          call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine)
-          call mask_area_weights(area, phalf, phalf_coarse_on_fine, masked_area)
+          extrapolate = trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE
+          if (trim(coarsening_strategy) .eq. PRESSURE_LEVEL .or. trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE) then
+            call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine)
+          else
+            call get_coarse_array_bounds(is_coarse, ie_coarse, js_coarse, je_coarse)
+            nx_coarse = ie_coarse - is_coarse + 1
+            ny_coarse = je_coarse - js_coarse + 1
+            allocate(blending_weights(nx_coarse, ny_coarse, levs))
+            call vertical_remapping_requirements(delp, area, ptop, phalf, phalf_coarse_on_fine, blending_weights)
+          endif
+          call mask_area_weights(area, phalf, phalf_coarse_on_fine, extrapolate, masked_area)
        endif
     endif
 
@@ -7752,7 +7937,7 @@ module FV3GFS_io_mod
        if ((Diag(idx)%id > 0) .or. (diag_coarse(idx)%id > 0)) then
          lcnvfac = Diag(idx)%cnvfac
          if (Diag(idx)%time_avg) then
-           if ( trim(Diag(idx)%time_avg_kind) == 'full' ) then
+           if ( trim(Diag(idx)%time_avg_kind) == 'full' ) then !accumulated over the entire simulation from initialization
              lcnvfac = lcnvfac*rtime_intfull
            else if ( trim(Diag(idx)%time_avg_kind) == 'rad_lw' ) then
              lcnvfac = lcnvfac*min(rtime_radlw,rtime_int)
@@ -7902,56 +8087,76 @@ module FV3GFS_io_mod
               call prt_gb_nh_sh_us('TOA LW up ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
            case('u10m')
               call prt_gb_nh_sh_us('Total 10-m u avg ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land 10-m u avg  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean 10-m u avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce 10-m u avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land 10-m u avg  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean 10-m u avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce 10-m u avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('v10m')
               call prt_gb_nh_sh_us('Total 10-m v avg ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land 10-m v avg  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean 10-m v avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce 10-m v avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land 10-m v avg  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean 10-m v avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce 10-m v avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('acond')
               call prt_gb_nh_sh_us('Total momentum exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land momentum exchange coefficient  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean momentum exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce momentum exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land momentum exchange coefficient  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean momentum exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce momentum exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('sfexc')
               call prt_gb_nh_sh_us('Total thermal exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land thermal exchange coefficient  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean thermal exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce thermal exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land thermal exchange coefficient  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean thermal exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce thermal exchange coefficient ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('ffmm')
               call prt_gb_nh_sh_us('Total ffmm for PBL ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land ffmm for PBL  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean ffmm for PBL ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce ffmm for PBL ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land ffmm for PBL  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean ffmm for PBL ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce ffmm for PBL ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('ffhh')
               call prt_gb_nh_sh_us('Total ffhh for PBL ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land ffhh for PBL  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean ffhh for PBL ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce ffhh for PBL ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land ffhh for PBL  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean ffhh for PBL ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce ffhh for PBL ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('ZORLsfc')
               call prt_gb_nh_sh_us('Total surface roughness ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land surface roughness  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean surface roughness ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce surface roughness ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land surface roughness  ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean surface roughness ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce surface roughness ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('q2m')
               call prt_gb_nh_sh_us('Total 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce 2-m Q avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
            case('t2m')
               call prt_gb_nh_sh_us('Total 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce 2-m T avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
               call prt_gb_nh_sh_us('2-m T max ', 1, nx, 1, ny, var2, area, lon, lat, one, 1., 'MAX')
               call prt_gb_nh_sh_us('2-m T min ', 1, nx, 1, ny, var2, area, lon, lat, one, 1., 'MIN')
            case('tsfc')
               call prt_gb_nh_sh_us('Total sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, one, 1.)
-              call prt_gb_nh_sh_us('Land sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
-              call prt_gb_nh_sh_us('Ocean sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
-              call prt_gb_nh_sh_us('SeaIce sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              if (landseaprt) then
+                 call prt_gb_nh_sh_us('Land sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, landmask, 1.)
+                 call prt_gb_nh_sh_us('Ocean sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1.)
+                 call prt_gb_nh_sh_us('SeaIce sfc T avg ', 1, nx, 1, ny, var2, area, lon, lat, icemask, 1.)
+              endif
               call prt_gb_nh_sh_us('sfc T max ', 1, nx, 1, ny, var2, area, lon, lat, one, 1., 'MAX')
               call prt_gb_nh_sh_us('sfc T min ', 1, nx, 1, ny, var2, area, lon, lat, one, 1., 'MIN')
               call prt_gb_nh_sh_us('SST max ', 1, nx, 1, ny, var2, area, lon, lat, seamask, 1., 'MAX')
@@ -7979,87 +8184,28 @@ module FV3GFS_io_mod
                used=send_data(Diag(idx)%id, var3, Time)
             endif
             if (Diag_coarse(idx)%id > 0) then
-               if (trim(coarsening_strategy) .eq. MODEL_LEVEL) then
-                  call store_data3D_coarse_model_level(Diag_coarse(idx)%id, Diag_coarse(idx)%name, &
+               if (trim(coarsening_strategy) .eq. MODEL_LEVEL_MASS_WEIGHTED) then
+                  call store_data3D_coarse_model_level_mass_weighted(Diag_coarse(idx)%id, Diag_coarse(idx)%name, &
                        Diag_coarse(idx)%coarse_graining_method, &
                        nx, ny, levo, var3, area, mass, Time)
-               elseif (trim(coarsening_strategy) .eq. PRESSURE_LEVEL) then
+               elseif (trim(coarsening_strategy) .eq. MODEL_LEVEL_AREA_WEIGHTED) then
+                  call store_data3D_coarse_model_level_area_weighted(Diag_coarse(idx)%id, Diag_coarse(idx)%name, &
+                       Diag_coarse(idx)%coarse_graining_method, &
+                       nx, ny, levo, var3, area, Time)
+               elseif (trim(coarsening_strategy) .eq. PRESSURE_LEVEL .or. &
+                       trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE) then
                   call store_data3D_coarse_pressure_level(Diag_coarse(idx)%id, Diag_coarse(idx)%name, &
                        Diag_coarse(idx)%coarse_graining_method, &
                        nx, ny, levo, var3, phalf, phalf_coarse_on_fine, masked_area, Time, ptop)
+               elseif (trim(coarsening_strategy) .eq. BLENDED_AREA_WEIGHTED) then
+                  call store_data3D_coarse_blended_area_weighted(Diag_coarse(idx)%id, Diag_coarse(idx)%name, &
+                       Diag_coarse(idx)%coarse_graining_method, &
+                       nx, ny, levo, nx_coarse, ny_coarse, var3, phalf, phalf_coarse_on_fine, masked_area, Time, ptop, area, blending_weights)
                else
-                  call mpp_error(FATAL, 'Invalid coarse-graining strategy provided.')
+                  call mpp_error(FATAL, 'FV3GFS_io invalid coarse-graining strategy provided.')
                endif
             endif
 
-#ifdef JUNK
-           !--- dq3dt variables
-           do num = 1,5+Mdl_parms%pl_coeff
-             write(xtra,'(i1)') num
-             if (trim(Diag(idx)%name) == 'dq3dt_'//trim(xtra)) then
-               var3(1:nx,1:ny,1:levs) = RESHAPE(Gfs_diag%dq3dt(1:ngptc,levs:1:-1,num:num), (/nx,ny,levs/))
-               used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-             endif
-           enddo
-           !--- du3dt and dv3dt variables
-           do num = 1,4
-             write(xtra,'(i1)') num
-             if (trim(Diag(idx)%name) == 'du3dt_'//trim(xtra)) then
-               var3(1:nx,1:ny,1:levs) = RESHAPE(Gfs_diag%du3dt(1:ngptc,levs:1:-1,num:num), (/nx,ny,levs/))
-               used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-             endif
-             if (trim(Diag(idx)%name) == 'dv3dt_'//trim(xtra)) then
-               var3(1:nx,1:ny,1:levs) = RESHAPE(Gfs_diag%dv3dt(1:ngptc,levs:1:-1,num:num), (/nx,ny,levs/))
-               used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-             endif
-           enddo
-           if (trim(Diag(idx)%name) == 'dqdt_v') then
-             var3(1:nx,1:ny,1:levs) = RESHAPE(Gfs_diag%dqdt_v(1:ngptc,levs:1:-1), (/nx,ny,levs/))
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- temperature tendency
-           if (trim(Diag(idx)%name) == 'dtemp_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%tgrs(1:ngptc,levs:1:-1), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gt0(1:ngptc,levs:1:-1), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- horizontal wind component tendency
-           if (trim(Diag(idx)%name) == 'du_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%ugrs(1:ngptc,levs:1:-1), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gu0(1:ngptc,levs:1:-1), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- meridional wind component tendency
-           if (trim(Diag(idx)%name) == 'dv_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%vgrs(1:ngptc,levs:1:-1), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gv0(1:ngptc,levs:1:-1), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- specific humidity tendency
-           if (trim(Diag(idx)%name) == 'dsphum_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%qgrs(1:ngptc,levs:1:-1,1:1), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gq0(1:ngptc,levs:1:-1,1:1), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- cloud water mixing ration tendency
-           if (trim(Diag(idx)%name) == 'dclwmr_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%qgrs(1:ngptc,levs:1:-1,ntcw:ntcw), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gq0(1:ngptc,levs:1:-1,ntcw:ntcw), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-           endif
-           !--- ozone mixing ration tendency
-           if (trim(Diag(idx)%name) == 'do3mr_dt') then
-             var3(1:nx,1:ny,1:levs) =  RESHAPE(Statein%qgrs(1:ngptc,levs:1:-1,ntoz:ntoz), (/nx,ny,levs/))
-             var3(1:nx,1:ny,1:levs) = (RESHAPE(Stateout%gq0(1:ngptc,levs:1:-1,ntoz:ntoz), (/nx,ny,levs/))  &
-                                        - var3(1:nx,1:ny,1:levs))*rdt
-             used=send_data(Diag(idx)%id, var3, Time, is_in=is_in, js_in=js_in, ks_in=1)
-          endif
-#endif
        endif
     endif
  enddo
@@ -8234,7 +8380,8 @@ module FV3GFS_io_mod
         call mp_reduce_sum(   t_us)
      endif
 
-     diagstr = trim(qname) // ' ' // trim(mpp_get_current_pelist_name()) // ' '
+     write(diagstr,'(A20, 1x,A,1x)') trim(qname), trim(mpp_get_current_pelist_name())
+     !diagstr = trim(qname) // ' ' //  // ' '
      !if (area_gb < 1.) then
      !   diagstr1 = ''
      !elseif( area_gb <= 4.*pi*RADIUS*RADIUS*.98) then
@@ -8281,10 +8428,17 @@ module FV3GFS_io_mod
    character(len=64), intent(in) :: coarsening_strategy
    logical, intent(out) :: require_area, require_masked_area, require_mass, require_vertical_remapping
 
-   require_area = any(coarse_diag%id .gt. 0 .and. coarse_diag%coarse_graining_method .eq. AREA_WEIGHTED)
-   require_mass = any(coarse_diag%id .gt. 0 .and. coarse_diag%coarse_graining_method .eq. MASS_WEIGHTED)
+   if (trim(coarsening_strategy) .eq. MODEL_LEVEL_AREA_WEIGHTED) then
+     require_mass = .false.
+     require_area = any(coarse_diag%id .gt. 0)
+   else
+     require_area = any(coarse_diag%id .gt. 0 .and. coarse_diag%coarse_graining_method .eq. AREA_WEIGHTED)
+     require_mass = any(coarse_diag%id .gt. 0 .and. coarse_diag%coarse_graining_method .eq. MASS_WEIGHTED)
+   endif
 
-   if (trim(coarsening_strategy) .eq. PRESSURE_LEVEL) then
+   if (trim(coarsening_strategy) .eq. PRESSURE_LEVEL .or. &
+       trim(coarsening_strategy) .eq. PRESSURE_LEVEL_EXTRAPOLATE .or. &
+       trim(coarsening_strategy) .eq. BLENDED_AREA_WEIGHTED) then
      require_masked_area = any(coarse_diag%id .gt. 0 .and. coarse_diag%axes .eq. 3 .and. &
                              & coarse_diag%coarse_graining_method .eq. AREA_WEIGHTED)
      require_vertical_remapping = any(coarse_diag%id .gt. 0 .and. coarse_diag%axes .eq. 3)
@@ -8372,7 +8526,7 @@ module FV3GFS_io_mod
    used = send_data(id, coarse, Time)
  end subroutine store_data2D_coarse
 
- subroutine store_data3D_coarse_model_level(id, name, method, nx, ny, nz, full_resolution_field, &
+ subroutine store_data3D_coarse_model_level_mass_weighted(id, name, method, nx, ny, nz, full_resolution_field, &
       area, mass, Time)
    integer, intent(in) :: id
    character(len=64), intent(in) :: name
@@ -8409,7 +8563,43 @@ module FV3GFS_io_mod
       call mpp_error(FATAL, message)
    endif
    used = send_data(id, coarse, Time)
- end subroutine store_data3D_coarse_model_level
+ end subroutine store_data3D_coarse_model_level_mass_weighted
+
+ subroutine store_data3D_coarse_model_level_area_weighted(id, name, method, nx, ny, nz, full_resolution_field, &
+      area, Time)
+  integer, intent(in) :: id
+  character(len=64), intent(in) :: name
+  character(len=64), intent(in) :: method
+  integer, intent(in) :: nx, ny, nz
+  real(kind=kind_phys), intent(in) :: full_resolution_field(1:nx,1:ny,1:nz)
+  real(kind=kind_phys), intent(in) :: area(1:nx,1:ny)
+  type(time_type), intent(in) :: Time
+
+  real(kind=kind_phys), allocatable :: coarse(:,:,:)
+  character(len=128) :: message
+  integer :: is_coarse, ie_coarse, js_coarse, je_coarse, nx_coarse, ny_coarse
+  logical :: used
+
+  call get_coarse_array_bounds(is_coarse, ie_coarse, js_coarse, je_coarse)
+  nx_coarse = ie_coarse - is_coarse + 1
+  ny_coarse = je_coarse - js_coarse + 1
+
+  allocate(coarse(nx_coarse, ny_coarse, nz))
+
+  if (method .eq. AREA_WEIGHTED .or. method .eq. MASS_WEIGHTED) then
+    call weighted_block_average(area, full_resolution_field, coarse)
+  elseif (method .eq. MASKED_AREA_WEIGHTED) then
+    message = 'Masked area-weighted coarse-graining is not currently implemented for 3D variables'
+    call mpp_error(FATAL, message)
+  elseif (method .eq. MODE) then
+    message = 'Block mode coarse-graining is not currently implemented for 3D variables'
+    call mpp_error(FATAL, message)
+  else
+    message = 'A valid coarse_graining_method must be specified for ' // trim(name)
+    call mpp_error(FATAL, message)
+  endif
+  used = send_data(id, coarse, Time)
+ end subroutine store_data3D_coarse_model_level_area_weighted
 
  subroutine store_data3D_coarse_pressure_level(id, name, method, nx, ny, nz, full_resolution_field, &
         & phalf, phalf_coarse_on_fine, masked_area, Time, ptop)
@@ -8454,6 +8644,31 @@ module FV3GFS_io_mod
     used = send_data(id, coarse, Time)
 end subroutine store_data3D_coarse_pressure_level
 
+subroutine store_data3D_coarse_blended_area_weighted(id, name, method, nx, ny, nz, nx_coarse, ny_coarse, full_resolution_field, &
+  phalf, phalf_coarse_on_fine, masked_area, Time, ptop, area, blending_weights)
+    integer, intent(in) :: id
+    character(len=64), intent(in) :: name
+    character(len=64), intent(in) :: method
+    integer, intent(in) :: nx, ny, nz, nx_coarse, ny_coarse
+    real(kind=kind_phys), intent(in) :: full_resolution_field(1:nx,1:ny,1:nz)
+    real(kind=kind_phys), intent(in) :: phalf(1:nx,1:ny,1:nz + 1)
+    real(kind=kind_phys), intent(in) :: phalf_coarse_on_fine(1:nx,1:ny,1:nz + 1)
+    real(kind=kind_phys), intent(in) :: masked_area(1:nx,1:ny,1:nz)
+    real(kind=kind_phys), intent(in) :: area(1:nx,1:ny)
+    real(kind=kind_phys), intent(in) :: blending_weights(1:nx_coarse,1:ny_coarse,1:nz)
+    type(time_type), intent(in) :: Time
+    real(kind=kind_phys), intent(in) :: ptop
+
+    real(kind=kind_phys), allocatable :: coarse(:,:,:)
+    character(len=128) :: message
+    logical :: used
+
+    allocate(coarse(nx_coarse, ny_coarse, nz))
+    call blended_area_weighted_coarse_grain_field(full_resolution_field, phalf, phalf_coarse_on_fine, ptop, masked_area, area, blending_weights, coarse)
+
+    used = send_data(id, coarse, Time)
+end subroutine store_data3D_coarse_blended_area_weighted
+
 function starts_with(string, prefix)
    character(len=128), intent(in) :: string
    character(len=*), intent(in) :: prefix
@@ -8463,7 +8678,5 @@ function starts_with(string, prefix)
    return
 end function starts_with
 
+
 end module FV3GFS_io_mod
-
-
-

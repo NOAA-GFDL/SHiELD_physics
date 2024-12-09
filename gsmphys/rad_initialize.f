@@ -2,7 +2,7 @@
       subroutine rad_initialize                                         &
 !...................................
 !  ---  inputs:
-     &     ( si,levr,ictm,isol,ico2,iaer,ialb,                          &
+     &     ( si,levr,ictm,isol,ico2,fco2_scaling,iaer,ialb,             &
      &       disable_radiation_quasi_sea_ice,iems,ntcw, num_p2d,        &
      &       num_p3d,npdf3d,ntoz,iovr_sw,iovr_lw,isubc_sw,isubc_lw,     &
      &       crick_proof,ccnorm,norad_precip,                           &
@@ -108,7 +108,8 @@
      &             iaermdl, laswflg, lalwflg, lavoflg, icldflg, icmphys,&
      &             iovrsw , iovrlw , lcrick , lcnorm , lnoprec,         &
      &             ialbflg, iemsflg, isubcsw, isubclw, ivflip , ipsd0,  &
-     &             kind_phys, ldisable_radiation_quasi_sea_ice
+     &             kind_phys, co2_scaling,                              &
+     &             ldisable_radiation_quasi_sea_ice
 
       use module_radiation_driver, only : radinit
 !
@@ -119,7 +120,7 @@
      &       ntcw, ialb, iems, num_p3d, npdf3d, ntoz, iovr_sw, iovr_lw, &
      &       isubc_sw, isubc_lw, iflip, me, idate(4)
 
-      real (kind=kind_phys), intent(in) :: si(levr+1)
+      real (kind=kind_phys), intent(in) :: si(levr+1), fco2_scaling
 
       logical, intent(in) :: crick_proof, ccnorm, norad_precip,         &
      &                       disable_radiation_quasi_sea_ice
@@ -136,12 +137,13 @@
 
       ictmflg= ictm                     ! data ic time/date control flag
       ico2flg= ico2                     ! co2 data source control flag
+      co2_scaling= fco2_scaling         ! reset co2_scaling in physparam.f
       ioznflg= ntoz                     ! ozone data source control flag
 
       if ( ictm==0 .or. ictm==-2 ) then
         iaerflg = mod(iaer, 100)        ! no volcanic aerosols for clim hindcast
       else
-        iaerflg = mod(iaer, 1000)   
+        iaerflg = mod(iaer, 1000)
       endif
       laswflg= (mod(iaerflg,10) > 0)    ! control flag for sw tropospheric aerosol
       lalwflg= (mod(iaerflg/10,10) > 0) ! control flag for lw tropospheric aerosol

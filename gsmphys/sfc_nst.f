@@ -6,7 +6,7 @@
      &       prsl1, prslki, islimsk, xlon, sinlat, stress,              &
      &       sfcemis, dlwflx, sfcnsw, rain, timestep, kdt, solhr,xcosz, &
      &       ddvel, flag_iter, flag_guess, nstf_name,                    &
-     &       lprnt, ipr,                                                &
+     &       lprnt, ipr, maxevap,                                       &
 !  --- input/output
      &       tskin, tsurf, xt, xs, xu, xv, xz, zm, xtts, xzts, dt_cool, &
      &       z_c,   c_0,   c_d,   w_0, w_d, d_conv, ifd, qrain,         &
@@ -26,7 +26,7 @@
 !            prsl1, prslki, islimsk, xlon, sinlat, stress,              !
 !            sfcemis, dlwflx, sfcnsw, rain, timestep, kdt,solhr,xcosz,  !
 !            ddvel, flag_iter, flag_guess, nstf_name,                    !
-!            lprnt, ipr,                                                !
+!            lprnt, ipr, maxevap,                                       !
 !       input/outputs:                                                  !
 !            tskin, tsurf, xt, xs, xu, xv, xz, zm, xtts, xzts, dt_cool, !
 !            z_c, c_0,   c_d,   w_0, w_d, d_conv, ifd, qrain,           !
@@ -100,6 +100,7 @@
 !                nstf_name(5) : zsea2 in mm                        1    !
 !     lprnt    - logical, control flag for check print out         1    !
 !     ipr      - integer, grid index for check print out           1    !
+!     maxevap  - real, maximum latent heat to be allowed           im   !
 !                                                                       !
 !  input/outputs:
 ! li added for oceanic components
@@ -166,7 +167,7 @@
 !  ---  inputs:
       integer, intent(in) :: im, km, kdt, ipr,nstf_name(5)
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
-     &       t1, q1, tref, cm, ch, prsl1, prslki, xlon,xcosz,           &
+     &       t1, q1, tref, cm, ch, prsl1, prslki, xlon,xcosz, maxevap,  &
      &       sinlat, stress, sfcemis, dlwflx, sfcnsw, rain, ddvel
       integer, intent(in), dimension(im):: islimsk
       real (kind=kind_phys), intent(in) :: timestep
@@ -561,6 +562,11 @@ cc
           tem     = 1.0 / rho_a(i)
           hflx(i) = hflx(i) * tem * cpinv
           evap(i) = evap(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+            chh(i) = -maxevap(i)/evap(i)*chh(i)
+            hflx(i) = -maxevap(i)/hflx(i)*chh(i)
+            evap(i) = -maxevap(i)
+          endif
         endif
       enddo
 !

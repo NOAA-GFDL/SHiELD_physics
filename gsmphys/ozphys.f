@@ -50,7 +50,7 @@
       real(kind=kind_phys) ozi(ix,levs),   ozo(ix,levs), po3(ko3),
      &                     prsl(ix,levs),  tin(ix,levs), delp(ix,levs),
      &                     prdout(ix,ko3,pl_coeff),
-     &                     ozp(ix,levs,pl_coeff),  dt
+     &                     ozp(ix,levs,4),  dt
 !
       integer k,kmax,kmin,l,i,j
       logical              ldiag3d, flg(im)
@@ -145,7 +145,7 @@
             enddo
           endif
         endif
-      enddo                                ! vertical loop
+      enddo                     ! vertical loop
 !
       return
       end

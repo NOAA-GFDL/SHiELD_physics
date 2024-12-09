@@ -3,7 +3,7 @@
 !...................................
 !  ---  inputs:
      &     ( im, ps, u1, v1, t1, q1, tskin, cm, ch,                     &
-     &       prsl1, prslki, islimsk, ddvel, flag_iter,                  &
+     &       prsl1, prslki, islimsk, ddvel, flag_iter, maxevap,         &
 !  ---  outputs:
      &       qsurf, cmm, chh, gflux, evap, hflx, ep                     &
      &     )
@@ -16,7 +16,7 @@
 !    call sfc_ocean                                                     !
 !       inputs:                                                         !
 !          ( im, ps, u1, v1, t1, q1, tskin, cm, ch,                     !
-!            prsl1, prslki, islimsk, ddvel, flag_iter,                  !
+!            prsl1, prslki, islimsk, ddvel, flag_iter, maxevap,         !
 !       outputs:                                                        !
 !            qsurf, cmm, chh, gflux, evap, hflx, ep )                   !
 !                                                                       !
@@ -50,6 +50,7 @@
 !     islimsk  - integer, sea/land/ice mask (=0/1/2)               im   !
 !     ddvel    - real, wind enhancement due to convection (m/s)    im   !
 !     flag_iter- logical,                                          im   !
+!     maxevap  - real, maximum latent heat to be allowed           im   !
 !                                                                       !
 !  outputs:                                                             !
 !     qsurf    - real, specific humidity at sfc                    im   !
@@ -79,7 +80,7 @@
       integer, intent(in) :: im
 
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
-     &      t1, q1, tskin, cm, ch, prsl1, prslki, ddvel
+     &      t1, q1, tskin, cm, ch, prsl1, prslki, ddvel, maxevap
       integer, dimension(im), intent(in):: islimsk
 
       logical, intent(in) :: flag_iter(im)
@@ -138,6 +139,11 @@
           tem      = 1.0 / rho
           hflx(i)  = hflx(i) * tem * cpinv
           evap(i)  = evap(i) * tem * hvapi
+          if (evap(i) .lt. -maxevap(i)) then
+             chh(i) = -maxevap(i)/evap(i)*chh(i)
+             hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+             evap(i) = -maxevap(i)
+          endif
         endif
       enddo
 !
