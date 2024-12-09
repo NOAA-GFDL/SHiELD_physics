@@ -105,35 +105,26 @@ c  local variables and arrays
         endif
       enddo
 !
-! kgao 12/08/2023: adjust entrainment/detrainment rate based on pbl-mean tke  
-!
-!  if tkemean>tkcrt, ce0t=sqrt(tkemean/tkcrt)*ce0
-!
-      do i=1,im
-        if( use_tke_ent_det .and. cnvflg(i) ) then
-          ce0t(i) = ce0 * vez0fun(i)
-          if(tkemean(i) > tkcrt) then
-            tem = sqrt(tkemean(i)/tkcrt)
-            tem1 = min(tem, cmxfac)
-            tem2 = tem1 * ce0
-            ce0t(i) = max(ce0t(i), tem2)
-          endif
-        endif
-      enddo
-!
 !  compute entrainment rate
 !
-      do i=1,im
-        if(cnvflg(i)) then
+      do i = 1, im
+        if ( cnvflg(i) ) then
+          if ( use_tke_ent_det ) then
+            ! kgao 12/08/2023: compute entrainment/detrainment rate based on pbl-mean tke
+            ce0t(i) = ce0 * vez0fun(i)
+            if ( tkemean(i) > tkcrt ) then
+              tem = sqrt(tkemean(i)/tkcrt)
+              tem1 = min(tem, cmxfac)
+              tem2 = tem1 * ce0
+              ce0t(i) = max(ce0t(i), tem2)
+            endif
+          else
+            ce0t(i) = ce0
+          endif
           k = kpbl(i) / 2
           k = max(k, 1)
           delz(i) = zl(i,k+1) - zl(i,k)
-          ! kgao 12/08/2023
-          if (use_tke_ent_det) then
-             xlamax(i) = ce0t(i) / delz(i)
-          else
-             xlamax(i) = ce0 / delz(i)
-          endif 
+          xlamax(i) = ce0t(i) / delz(i)
         endif
       enddo
 !
@@ -144,12 +135,7 @@ c  local variables and arrays
               ptem = 1./(zm(i,k)+delz(i))
               tem = max((hpbl(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              ! kgao 12/08/2023
-              if (use_tke_ent_det) then
-                 xlamue(i,k) = ce0t(i) * (ptem+ptem1)
-              else
-                 xlamue(i,k) = ce0 * (ptem+ptem1)
-              endif
+              xlamue(i,k) = ce0t(i) * (ptem+ptem1)
             else
               xlamue(i,k) = xlamax(i)
             endif
@@ -296,12 +282,7 @@ c  local variables and arrays
           k = kpbl(i) / 2
           k = max(k, 1)
           delz(i) = zl(i,k+1) - zl(i,k)
-          ! kgao 12/08/2023
-          if (use_tke_ent_det) then
-            xlamax(i) = ce0t(i) / delz(i)
-          else
-            xlamax(i) = ce0 / delz(i)
-          endif
+          xlamax(i) = ce0t(i) / delz(i)
         endif
       enddo
 !
@@ -313,12 +294,7 @@ c  local variables and arrays
               ptem = 1./(zm(i,k)+delz(i))
               tem = max((hpbl(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              ! kgao 12/08/2023
-              if (use_tke_ent_det) then
-                xlamue(i,k) = ce0t(i) * (ptem+ptem1)
-              else
-                xlamue(i,k) = ce0 * (ptem+ptem1)
-              endif
+              xlamue(i,k) = ce0t(i) * (ptem+ptem1)
             else 
               xlamue(i,k) = xlamax(i)
             endif

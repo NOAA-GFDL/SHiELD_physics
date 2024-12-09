@@ -176,37 +176,27 @@ c  physical parameters
         totflg = totflg .and. (.not. cnvflg(i))
       enddo
       if(totflg) return
-!!
-!
-! kgao 12/08/2023: compute entrainment/detrainment rate based on pbl-mean tke
-!
-!  if tkemean>tkcrt, ce0t=sqrt(tkemean/tkcrt)*ce0
-!
-      do i=1,im
-        if( use_tke_ent_det .and. cnvflg(i) ) then
-          ce0t(i) = ce0 * vez0fun(i)
-          if(tkemean(i) > tkcrt) then
-            tem = sqrt(tkemean(i)/tkcrt)
-            tem1 = min(tem, cmxfac)
-            tem2 = tem1 * ce0
-            ce0t(i) = max(ce0t(i), tem2)
-          endif
-        endif
-      enddo
 !
 !  compute entrainment rate
 !
-      do i=1,im
-        if(cnvflg(i)) then
+      do i = 1, im
+        if ( cnvflg(i) ) then
+          if ( use_tke_ent_det ) then
+            ! kgao 12/08/2023: compute entrainment/detrainment rate based on pbl-mean tke
+            ce0t(i) = ce0 * vez0fun(i)
+            if ( tkemean(i) > tkcrt ) then
+              tem = sqrt(tkemean(i)/tkcrt)
+              tem1 = min(tem, cmxfac)
+              tem2 = tem1 * ce0
+              ce0t(i) = max(ce0t(i), tem2)
+            endif
+          else
+            ce0t(i) = ce0
+          endif
           k = mrad(i) + (krad(i)-mrad(i)) / 2
           k = max(k, mrad(i))
           delz(i) = zl(i,k+1) - zl(i,k)
-          ! kgao 12/08/2023
-          if (use_tke_ent_det) then
-             xlamax(i) = ce0t(i) / delz(i)
-          else
-             xlamax(i) = ce0 / delz(i)
-          endif
+          xlamax(i) = ce0t(i) / delz(i)
         endif
       enddo
 !
@@ -221,12 +211,7 @@ c  physical parameters
               endif
               tem = max((hrad(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              ! kgao 12/08/2023
-              if (use_tke_ent_det) then
-                 xlamde(i,k) = ce0t(i) * (ptem+ptem1)
-              else
-                 xlamde(i,k) = ce0 * (ptem+ptem1)
-              endif
+              xlamde(i,k) = ce0t(i) * (ptem+ptem1)
             else
               xlamde(i,k) = xlamax(i)
             endif
@@ -360,12 +345,7 @@ c
           k = mrad(i) + (krad(i)-mrad(i)) / 2
           k = max(k, mrad(i))
           delz(i) = zl(i,k+1) - zl(i,k)
-          ! kgao 12/08/2023
-          if (use_tke_ent_det) then
-            xlamax(i) = ce0t(i) / delz(i)
-          else
-            xlamax(i) = ce0 / delz(i)
-          endif
+          xlamax(i) = ce0t(i) / delz(i)
         endif
       enddo
 !
@@ -380,12 +360,7 @@ c
               endif
               tem = max((hrad(i)-zm(i,k)+delz(i)) ,delz(i))
               ptem1 = 1./tem
-              ! kgao 12/08/2023
-              if (use_tke_ent_det) then
-                xlamde(i,k) = ce0t(i) * (ptem+ptem1)
-              else
-                xlamde(i,k) = ce0 * (ptem+ptem1)
-              endif
+              xlamde(i,k) = ce0t(i) * (ptem+ptem1)
             else
               xlamde(i,k) = xlamax(i)
             endif
