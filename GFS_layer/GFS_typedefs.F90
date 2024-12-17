@@ -4185,8 +4185,6 @@ end subroutine overrides_create
       allocate (Diag%eta_shal(IM,Model%levs))
       allocate (Diag%co2(IM,Model%levs))
       allocate (Diag%elm_pbl(IM,Model%levs))
-      allocate (Diag%column_moles_co2_per_square_meter(IM))
-      allocate (Diag%column_moles_dry_air_per_square_meter(IM))
 
       if (Model%do_diagnostic_radiation_with_scaled_co2) then
          allocate (Diag%column_moles_co2_per_square_meter_with_scaled_co2(Model%n_diagnostic_radiation_calls,IM))
