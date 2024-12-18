@@ -1,7 +1,7 @@
       subroutine mfdeepcnv(im,ix,km,delt,delp,prslp,psp,phil,ql,
      &     q1,t1,u1,v1,er,qr,cldwrk,rn,kbot,ktop,kcnv,islimsk,garea,
      &     dot,ncloud,ud_mf,dd_mf,dt_mf,cnvw,cnvc,
-     &     clam,c0s,c1,betal,betas,evfact,evfactl,pgcon,asolfac)
+     &     clam,c0s,c1,betal,betas,evfact,evfactl,pgcon,asolfac,dxcrtas)
 !
       use machine , only : kind_phys
       use funcphys , only : fpvs
@@ -123,7 +123,8 @@ c  physical parameters
 !     parameter(cinacrmx=-120.,cinacrmn=-120.)
       parameter(cinacrmx=-120.,cinacrmn=-80.)
       parameter(bet1=1.875,cd1=.506,f1=2.0,gam1=.5)
-      parameter(betaw=.03,dxcrtas=8.e3,dxcrtuf=15.e3)
+      parameter(betaw=.03,dxcrtuf=15.e3)
+!     parameter(dxcrtas=8.e3)
 !
 !  local variables and arrays
       real(kind=kind_phys) pfld(im,km),    to(im,km),     qo(im,km),

@@ -6,6 +6,9 @@ module GFS_typedefs
        use ozne_def,                 only: levozp, oz_coeff
        use h2o_def,                  only: levh2o, h2o_coeff
        use gfdl_cld_mp_mod,          only: rhow
+#if defined (USE_COSP)
+       use MOD_COSP_CONFIG,          only: ntau, npres
+#endif
 
        implicit none
 
@@ -533,6 +536,7 @@ module GFS_typedefs
     integer              :: iflip           !< iflip - is not the same as flipv
     integer              :: isol            !< use prescribed solar constant
     integer              :: ico2            !< prescribed global mean value (old opernl)
+    real(kind=kind_phys) :: fco2_scaling    !< scaling of CO2 level
     integer              :: ialb            !< use climatology alb, based on sfc type
                                             !< 1 => use modis based alb
 
@@ -670,6 +674,13 @@ module GFS_typedefs
     logical              :: no_pbl          !< disable PBL (for LES)
     logical              :: cap_k0_land     !< flag for applying limter on background diff in inversion layer over land in satmedmfdiff.f
     logical              :: do_dk_hb19      !< flag for using hb19 background diff formula in satmedmfdiff.f
+    logical              :: use_lup_only    !< flag for using l_up as l2 in tke-edmf pbl
+    logical              :: use_l1_sfc      !< flag for using l1 as l at lowest layer in tke-edmf pbl
+    logical              :: use_tke_pbl     !< flag for adjusting entrainment/detrainment rate in tke-edmf
+    logical              :: use_shear_pbl   !< flag for considering shear effect on updraft/downdraft diagnosis in tke-edmf
+    logical              :: use_tke_conv    !< flag for adjusting entrainment/detrainment rate in conv scheme
+    logical              :: use_shear_conv  !< flag for considering shear effect on updraft/downdraft diagnosis in conv scheme
+    logical              :: limit_shal_conv !< flag for constraining shal conv based on diagnosed cloud depth/top
     logical              :: dspheat         !< flag for tke dissipative heating
     logical              :: lheatstrg       !< flag for canopy heat storage parameterization
     real(kind=kind_phys) :: hour_canopy     !< tunable time scale for canopy heat storage parameterization
@@ -687,6 +698,10 @@ module GFS_typedefs
     real(kind=kind_phys) :: xkgdx           !< [in] background vertical diffusion threshold
     real(kind=kind_phys) :: rlmn            !< [in] lower-limter on asymtotic mixing length in satmedmfdiff.f
     real(kind=kind_phys) :: rlmx            !< [in] upper-limter on asymtotic mixing length in satmedmfdiff.f
+    real(kind=kind_phys) :: pbl_ck0         !< [in] proportionality coefficient for momentum in PBL
+    real(kind=kind_phys) :: pbl_ck1         !< [in] proportionality coefficient for momentum above PBL
+    real(kind=kind_phys) :: pbl_ch0         !< [in] proportionality coefficient for heat & q in PBL
+    real(kind=kind_phys) :: pbl_ch1         !< [in] proportionality coefficient for heat & q above PBL
     real(kind=kind_phys) :: zolcru          !< [in] a threshold for activating the surface-driven updraft transports in satmedmfdifq.f
     real(kind=kind_phys) :: cs0             !< [in] a parameter that controls the shear effect on the mixing length in satmedmfdifq.f
     real(kind=kind_phys) :: moninq_fac      !< turbulence diffusion coefficient factor
@@ -724,6 +739,8 @@ module GFS_typedefs
     integer              :: isatmedmf       !< flag for scale-aware TKE-based moist edmf scheme
                                             !<     0: initial version of satmedmf (Nov 2018) modified by kgao at GFDL
                                             !<     1: updated version of satmedmf (May 2019) modified by kgao at GFDL
+    integer              :: l2_diag_opt     !< flag for choosing a diagnosis method for l2 in tke-edmf
+    integer              :: l1l2_blend_opt  !< flag for choosing a blending method for l1 and l2 in tke-edmf
     logical              :: do_deep         !< whether to do deep convection
     integer              :: nmtvr           !< number of topographic variables such as variance etc
                                             !< used in the GWD parameterization
@@ -769,6 +786,7 @@ module GFS_typedefs
                                             !< Nccn: CCN number concentration in cm^(-3)
                                             !< Until a realistic Nccn is provided, typical Nccns are assumed
                                             !< as Nccn=100 for sea and Nccn=7000 for land
+    real(kind=kind_phys) :: dxcrtas         !< the threshold value (unit: m) for the quasi-equilibrium assumption of Arakawa-Schubert
 
     !--- mass flux shallow convection
     logical              :: ext_rain_shal   !< Whether to extract rain water from the shallow convection
@@ -889,6 +907,7 @@ module GFS_typedefs
     !--- variables modified at each time step
     integer              :: ipt             !< index for diagnostic printout point
     logical              :: lprnt           !< control flag for diagnostic print out
+    logical              :: landseaprt      !< in fprint partition into land/ocean/seaice
     logical              :: lsswr           !< logical flags for sw radiation calls
     logical              :: lslwr           !< logical flags for lw radiation calls
     real(kind=kind_phys) :: solhr           !< hour time after 00z at the t-step
@@ -908,6 +927,7 @@ module GFS_typedefs
     integer              :: imn             !< initial forecast month
     real(kind=kind_phys) :: julian          !< julian day using midnight of January 1 of forecast year as initial epoch
     integer              :: yearlen         !< length of the current forecast year in days
+    real(kind=kind_phys) :: sst_perturbation !< perturbation to add to the reference sea surface temperature
 
 !--- IAU
     integer              :: iau_offset
@@ -1094,6 +1114,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: pctisccp                           (:)   => null()
     real (kind=kind_phys), pointer :: tauisccp                           (:)   => null()
     real (kind=kind_phys), pointer :: albisccp                           (:)   => null()
+    real (kind=kind_phys), pointer :: clisccp                            (:,:,:) => null()
     real (kind=kind_phys), pointer :: misr_meanztop                      (:)   => null()
     real (kind=kind_phys), pointer :: misr_cldarea                       (:)   => null()
     real (kind=kind_phys), pointer :: cltmodis                           (:)   => null()
@@ -1393,6 +1414,8 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: wu2_shal(:,:) => null()
     real (kind=kind_phys), pointer :: eta_shal(:,:) => null()
     real (kind=kind_phys), pointer :: co2(:,:) => null()  ! Vertically resolved CO2 concentration
+    real (kind=kind_phys), pointer :: elm_pbl(:,:)  => null()
+
     real (kind=kind_phys), pointer :: column_moles_co2_per_square_meter(:) => null()  ! Moles of CO2 in column per square meter
     real (kind=kind_phys), pointer :: column_moles_dry_air_per_square_meter(:) => null()  ! Moles of dry air in column per square meter
     real (kind=kind_phys), pointer :: column_moles_co2_per_square_meter_with_scaled_co2(:,:) => null()  ! Moles of CO2 in column per square meter in radiation double call
@@ -1445,7 +1468,7 @@ module GFS_typedefs
 #if defined (USE_COSP) || defined (COSP_OFFLINE)
   public cosp_type
 #endif
-
+  logical, public :: landseaprt     = .true.
 !*******************************************************************************************
   CONTAINS
 
@@ -2251,6 +2274,7 @@ end subroutine overrides_create
     integer              :: iflip          =  1              !< iflip - is not the same as flipv
     integer              :: isol           =  0              !< use prescribed solar constant
     integer              :: ico2           =  0              !< prescribed global mean value (old opernl)
+    real(kind=kind_phys) :: fco2_scaling   = 1.              !< scaling of CO2 level
     integer              :: ialb           =  0              !< use climatology alb, based on sfc type
                                                              !< 1 => use modis based alb
 
@@ -2377,6 +2401,13 @@ end subroutine overrides_create
     logical              :: no_pbl         = .false.                  !< disable PBL (for LES)
     logical              :: cap_k0_land    = .true.                   !< flag for applying limter on background diff in inversion
     logical              :: do_dk_hb19     = .false.                  !< flag for using hb19 formula for background diff
+    logical              :: use_lup_only   = .false.                  !< flag for using l_up as l2
+    logical              :: use_l1_sfc     = .false.                  !< flag for using l1 as l in the lowest layer
+    logical              :: use_tke_pbl    = .false.                  !< flag for adjusting entrainment/detrainment rates in edmf
+    logical              :: use_shear_pbl  = .false.                  !< flag for considering shear effect for wu/wd in edmf
+    logical              :: use_tke_conv   = .false.                  !< flag for adjusting entrainment/detrainment rates in conv
+    logical              :: use_shear_conv = .false.                  !< flag for considering shear effect for wu/wd in conv
+    logical              :: limit_shal_conv= .false.                  !< flag for constraining shal conv based on diagnosed cloud depth/top
     logical              :: dspheat        = .false.                  !< flag for tke dissipative heating
     logical              :: lheatstrg      = .false.                  !< flag for canopy heat storage parameterization
     real(kind=kind_phys) :: hour_canopy    = 0.0d0                    !< tunable time scale for canopy heat storage parameterization
@@ -2394,6 +2425,10 @@ end subroutine overrides_create
     real(kind=kind_phys) :: xkgdx          = 25.e3                    !< [in] background vertical diffusion threshold
     real(kind=kind_phys) :: rlmn           = 30.                      !< [in] lower-limter on asymtotic mixing length in satmedmfdiff.f
     real(kind=kind_phys) :: rlmx           = 300.                     !< [in] upper-limter on asymtotic mixing length in satmedmfdiff.f
+    real(kind=kind_phys) :: pbl_ck0        = 0.4d0                      !< [in] proportionality coefficient for momentum in PBL
+    real(kind=kind_phys) :: pbl_ck1        = 0.15d0                     !< [in] proportionality coefficient for momentum above PBL
+    real(kind=kind_phys) :: pbl_ch0        = 0.4d0                      !< [in] proportionality coefficient for heat & q in PBL
+    real(kind=kind_phys) :: pbl_ch1        = 0.15d0                     !< [in] proportionality coefficient for heat & q above PBL
     real(kind=kind_phys) :: zolcru         = -0.02                    !< [in] a threshold for activating the surface-driven updraft transports in satmedmfdifq.f
     real(kind=kind_phys) :: cs0            = 0.2                      !< [in] a parameter that controls the shear effect on the mixing length in satmedmfdifq.f
     real(kind=kind_phys) :: moninq_fac     = 1.0                      !< turbulence diffusion coefficient factor
@@ -2428,10 +2463,12 @@ end subroutine overrides_create
                                                                       !<     2: scale- & aerosol-aware mass-flux deep conv scheme (2017)
                                                                       !<     3: scale- & aerosol-aware mass-flux deep conv scheme (2020)
     integer              :: isatmedmf      =  0                       !< flag for scale-aware TKE-based moist edmf scheme
+    integer              :: l2_diag_opt    =  0                       !< flag for l2 diagnosis method in tke-edmf
+    integer              :: l1l2_blend_opt =  0                       !< flag for l1 and l2 blending method in tke-edmf
     logical              :: do_deep        = .true.                   !< whether to do deep convection
     integer              :: nmtvr          = 14                       !< number of topographic variables such as variance etc
                                                                       !< used in the GWD parameterization
-    integer              :: jcap           =  1              !< number of spectral wave trancation used only by sascnv shalcnv
+    integer              :: jcap           =  1                       !< number of spectral wave trancation used only by sascnv shalcnv
     real(kind=kind_phys) :: cs_parm(10) = (/5.0,2.5,1.0e3,3.0e3,20.0,-999.,-999.,0.,0.,0./)
     real(kind=kind_phys) :: flgmin(2)      = (/0.180,0.220/)          !< [in] ice fraction bounds
     real(kind=kind_phys) :: cgwf(2)        = (/0.5d0,0.05d0/)         !< multiplication factor for convective GWD
@@ -2471,6 +2508,7 @@ end subroutine overrides_create
                                                              !< Nccn: CCN number concentration in cm^(-3)
                                                              !< Until a realistic Nccn is provided, typical Nccns are assumed
                                                              !< as Nccn=100 for sea and Nccn=7000 for land
+    real(kind=kind_phys) :: dxcrtas        = 8.e3            !< threshold value (unit: m) for the quasi-equilibrium assumption of Arakawa-Schubert
 
     !--- mass flux shallow convection
     logical              :: ext_rain_shal  = .false.         !< Whether to extract rain water from the shallow convection
@@ -2567,6 +2605,7 @@ end subroutine overrides_create
 !--- aerosol scavenging factors
     character(len=20) :: fscav_aero(20) = 'default'
 
+    real(kind=kind_phys) :: sst_perturbation = 0.0     !< perturbation to add to the reference sea surface temperature
     logical :: override_surface_radiative_fluxes = .false.
 
     !--- END NAMELIST VARIABLES
@@ -2583,6 +2622,7 @@ end subroutine overrides_create
                                isot, iems,  iaer, iovr_sw, iovr_lw, ictm, isubc_sw,         &
                                isubc_lw, crick_proof, ccnorm, lwhtr, swhtr, nkld,           &
                                fixed_date, fixed_solhr, fixed_sollat, daily_mean, sollat,   &
+                               fco2_scaling,                                                &
                                do_diagnostic_radiation_with_scaled_co2,                                    &
                                diagnostic_radiation_co2_scale_factors,                     &
                           !--- microphysical parameterizations
@@ -2603,23 +2643,25 @@ end subroutine overrides_create
                                do_z0_hwrf17_hwonly, wind_th_hwrf,                           &
                                hybedmf, dspheat, lheatstrg, hour_canopy, afac_canopy,       &
                                cnvcld, no_pbl, xkzm_lim, xkzm_fac, xkgdx,                   &
-                               rlmn, rlmx, zolcru, cs0,                                     &
+                               rlmn, rlmx, zolcru, cs0, pbl_ck0, pbl_ck1, pbl_ch0, pbl_ch1, &
                                xkzm_m, xkzm_h, xkzm_ml, xkzm_hl, xkzm_mi, xkzm_hi,          &
                                xkzm_s, xkzminv, moninq_fac, dspfac,                         &
                                bl_upfr, bl_dnfr, ysu_ent_fac, ysu_pfac_q,                   &
                                ysu_brcr_ub, ysu_rlam, ysu_afac, ysu_bfac, ysu_hpbl_cr,      &
                                tnl_fac, qnl_fac, unl_fac,                                   &
                                random_clds, shal_cnv, imfshalcnv, imfdeepcnv, isatmedmf,    &
-                               do_deep, jcap,&
+                               l2_diag_opt, l1l2_blend_opt, do_deep, jcap,                  &
                                cs_parm, flgmin, cgwf, ccwf, cdmbgwd, sup, ctei_rm, crtrh,   &
                                dlqf,rbcr,mix_precip,orogwd,myj_pbl,ysupbl,satmedmf,         &
-                               cap_k0_land,do_dk_hb19,cloud_gfdl,gwd_p_crit,                &
+                               cap_k0_land,do_dk_hb19,use_lup_only,use_l1_sfc,              &
+                               use_tke_pbl,use_shear_pbl,use_tke_conv,use_shear_conv,       &
+                               limit_shal_conv,cloud_gfdl,gwd_p_crit,                       &
                           !--- Rayleigh friction
                                prslrd0, ral_ts,                                             &
                           !--- mass flux deep convection
                                clam_deep, c0s_deep, c1_deep, betal_deep,                    &
                                betas_deep, evfact_deep, evfactl_deep, pgcon_deep,           &
-                               asolfac_deep, ext_rain_deep,                                 &
+                               asolfac_deep, dxcrtas, ext_rain_deep,                        &
                           !--- mass flux shallow convection
                                clam_shal, c0s_shal, c1_shal, cthk_shal, top_shal,           &
                                betaw_shal, dxcrt_shal, pgcon_shal, asolfac_shal,            &
@@ -2637,9 +2679,11 @@ end subroutine overrides_create
                                iau_delthrs,iaufhrs,iau_inc_files,iau_forcing_var,           &
                                iau_filter_increments,iau_drymassfixer,                      &
                           !--- debug options
-                               debug, pre_rad, do_ocean, use_ifs_ini_sst, use_ext_sst, lprnt, &
+                               debug, pre_rad, do_ocean, use_ifs_ini_sst, use_ext_sst,      &
+                               lprnt, landseaprt, &
                           !--- aerosol scavenging factors ('name:value' string array)
-                               fscav_aero,                                                  &
+                               fscav_aero, &
+                               sst_perturbation,                                            &
                                override_surface_radiative_fluxes
 
     !--- other parameters
@@ -2745,6 +2789,7 @@ end subroutine overrides_create
     Model%iflip            = iflip
     Model%isol             = isol
     Model%ico2             = ico2
+    Model%fco2_scaling     = fco2_scaling
     Model%ialb             = ialb
     Model%disable_radiation_quasi_sea_ice = disable_radiation_quasi_sea_ice
     Model%iems             = iems
@@ -2848,6 +2893,13 @@ end subroutine overrides_create
     Model%no_pbl           = no_pbl
     Model%cap_k0_land      = cap_k0_land
     Model%do_dk_hb19       = do_dk_hb19
+    Model%use_lup_only     = use_lup_only
+    Model%use_l1_sfc       = use_l1_sfc
+    Model%use_tke_pbl      = use_tke_pbl
+    Model%use_shear_pbl    = use_shear_pbl
+    Model%use_tke_conv     = use_tke_conv
+    Model%use_shear_conv   = use_shear_conv
+    Model%limit_shal_conv  = limit_shal_conv
     Model%dspheat          = dspheat
     Model%lheatstrg        = lheatstrg
     Model%hour_canopy      = hour_canopy
@@ -2865,6 +2917,10 @@ end subroutine overrides_create
     Model%xkgdx            = xkgdx
     Model%rlmn             = rlmn
     Model%rlmx             = rlmx
+    Model%pbl_ck0          = pbl_ck0
+    Model%pbl_ck1          = pbl_ck1
+    Model%pbl_ch0          = pbl_ch0
+    Model%pbl_ch1          = pbl_ch1
     Model%zolcru           = zolcru
     Model%cs0              = cs0
     Model%moninq_fac       = moninq_fac
@@ -2888,6 +2944,8 @@ end subroutine overrides_create
     Model%imfshalcnv       = imfshalcnv
     Model%imfdeepcnv       = imfdeepcnv
     Model%isatmedmf        = isatmedmf
+    Model%l2_diag_opt      = l2_diag_opt
+    Model%l1l2_blend_opt   = l1l2_blend_opt
     Model%do_deep          = do_deep
     Model%nmtvr            = nmtvr
     Model%jcap             = jcap
@@ -2920,6 +2978,7 @@ end subroutine overrides_create
     Model%evfactl_deep     = evfactl_deep
     Model%pgcon_deep       = pgcon_deep
     Model%asolfac_deep     = asolfac_deep
+    Model%dxcrtas          = dxcrtas
 
     !--- mass flux shallow convection
     Model%ext_rain_shal    = ext_rain_shal
@@ -2979,6 +3038,8 @@ end subroutine overrides_create
     Model%isppt_deep       = isppt_deep
     Model%nspinup          = nspinup
     Model%nthresh          = nthresh
+
+    Model%sst_perturbation = sst_perturbation
 
     ! IAU flags
     !--- iau parameters
@@ -3090,6 +3151,7 @@ end subroutine overrides_create
     Model%use_ifs_ini_sst  = use_ifs_ini_sst
     Model%use_ext_sst      = use_ext_sst
     Model%lprnt            = lprnt
+    Model%landseaprt       = landseaprt
 
     !--- set initial values for time varying properties
     Model%ipt              = 1
@@ -3288,6 +3350,13 @@ end subroutine overrides_create
       endif
     endif
 
+    !--- Crash if zhao_mic and ncld>1
+    if (Model%zhao_mic .and. ( Model%ncld > 1 )) then
+      write(*,*) ' FATAL GFS_typedefs: Zhao Microphysics enabled (zhao_mic) with cloud scheme (ncld) greater than 1.'
+      write(*,*) ' Stopping execution.'
+      stop 999
+    endif
+
     !--- set up cloud schemes and tracer elements
     if (Model%ncld <= 1) then
       if (Model%zhao_mic) then        ! default setup for Zhao Microphysics
@@ -3447,6 +3516,7 @@ end subroutine overrides_create
       print *, ' iflip             : ', Model%iflip
       print *, ' isol              : ', Model%isol
       print *, ' ico2              : ', Model%ico2
+      print *, ' fco2_scaling      : ', Model%fco2_scaling
       print *, ' ialb              : ', Model%ialb
       print *, ' disable_radiation_quasi_sea_ice: ', Model%disable_radiation_quasi_sea_ice
       print *, ' iems              : ', Model%iems
@@ -3554,6 +3624,13 @@ end subroutine overrides_create
       print *, ' no_pbl            : ', Model%no_pbl
       print *, ' cap_k0_land       : ', Model%cap_k0_land
       print *, ' do_dk_hb19        : ', Model%do_dk_hb19
+      print *, ' use_lup_only      : ', Model%use_lup_only
+      print *, ' use_l1_sfc        : ', Model%use_l1_sfc
+      print *, ' use_tke_pbl       : ', Model%use_tke_pbl
+      print *, ' use_shear_pbl     : ', Model%use_shear_pbl
+      print *, ' use_tke_conv      : ', Model%use_tke_conv
+      print *, ' use_shear_conv    : ', Model%use_shear_conv
+      print *, ' limit_shal_conv   : ', Model%limit_shal_conv
       print *, ' dspheat           : ', Model%dspheat
       print *, ' lheatstrg         : ', Model%lheatstrg
       print *, ' hour_canopy       : ', Model%hour_canopy
@@ -3571,6 +3648,10 @@ end subroutine overrides_create
       print *, ' xkgdx             : ', Model%xkgdx
       print *, ' rlmn              : ', Model%rlmn
       print *, ' rlmx              : ', Model%rlmx
+      print *, ' pbl_ck0           : ', Model%pbl_ck0
+      print *, ' pbl_ck1           : ', Model%pbl_ck1
+      print *, ' pbl_ch0           : ', Model%pbl_ch0
+      print *, ' pbl_ch1           : ', Model%pbl_ch1
       print *, ' zolcru            : ', Model%zolcru
       print *, ' cs0               : ', Model%cs0
       print *, ' moninq_fac        : ', Model%moninq_fac
@@ -3594,6 +3675,8 @@ end subroutine overrides_create
       print *, ' imfshalcnv        : ', Model%imfshalcnv
       print *, ' imfdeepcnv        : ', Model%imfdeepcnv
       print *, ' isatmedmf         : ', Model%isatmedmf
+      print *, ' l2_diag_opt       : ', Model%l2_diag_opt
+      print *, ' l1l2_blend_opt    : ', Model%l1l2_blend_opt
       print *, ' do_deep           : ', Model%do_deep
       print *, ' nmtvr             : ', Model%nmtvr
       print *, ' jcap              : ', Model%jcap
@@ -3625,6 +3708,7 @@ end subroutine overrides_create
       print *, ' evfactl_deep      : ', Model%evfactl_deep
       print *, ' pgcon_deep        : ', Model%pgcon_deep
       print *, ' asolfac_deep      : ', Model%asolfac_deep
+      print *, ' dxcrtas           : ', Model%dxcrtas
       print *, ' '
       print *, 'mass flux shallow convection'
       print *, ' ext_rain_shal     : ', Model%ext_rain_shal
@@ -3712,6 +3796,7 @@ end subroutine overrides_create
       print *, 'variables modified at each time step'
       print *, ' ipt               : ', Model%ipt
       print *, ' lprnt             : ', Model%lprnt
+      print *, ' landseaprt        : ', Model%landseaprt
       print *, ' lsswr             : ', Model%lsswr
       print *, ' lslwr             : ', Model%lslwr
       print *, ' solhr             : ', Model%solhr
@@ -3725,6 +3810,7 @@ end subroutine overrides_create
       print *, ' zhour             : ', Model%zhour
       print *, ' kdt               : ', Model%kdt
       print *, ' jdat              : ', Model%jdat
+      print *, '  sst_perturbation   : ', Model%sst_perturbation
     endif
 
   end subroutine control_print
@@ -4098,6 +4184,7 @@ end subroutine overrides_create
       allocate (Diag%wu2_shal(IM,Model%levs))
       allocate (Diag%eta_shal(IM,Model%levs))
       allocate (Diag%co2(IM,Model%levs))
+      allocate (Diag%elm_pbl(IM,Model%levs))
 
       if (Model%do_diagnostic_radiation_with_scaled_co2) then
          allocate (Diag%column_moles_co2_per_square_meter_with_scaled_co2(Model%n_diagnostic_radiation_calls,IM))
@@ -4117,6 +4204,7 @@ end subroutine overrides_create
       allocate (Diag%cosp%pctisccp                           (IM))
       allocate (Diag%cosp%tauisccp                           (IM))
       allocate (Diag%cosp%albisccp                           (IM))
+      allocate (Diag%cosp%clisccp                            (IM,NTAU,NPRES))
       allocate (Diag%cosp%misr_meanztop                      (IM))
       allocate (Diag%cosp%misr_cldarea                       (IM))
       allocate (Diag%cosp%cltmodis                           (IM))
@@ -4408,6 +4496,7 @@ end subroutine overrides_create
       Diag%flux_en = zero
       Diag%wu2_shal= zero
       Diag%eta_shal= zero
+      Diag%elm_pbl = zero
       Diag%upd_mf  = zero
       Diag%dwn_mf  = zero
       Diag%det_mf  = zero

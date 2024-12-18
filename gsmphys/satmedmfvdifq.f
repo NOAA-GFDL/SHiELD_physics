@@ -55,8 +55,10 @@
      &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,
      &     kinver,xkzm_mo,xkzm_ho,xkzm_ml,xkzm_hl,xkzm_mi,xkzm_hi,
      &     xkzm_s,xkzinv,rlmx,zolcru,cs0,
-     &     do_dk_hb19,xkgdx,dspfac,bl_upfr,bl_dnfr,dkt_out,
-     &     flux_up, flux_dn)
+     &     do_dk_hb19,xkgdx,dspfac,bl_upfr,bl_dnfr,
+     &     l2_diag_opt,use_lup_only,l1l2_blend_opt,use_l1_sfc,
+     &     use_tke_ent_det,use_shear,
+     &     dkt_out, flux_up, flux_dn, elm)
 !
       use machine  , only : kind_phys
       use funcphys , only : fpvs
@@ -69,6 +71,7 @@
 !
 !----------------------------------------------------------------------
       integer ix, im, km, ntrac, ntcw, ntiw, ntke, ntcw_new
+      integer l2_diag_opt, l1l2_blend_opt
       integer kpbl(im), kinver(im), islimsk(im)
 !
       real(kind=kind_phys) delt, xkzm_mo, xkzm_ho, xkzm_s, dspfac,
@@ -97,19 +100,20 @@
      &                     rtg_in(im,km,ntrac)
 ! kgao note - q1 and rtg are local var now 
 !
-      logical dspheat, do_dk_hb19
-!          flag for tke dissipative heating
+      logical dspheat, do_dk_hb19, use_lup_only, use_l1_sfc,
+     &        use_tke_ent_det, use_shear
+
       real(kind=kind_phys)::dkt_out(im,km),flux_up(im,km),flux_dn(im,km)
 !
 !----------------------------------------------------------------------
 !***
 !***  local variables
 !***
-      integer i,is,k,kk,n,ndt,km1,kmpbl,kmscu,ntrac1
+      integer i,is,k,kk,n,ndt,km1,kmpbl,kmscu,ntrac1,kps
       integer lcld(im),kcld(im),krad(im),mrad(im)
       integer kx1(im), kpblx(im)
 !
-      real(kind=kind_phys) tke(im,km),  tkeh(im,km-1)
+      real(kind=kind_phys) tke(im,km),  tkeh(im,km-1), e2(im,0:km)
 !
       real(kind=kind_phys) theta(im,km),thvx(im,km),  thlvx(im,km),
      &                     qlx(im,km),  thetae(im,km),thlx(im,km),
@@ -122,7 +126,8 @@
      &                     qstl(im,km)
 !
       real(kind=kind_phys) dtdz1(im), gdx(im),
-     &                     phih(im),  phim(im),    prn(im,km-1),
+     &                     phih(im),  phim(im),    
+     &                     phims(im), prn(im,km-1),
      &                     rbdn(im),  rbup(im),    thermal(im),
      &                     ustar(im), wstar(im),   hpblx(im),
      &                     ust3(im),  wst3(im),
@@ -130,7 +135,10 @@
      &                     hgamt(im), hgamq(im),
      &                     wscale(im),vpert(im),
      &                     zol(im),   sflux(im),
-     &                     tx1(im),   tx2(im)
+     &                     tx1(im),   tx2(im),
+     &                     vez0fun(im), tkemean(im), sumx(im)
+!
+      real(kind=kind_phys) vegflo, vegfup, z0lo, z0up, vc0, zc0, csmf
 !
       real(kind=kind_phys) radmin(im)
 !
@@ -145,7 +153,7 @@
       real(kind=kind_phys) elm(im,km),   ele(im,km),
      &                     ckz(im,km),   chz(im,km),  frik(im),
      &                     diss(im,km-1),prod(im,km-1), 
-     &                     bf(im,km-1),  shr2(im,km-1),
+     &                     bf(im,km-1),  shr2(im,km-1), wush(im,km),
      &                     xlamue(im,km-1), xlamde(im,km-1),
      &                     gotvx(im,km), rlam(im,km-1)
 !
@@ -229,6 +237,9 @@
 !     parameter(ce0=0.4,cs0=0.5)
       parameter(ce0=0.4)
       parameter(rchck=1.5,ndt=20)
+      parameter(vegflo=0.1,vegfup=1.0,z0lo=0.1,z0up=1.0)
+      parameter(vc0=1.0,zc0=1.0)
+      parameter(csmf=0.5)
 !
 !************************************************************************
       elmx = rlmx
@@ -438,6 +449,17 @@
            kcld(i)  = km1
          endif
       enddo
+!           
+! compute a function for green vegetation fraction and surface roughness
+!       
+      do i = 1,im
+        !tem = (sigmaf(i) - vegflo) / (vegfup - vegflo)
+        !tem = min(max(tem, 0.), 1.)
+        !tem1 = sqrt(tem)
+        !ptem = (z0(i) - z0lo) / (z0up - z0lo)
+        !ptem = min(max(ptem, 0.), 1.)
+        vez0fun(i) = 1. !(1. + vc0 * tem1) * (1. + zc0 * ptem)
+      enddo
 !
       do k=1,km
         do i=1,im
@@ -617,6 +639,40 @@
         if(kpbl(i) <= 1) pblflg(i)=.false.
       enddo
 !
+!  compute mean tke within pbl
+!
+      do i = 1, im
+        sumx(i) = 0.
+        tkemean(i) = 0.
+      enddo
+      do k = 1, kmpbl
+      do i = 1, im
+        if(k < kpbl(i)) then
+          dz = zi(i,k+1) - zi(i,k)
+          tkemean(i) = tkemean(i) + tke(i,k) * dz
+          sumx(i) = sumx(i) + dz
+        endif
+      enddo
+      enddo
+      do i = 1, im
+        if(tkemean(i) > 0. .and. sumx(i) > 0.) then
+          tkemean(i) = tkemean(i) / sumx(i)
+        endif
+      enddo
+!
+!  compute wind shear term as a sink term for updraft and downdraft
+!  velocity
+!
+      kps = max(kmpbl, kmscu)
+      do k = 2, kps
+      do i = 1, im
+        dz = zi(i,k+1) - zi(i,k)
+        tem = (0.5*(u1(i,k-1)-u1(i,k+1))/dz)**2
+        tem1 = tem+(0.5*(v1(i,k-1)-v1(i,k+1))/dz)**2
+        wush(i,k) = csmf * sqrt(tem1)
+      enddo
+      enddo
+!
 !     compute similarity parameters
 !
       do i=1,im
@@ -632,9 +688,12 @@
            tem     = 1.0 / (1. - aphi16*zol1)
            phih(i) = sqrt(tem)
            phim(i) = sqrt(phih(i))
+           tem1    = 1.0 / (1. - aphi16*zol(i))
+           phims(i) = sqrt(sqrt(tem1))
          else
            phim(i) = 1. + aphi5*zol1
            phih(i) = phim(i)
+           phims(i) = 1. + aphi5*zol(i)
          endif
       enddo
 !
@@ -800,13 +859,17 @@
 ! EDMF parameterization Siebesma et al.(2007) 
       call mfpbltq(im,ix,km,kmpbl,ntcw_new,ntrac1,dt2,
      &    pcnvflg,zl,zm,q1,t1,u1,v1,plyr,pix,thlx,thvx,
-     &    gdx,hpbl,kpbl,vpert,buou,xmf,
+     &    gdx,hpbl,kpbl,vpert,buou,
+     &    use_shear,wush,
+     &    use_tke_ent_det,tkemean,vez0fun,xmf,
      &    tcko,qcko,ucko,vcko,xlamue,bl_upfr)
 ! mass-flux parameterization for stratocumulus-top-induced turbulence mixing
       call mfscuq(im,ix,km,kmscu,ntcw_new,ntrac1,dt2,
      &    scuflg,zl,zm,q1,t1,u1,v1,plyr,pix,
      &    thlx,thvx,thlvx,gdx,thetae,
-     &    krad,mrad,radmin,buod,xmfd,
+     &    krad,mrad,radmin,buod,
+     &    use_shear,wush,
+     &    use_tke_ent_det,tkemean,vez0fun,xmfd,
      &    tcdo,qcdo,ucdo,vcdo,xlamde,bl_dnfr)
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -869,22 +932,23 @@
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !  compute an asymtotic mixing length
-!
+
       do k = 1, km1
         do i = 1, im
+
+          if (l2_diag_opt == 0) then
+          ! kgao 12/08/2023: original method as in Han and Bretherton 2019
+          ! but additionally considers shear effect
           zlup = 0.0
           bsum = 0.0
           mlenflg = .true.
           do n = k, km1
             if(mlenflg) then
               dz = zl(i,n+1) - zl(i,n)
-              ! kgao note - new: with shear effect  
               tem3=((u1(i,n+1)-u1(i,n))/dz)**2
               tem3=tem3+((v1(i,n+1)-v1(i,n))/dz)**2
               tem3=cs0*sqrt(tem3)*sqrt(tke(i,k))
               ptem = (gotvx(i,n)*(thvx(i,n+1)-thvx(i,k))+tem3)*dz
-              ! kgao note - old: no shear effect 
-              !ptem = gotvx(i,n)*(thvx(i,n+1)-thvx(i,k))*dz
               bsum = bsum + ptem
               zlup = zlup + dz
               if(bsum >= tke(i,k)) then
@@ -916,15 +980,11 @@
                 dz = zl(i,n) - zl(i,n-1)
                 tem1 = thvx(i,n-1)
 !               tem1 = thlvx(i,n-1)
-                ! kgao note - shear effect 
                 tem3 = ((u1(i,n)-u1(i,n-1))/dz)**2
                 tem3 = tem3+((v1(i,n)-v1(i,n-1))/dz)**2
                 tem3 = cs0*sqrt(tem3)*sqrt(tke(i,k))
               endif
-              ! kgao note - new: shear effect
               ptem = (gotvx(i,n)*(thvx(i,k)-tem1)+tem3)*dz
-              ! kgao note - old: no shear effect
-              !ptem = gotvx(i,n)*(thvx(i,k)-tem1)*dz
               bsum = bsum + ptem
               zldn = zldn + dz
               if(bsum >= tke(i,k)) then
@@ -940,16 +1000,74 @@
               endif
             endif
           enddo
+
+          else if (l2_diag_opt == 1) then
+          ! kgao 12/08/2023: a new method for diagnosing L2
+          zlup = 0.0
+          mlenflg = .true.
+          e2(i,k) = max(2.*tke(i,k), 0.001)
+          do n = k, km1
+            if(mlenflg) then
+              dz = zl(i,n+1) - zl(i,n)
+              tem1 = 2.*gotvx(i,n+1)*(thvx(i,k)-thvx(i,n+1))
+              tem2 = cs0*sqrt(e2(i,n))*sqrt(shr2(i,n))
+              e2(i,n+1) = e2(i,n) + (tem1 - tem2) * dz
+              zlup = zlup + dz
+              if(e2(i,n+1) < 0.) then
+                ptem = e2(i,n+1) / (e2(i,n+1) - e2(i,n))
+                zlup = zlup - ptem * dz
+                zlup = max(zlup, 0.)
+                mlenflg = .false.
+              endif
+            endif
+          enddo
+          zldn = 0.0
+          mlenflg = .true.
+          do n = k, 1, -1
+            if(mlenflg) then
+              if(n == 1) then
+                dz = zl(i,1)
+                tem = tsea(i)*(1.+fv*max(q1(i,1,1),qmin))
+                tem1 = 2.*gotvx(i,n)*(tem-thvx(i,k))
+                tem2 = ustar(i)*phims(i)/(vk*dz)
+                tem2 = cs0*sqrt(e2(i,n))*tem2
+                e2(i,n-1) = e2(i,n) + (tem1 - tem2) * dz
+              else
+                dz = zl(i,n) - zl(i,n-1)
+                tem1 = 2.*gotvx(i,n-1)*(thvx(i,n-1)-thvx(i,k))
+                tem2 = cs0*sqrt(e2(i,n))*sqrt(shr2(i,n-1))
+                e2(i,n-1) = e2(i,n) + (tem1 - tem2) * dz
+              endif
+              zldn = zldn + dz
+              if(e2(i,n-1) < 0.) then
+                ptem = e2(i,n-1) / (e2(i,n-1) - e2(i,n))
+                zldn = zldn - ptem * dz
+                zldn = max(zldn, 0.)
+                mlenflg = .false.
+              endif
+            endif
+          enddo
+          endif ! end-if of l2_diag_opt
 !
           tem = 0.5 * (zi(i,k+1)-zi(i,k))
           tem1 = min(tem, rlmnz(i,k))
 !
-          ptem2 = min(zlup,zldn)
+
+          ! kgao 08/29/23: add option to use L_up as L2 
+          ! zldn is strongly limited by the layer height for the near-surface levels
+          ! it is not physical to use limiter below because zk already considers this factor
+          if (use_lup_only) then
+             ptem2 = zlup
+          else
+             ptem2 = min(zlup,zldn)
+          endif
+
           rlam(i,k) = elmfac * ptem2
           rlam(i,k) = max(rlam(i,k), tem1)
           rlam(i,k) = min(rlam(i,k), rlmx)
 !
           ptem2 = sqrt(zlup*zldn)
+
           ele(i,k) = elefac * ptem2
           ele(i,k) = max(ele(i,k), tem1)
           ele(i,k) = min(ele(i,k), elmx)
@@ -970,8 +1088,35 @@
             ptem = 1. + 2.7 * zol(i)
             zk = tem / ptem
           endif 
-          elm(i,k) = zk*rlam(i,k)/(rlam(i,k)+zk)
-!
+
+          ! kgao 12/08/2023: introduce multiple l1 and l2 blending options
+          if (l1l2_blend_opt == 0) then
+            ! original as in HK19
+            elm(i,k) = zk*rlam(i,k)/(rlam(i,k)+zk)
+
+          else if ( l1l2_blend_opt == 1 ) then
+            ! HAFA method as in wang et al 2023 WaF; use zk as elm within surface layer
+            tem = 1.
+            if ( sfcflg(i) .and. hpbl(i) > 200.) then
+               tem1 = min(100., hpbl(i)*0.05)                        ! sfc layer height
+               if (zl(i,k) < tem1) then                              ! for layers below sfc layer
+                  tem = 0.
+               elseif ( zl(i,k) >= tem1 .and. zl(i,k) < 2*tem1) then ! transition layers 
+                  tem = (zl(i,k) - tem1) / tem1
+               endif
+            endif
+            elm(i,k) = 1. / ( 1./zk + tem * 1./rlam(i,k) )
+
+          else if (l1l2_blend_opt == 2) then
+            ! HAFB blending method
+            elm(i,k) = sqrt( 1.0/( 1.0/(zk**2)+1.0/(rlam(i,k)**2) ) )
+          endif
+
+          ! kgao 12/08/2023: use l1 as l at the lowest layer
+          if (use_l1_sfc) then 
+             if(k == 1) elm(i,k)=zk
+          endif
+
           dz = zi(i,k+1) - zi(i,k)
           tem = max(gdx(i),dz)
           elm(i,k) = min(elm(i,k), tem)
@@ -1368,8 +1513,8 @@ c
              ptem      = tcko(i,k) + tcko(i,k+1)
              f1(i,k)   = f1(i,k)+dtodsd*dsdzt -(ptem-tem)*ptem1
              f1(i,k+1) = t1(i,k+1)-dtodsu*dsdzt +(ptem-tem)*ptem2
-             ! kgao - t flux by updraft
-             flux_up(i,k) = 0.5*(ptem-tem)*xmf(i,k)
+             ! kgao - updraft mass flux
+             flux_up(i,k) = xmf(i,k) !0.5*(ptem-tem)*xmf(i,k)
 
              tem       = q1(i,k,1) + q1(i,k+1,1)
              ptem      = qcko(i,k,1) + qcko(i,k+1,1)
@@ -1390,8 +1535,8 @@ c
               tem       = t1(i,k) + t1(i,k+1)
               f1(i,k)   = f1(i,k) + (ptem - tem) * ptem1
               f1(i,k+1) = f1(i,k+1) - (ptem - tem) * ptem2
-              ! kgao - t flux by downdraft
-              flux_dn(i,k) = -0.5*(ptem-tem)*xmfd(i,k)
+              ! kgao - downdraft mass flux
+              flux_dn(i,k) = xmfd(i,k) !-0.5*(ptem-tem)*xmfd(i,k)
 
               tem       = q1(i,k,1) + q1(i,k+1,1)
               ptem      = qcdo(i,k,1) + qcdo(i,k+1,1)

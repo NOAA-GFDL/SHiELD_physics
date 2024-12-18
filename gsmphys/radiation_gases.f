@@ -119,7 +119,7 @@
       use physparam,         only : ico2flg, ictmflg, ioznflg, ivflip,  &
      &                              co2dat_file, co2gbl_file,           &
      &                              co2usr_file, co2cyc_file,           &
-     &                              kind_phys, kind_io4
+     &                              kind_phys, kind_io4, co2_scaling
       use funcphys,          only : fpkapx
       use physcons,          only : con_pi
       use ozne_def,          only : JMR => latsozc, LOZ => levozc,      &
@@ -385,13 +385,15 @@
             rewind NICO2CN
             read (NICO2CN, 25) iyr, cline, co2g1, co2g2
   25        format(i4,a94,f7.2,16x,f5.2)
-            co2_glb = co2g1 * 1.0e-6
+            co2_glb = co2g1 * 1.0e-6 * co2_scaling
 
             if ( ico2flg == 1 ) then
               if ( me == 0 ) then
                 print *,' - Using co2 global annual mean value from',   &
      &                  ' user provided data set:',co2usr_file
-                print *, iyr,cline(1:94),co2g1,'  GROWTH RATE =', co2g2
+                print *, iyr,cline(1:94),co2g1 * co2_scaling,           &
+     &                  ' scaled by ',co2_scaling,                      &
+     &                  '  GROWTH RATE =', co2g2
               endif
             elseif ( ico2flg == 2 ) then
               allocate ( co2vmr_sav(IMXCO2,JMXCO2,12) )
@@ -402,7 +404,8 @@
 
                 do j = 1, JMXCO2
                   do i = 1, IMXCO2
-                    co2vmr_sav(i,j,imo) = co2dat(i,j) * 1.0e-6
+                    co2vmr_sav(i,j,imo) = co2dat(i,j) * 1.0e-6          &
+     &                                  * co2_scaling
                   enddo
                 enddo
               enddo
@@ -410,7 +413,9 @@
               if ( me == 0 ) then
                 print *,' - Using co2 monthly 2-d data from user',      &
      &                ' provided data set:',co2usr_file
-                print *, iyr,cline(1:94),co2g1,'  GROWTH RATE =', co2g2
+                print *, iyr,cline(1:94),co2g1 * co2_scaling,           &
+     &                  ' scaled by ',co2_scaling,                      &
+     &                  '  GROWTH RATE =', co2g2
 
                 print *,' CHECK: Sample of selected months of CO2 data'
                 do imo = 1, 12, 3
@@ -482,7 +487,8 @@
 !check          print cform, co2dat
                 do j = 1, JMXCO2
                   do i = 1, IMXCO2
-                    co2cyc_sav(i,j,imo) = co2dat(i,j) * 1.0e-6
+                    co2cyc_sav(i,j,imo) = co2dat(i,j) * 1.0e-6          &
+     &                                  * co2_scaling
                   enddo
                 enddo
               enddo
@@ -699,14 +705,15 @@
               if ( ico2flg == 2 ) then
                 do j = 1, JMXCO2
                   do i = 1, IMXCO2
-                    co2vmr_sav(i,j,1:6)  = co2g1 * 1.0e-6
-                    co2vmr_sav(i,j,7:12) = co2g2 * 1.0e-6
+                    co2vmr_sav(i,j,1:6)  = co2g1 * 1.0e-6 * co2_scaling
+                    co2vmr_sav(i,j,7:12) = co2g2 * 1.0e-6 * co2_scaling
                   enddo
                 enddo
               endif
 
               if ( me == 0 ) print *,'   Co2 data for year',iyear,      &
-     &                               co2_glb
+     &                                co2_glb * co2_scaling,            &
+     &                               ' scaled by ', co2_scaling 
               exit Lab_dowhile1
             else
 !check        if ( me == 0 ) print *,'   Skip co2 data for year',i
@@ -789,10 +796,10 @@
           rate = 0.0
         endif
 
-        co2_glb = (co2g1 + rate) * 1.0e-6
+        co2_glb = (co2g1 * co2_scaling + rate) * 1.0e-6
         if ( me == 0 ) then
           print *,'   Global annual mean CO2 data for year',            &
-     &              iyear, co2_glb
+     &              iyear, co2_glb, 'scaled by ', co2_scaling 
         endif
 
         if ( ictmflg == -2 ) then     ! need to calc ic time annual mean first
@@ -812,7 +819,7 @@
 
               do j = 1, JMXCO2
                 do i = 1, IMXCO2
-                  co2ann(i,j) = co2ann(i,j) + co2dat(i,j)
+                  co2ann(i,j) = co2ann(i,j) + co2dat(i,j) * co2_scaling
                 enddo
               enddo
             enddo
@@ -853,7 +860,8 @@
 
               do j = 1, JMXCO2
                 do i = 1, IMXCO2
-                  co2vmr_sav(i,j,imo) = (co2dat(i,j) + rate) * 1.0e-6
+                  co2vmr_sav(i,j,imo) =                                 &
+     &                      (co2dat(i,j) * co2_scaling + rate) * 1.0e-6
                 enddo
               enddo
             enddo

@@ -552,7 +552,7 @@
      &          '  May 01 2007'
         print *, VTAGRAD                !print out version tag
         print *,' - Selected Control Flag settings: ICTMflg=',ictmflg,  &
-     &    ' ISOLar =',isolar, ' ICO2flg=',ico2flg,' IAERflg=',iaerflg,  &
+     &    ' ISOLar =',isolar, ' ICO2flg=',ico2flg,' CO2_scaling=',co2_scaling, ' IAERflg=',iaerflg,  &
      &    ' IALBflg=',ialbflg,' IEMSflg=',iemsflg,' ICLDflg=',icldflg,  &
      &    ' ICMPHYS=',icmphys,' IOZNflg=',ioznflg
         print *,' IVFLIP=',ivflip,' IOVRSW=',iovrsw,' IOVRLW=',iovrlw,  &
@@ -1627,7 +1627,7 @@
                          tracer1(:,1:lmk,Model%ntiw), &
                          tracer1(:,1:lmk,Model%ntsw), &
                          tracer1(:,1:lmk,Model%ntgl), qa, &
-                         Sfcprop%slmsk, Sfcprop%snowd, &
+                         Sfcprop%slmsk, &
                          tracer1(:,1:lmk,Model%ntclamt),&
                          im, lmk, lmp, clouds, cldsa, mtopa, mbota)    !  ---  outputs
           endif
