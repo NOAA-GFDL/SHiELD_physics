@@ -3077,6 +3077,60 @@ module FV3GFS_io_mod
          Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%co2(:,:)
       enddo
 
+      if (Model%do_diagnostic_radiation_with_scaled_co2) then
+         do n = 1,Model%n_diagnostic_radiation_calls
+            write (radiation_call,'(I1)') n
+            write (scaling,'(F6.2)') Model%diagnostic_radiation_co2_scale_factors(n)
+
+            index = index + 1
+            Diag_diag_manager_controlled(index)%axes = 3
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_' // radiation_call
+            Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation with ' // trim(adjustl(scaling)) // 'xCO2'
+            Diag_diag_manager_controlled(index)%unit = 'K/s'
+            Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+            Diag_diag_manager_controlled(index)%coarse_graining_method = MASS_WEIGHTED
+            allocate (Diag_diag_manager_controlled(index)%data(nblks))
+            do nb = 1,nblks
+               Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%htrlw_with_scaled_co2(n,:,:)
+            enddo
+
+            index = index + 1
+            Diag_diag_manager_controlled(index)%axes = 3
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_' // radiation_call
+            Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation with ' // trim(adjustl(scaling)) // 'xCO2'
+            Diag_diag_manager_controlled(index)%unit = 'K/s'
+            Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+            Diag_diag_manager_controlled(index)%coarse_graining_method = MASS_WEIGHTED
+            allocate (Diag_diag_manager_controlled(index)%data(nblks))
+            do nb = 1,nblks
+               Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%htrsw_with_scaled_co2(n,:,:)
+            enddo
+
+            index = index + 1
+            Diag_diag_manager_controlled(index)%axes = 3
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky_' // radiation_call
+            Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation assuming clear sky with ' // trim(adjustl(scaling)) // 'xCO2'
+            Diag_diag_manager_controlled(index)%unit = 'K/s'
+            Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+            Diag_diag_manager_controlled(index)%coarse_graining_method = MASS_WEIGHTED
+            allocate (Diag_diag_manager_controlled(index)%data(nblks))
+            do nb = 1,nblks
+               Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%lwhc_with_scaled_co2(n,:,:)
+            enddo
+
+            index = index + 1
+            Diag_diag_manager_controlled(index)%axes = 3
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky_' // radiation_call
+            Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation assuming clear sky with ' // trim(adjustl(scaling)) // 'xCO2'
+            Diag_diag_manager_controlled(index)%unit = 'K/s'
+            Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
+            Diag_diag_manager_controlled(index)%coarse_graining_method = MASS_WEIGHTED
+            allocate (Diag_diag_manager_controlled(index)%data(nblks))
+            do nb = 1,nblks
+               Diag_diag_manager_controlled(index)%data(nb)%var3 => IntDiag(nb)%swhc_with_scaled_co2(n,:,:)
+            enddo
+         enddo
+      endif
    endif
 
    index = index + 1
