@@ -3084,7 +3084,7 @@ module FV3GFS_io_mod
 
             index = index + 1
             Diag_diag_manager_controlled(index)%axes = 3
-            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_' // radiation_call
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_with_scaled_co2_' // radiation_call
             Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation with ' // trim(adjustl(scaling)) // 'xCO2'
             Diag_diag_manager_controlled(index)%unit = 'K/s'
             Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
@@ -3096,7 +3096,7 @@ module FV3GFS_io_mod
 
             index = index + 1
             Diag_diag_manager_controlled(index)%axes = 3
-            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_' // radiation_call
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_with_scaled_co2_' // radiation_call
             Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation with ' // trim(adjustl(scaling)) // 'xCO2'
             Diag_diag_manager_controlled(index)%unit = 'K/s'
             Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
@@ -3108,7 +3108,7 @@ module FV3GFS_io_mod
 
             index = index + 1
             Diag_diag_manager_controlled(index)%axes = 3
-            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky_' // radiation_call
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_longwave_heating_assuming_clear_sky_with_scaled_co2_' // radiation_call
             Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to longwave radiation assuming clear sky with ' // trim(adjustl(scaling)) // 'xCO2'
             Diag_diag_manager_controlled(index)%unit = 'K/s'
             Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
@@ -3120,7 +3120,7 @@ module FV3GFS_io_mod
 
             index = index + 1
             Diag_diag_manager_controlled(index)%axes = 3
-            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky_' // radiation_call
+            Diag_diag_manager_controlled(index)%name = 'tendency_of_air_temperature_due_to_shortwave_heating_assuming_clear_sky_with_scaled_co2_' // radiation_call
             Diag_diag_manager_controlled(index)%desc = 'temperature tendency due to shortwave radiation assuming clear sky with ' // trim(adjustl(scaling)) // 'xCO2'
             Diag_diag_manager_controlled(index)%unit = 'K/s'
             Diag_diag_manager_controlled(index)%mod_name = 'gfs_phys'
