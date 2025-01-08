@@ -4400,8 +4400,6 @@ module module_physics_driver
            do k = 1, levs
              Diag%htrlw_with_scaled_co2(n,:,k) = Radtend%htrlw_with_scaled_co2(n,:,k)
              Diag%htrsw_with_scaled_co2(n,:,k) = Radtend%htrsw_with_scaled_co2(n,:,k) * xmu(:)
-             Diag%lwhc_with_scaled_co2(n,:,k) = Radtend%lwhc_with_scaled_co2(n,:,k)
-             Diag%swhc_with_scaled_co2(n,:,k) = Radtend%swhc_with_scaled_co2(n,:,k) * xmu(:)
            enddo
         endif
      enddo
@@ -4423,8 +4421,6 @@ module module_physics_driver
      do n = 1, Model%n_diagnostic_radiation_calls
         Diag%htrlw_with_scaled_co2(n,:,:) = con_cp * Diag%htrlw_with_scaled_co2(n,:,:) / specific_heat(:,:)
         Diag%htrsw_with_scaled_co2(n,:,:) = con_cp * Diag%htrsw_with_scaled_co2(n,:,:) / specific_heat(:,:)
-        Diag%lwhc_with_scaled_co2(n,:,:) = con_cp * Diag%lwhc_with_scaled_co2(n,:,:) / specific_heat(:,:)
-        Diag%swhc_with_scaled_co2(n,:,:) = con_cp * Diag%swhc_with_scaled_co2(n,:,:) / specific_heat(:,:)
      enddo
   end subroutine update_multi_call_temperature_tendency_diagnostics
 

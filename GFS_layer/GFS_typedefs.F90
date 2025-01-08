@@ -1273,8 +1273,6 @@ module GFS_typedefs
 
     real (kind=kind_phys), pointer :: htrlw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky longwave radiative heating rate with scaled co2
     real (kind=kind_phys), pointer :: htrsw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky shortwave radiative heating rate with scaled co2
-    real (kind=kind_phys), pointer :: lwhc_with_scaled_co2(:,:,:) => null()     !< instantaneous 3d clear-sky longwave radiative heating rate with scaled co2
-    real (kind=kind_phys), pointer :: swhc_with_scaled_co2(:,:,:) => null()     !< instantaneous 3d clear-sky shortwave radiative heating rate with scaled co2
 
 #if defined (USE_COSP) || defined (COSP_OFFLINE)
     type (cosp_type)               :: cosp                      !< cosp output
@@ -4062,8 +4060,6 @@ end subroutine overrides_create
        if (Model%ldiag3d) then
           allocate (Diag%htrlw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
           allocate (Diag%htrsw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
-          allocate (Diag%lwhc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
-          allocate (Diag%swhc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
        endif
     endif
     !--- Physics
