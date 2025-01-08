@@ -4393,10 +4393,10 @@ module module_physics_driver
         Diag%dswsfc_with_scaled_co2(n,:) = Diag%dswsfc_with_scaled_co2(n,:) + adjsfcdsw * Model%dtf
 
         if (Model%ldiag3d) then
-           ! Save the 3d all-sky and clear-sky longwave and shortwave heating rates to
-           ! later expose them as diagnostics. Note we must be sure to adjust these at the 
-           ! end of the physics driver such that they are consistent with how they will be
-           ! felt when applied in the dynamical core.
+           ! Save the 3d all-sky longwave and shortwave heating rates to later expose them
+           ! as diagnostics. Note we must be sure to adjust these at the end of the physics
+           ! driver such that they are consistent with how they will be felt when applied
+           ! in the dynamical core.
            do k = 1, levs
              Diag%htrlw_with_scaled_co2(n,:,k) = Radtend%htrlw_with_scaled_co2(n,:,k)
              Diag%htrsw_with_scaled_co2(n,:,k) = Radtend%htrsw_with_scaled_co2(n,:,k) * xmu(:)
