@@ -100,7 +100,7 @@ module FV3GFS_io_mod
   !--- GFDL FMS restart containers
   character(len=32),    allocatable,         dimension(:)       :: oro_name2, sfc_name2, sfc_name3
   real(kind=kind_phys), allocatable, target, dimension(:,:,:)   :: oro_var2, sfc_var2, phy_var2
-  real(kind=kind_phys), allocatable, target, dimension(:,:)     :: ifsSST
+  real(kind=kind_phys), allocatable, target, dimension(:,:,:)   :: ifsSST
   real(kind=kind_phys), allocatable, target, dimension(:,:,:,:) :: sfc_var3, phy_var3
   !--- Noah MP restart containers
   real(kind=kind_phys), allocatable, target, dimension(:,:,:,:) :: sfc_var3sn,sfc_var3eq,sfc_var3zn
@@ -540,10 +540,6 @@ module FV3GFS_io_mod
       nvar_s3mp = 0        !mp 3D
     endif
 
-    if (Model%use_ifs_ini_sst) then
-      allocate(ifsSST(nx,ny))
-    endif
-
     if (.not. allocated(sfc_name2)) then
       !--- allocate the various containers needed for restarts
       allocate(sfc_name2(nvar_s2m+nvar_s2o+nvar_s2mp))
@@ -778,14 +774,6 @@ module FV3GFS_io_mod
 
     endif  ! end of if (read)
 
-    !--- register IFS SST
-    if (Model%use_ifs_ini_sst) then
-      var2_p => ifsSST
-      opt = .false.
-      call register_restart_field(ifsSST_restart, 'sst', var2_p, dim_names_2d, is_optional=opt)
-      nullify(var2_p)
-    endif
-
     !--- register the 2D fields
     do num = 1,nvar_s2m
       var2_p => sfc_var2(:,:,num)
@@ -877,6 +865,7 @@ module FV3GFS_io_mod
     logical :: opt
     character(len=8) :: dim_names_2d(3)
     real(kind=kind_phys), pointer, dimension(:,:) :: var2_p => NULL()
+    real(kind=kind_phys), pointer, dimension(:,:,:) :: var3_p => NULL()
 
     character(len=64) :: fname
     !--- local variables for sncovr calculation
@@ -1025,9 +1014,20 @@ module FV3GFS_io_mod
     endif
 
     if (Model%use_ifs_ini_sst) then
+      allocate(ifsSST(nx,ny,1))
       !--- Open the restart file and associate it with the ifsSST_restart fileobject
       fname='INPUT/'//trim(fn_ifsSST)
       if (open_file(ifsSST_restart, fname, "read", fv_domain, is_restart=.true., dont_add_res_to_filename=.true.)) then
+        call register_axis(ifsSST_restart, "lat", "y")
+        call register_axis(ifsSST_restart, "lon", "x")
+        call register_axis(ifsSST_restart, "time", dimension_length=1)
+        dim_names_2d(1) = "lat"
+        dim_names_2d(2) = "lon"
+        dim_names_2d(3) = "time"
+        var3_p => ifsSST
+        opt = .false.
+        call register_restart_field(ifsSST_restart, 'sst', var3_p, dim_names_2d, is_optional=opt)
+        nullify(var3_p)
         !--- read the IFS SST restart/data
         call mpp_error(NOTE,'reading ifs SST data from INPUT/ifsSST_data.tile*.nc')
         call read_restart(ifsSST_restart, ignore_checksum=enforce_rst_cksum)
@@ -1059,7 +1059,7 @@ module FV3GFS_io_mod
 !    ------------
            Sfcprop(nb)%slmsk(ix)  = sfc_var2(i,j,1)    !--- slmsk
            if (Model%use_ifs_ini_sst) then
-              Sfcprop(nb)%tsfco(ix)  = ifsSST(i,j)    !--- tsfc (sst in ifsSST file)
+              Sfcprop(nb)%tsfco(ix)  = ifsSST(i,j,1)    !--- tsfc (sst in ifsSST file)
            else
               Sfcprop(nb)%tsfco(ix)  = sfc_var2(i,j,2)    !--- tsfc (tsea in sfc file)
            endif

@@ -810,8 +810,8 @@ module module_physics_driver
 !GFDL        garea(i)   = tem1 * tem2
         tem1       = Grid%dx(i)
         tem2       = Grid%dx(i)
-        garea(i)   = Grid%area(i)
-        dlength(i) = sqrt( tem1*tem1+tem2*tem2 )
+        garea(i)   = Grid%area(i)*(Model%scale_awareness_factor**2.)
+        dlength(i) = sqrt( tem1*tem1+tem2*tem2 )*Model%scale_awareness_factor
         cldf(i)    = Model%cgwf(1)*work1(i) + Model%cgwf(2)*work2(i)
         wcbmax(i)  = Model%cs_parm(1)*work1(i) + Model%cs_parm(2)*work2(i)
       enddo
