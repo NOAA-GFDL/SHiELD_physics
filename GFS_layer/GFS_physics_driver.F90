@@ -4067,6 +4067,10 @@ module module_physics_driver
         call update_water_vapor_tendency_diagnostics(Diag%q_dt, Diag%q_dt_int, &
             dq3dt_initial, Diag%dq3dt, Statein%qgrs(:,:,1:nwat), Stateout%gq0(:,:,1:nwat), &
             final_dynamics_delp, im, levs, nwat, dtp)
+
+        if (Model%do_diagnostic_radiation_with_scaled_co2) then
+           call update_multi_call_temperature_tendency_diagnostics(Diag, Model, specific_heat, im, levs)
+        endif
       endif
 
       return
@@ -4347,7 +4351,7 @@ module module_physics_driver
      integer,                        intent(in)    :: ix, im, levs
      type(GFS_diag_type),            intent(inout) :: Diag
 
-     integer :: n
+     integer :: k, n
 
      ! Local variables that will get reused throughout the multi-call loop
      real(kind=kind_phys), dimension(im,levs) :: dtdt, dtdtc
@@ -4387,9 +4391,39 @@ module module_physics_driver
 
         Diag%uswsfc_with_scaled_co2(n,:) = Diag%uswsfc_with_scaled_co2(n,:) + (adjsfcdsw - adjsfcnsw) * Model%dtf
         Diag%dswsfc_with_scaled_co2(n,:) = Diag%dswsfc_with_scaled_co2(n,:) + adjsfcdsw * Model%dtf
-      enddo
+
+        if (Model%ldiag3d) then
+           ! Save the 3d all-sky longwave and shortwave heating rates to later expose them
+           ! as diagnostics. Note we must be sure to adjust these at the end of the physics
+           ! driver such that they are consistent with how they will be felt when applied
+           ! in the dynamical core.
+           do k = 1, levs
+             Diag%htrlw_with_scaled_co2(n,:,k) = Radtend%htrlw_with_scaled_co2(n,:,k)
+             Diag%htrsw_with_scaled_co2(n,:,k) = Radtend%htrsw_with_scaled_co2(n,:,k) * xmu(:)
+           enddo
+        endif
+     enddo
 
   end subroutine compute_diagnostics_with_scaled_co2
+
+  ! Scale the 3d temperature tendency for each radiation component with 
+  ! scaled co2 by cp / cvm if the dynamical core is non-hydrostatic or 
+  ! cp / cpm if the dynamical core is hydrostatic to account for how
+  ! the temperature tendency is adjusted within the dynamical core.
+  subroutine update_multi_call_temperature_tendency_diagnostics(Diag, Model, specific_heat, im, levs)
+     type(GFS_diag_type),            intent(inout) :: Diag
+     type(GFS_control_type),         intent(in)    :: Model
+     integer,                        intent(in)    :: im, levs
+     real(kind=kind_phys),           intent(in)    :: specific_heat(1:im,1:levs)
+
+     integer :: n
+
+     do n = 1, Model%n_diagnostic_radiation_calls
+        Diag%htrlw_with_scaled_co2(n,:,:) = con_cp * Diag%htrlw_with_scaled_co2(n,:,:) / specific_heat(:,:)
+        Diag%htrsw_with_scaled_co2(n,:,:) = con_cp * Diag%htrsw_with_scaled_co2(n,:,:) / specific_heat(:,:)
+     enddo
+  end subroutine update_multi_call_temperature_tendency_diagnostics
+
 !> @}
 
 end module module_physics_driver

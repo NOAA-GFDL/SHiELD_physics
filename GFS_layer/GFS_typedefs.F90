@@ -1273,6 +1273,9 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dswsfc_with_scaled_co2(:,:) => null()    !< interval-average sw dn at sfc with scaled carbon dioxide (w/m**2)
     real (kind=kind_phys), pointer :: uswsfc_with_scaled_co2(:,:) => null()    !< interval-average sw up at sfc with scaled carbon dioxide (w/m**2)
 
+    real (kind=kind_phys), pointer :: htrlw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky longwave radiative heating rate with scaled co2
+    real (kind=kind_phys), pointer :: htrsw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky shortwave radiative heating rate with scaled co2
+
 #if defined (USE_COSP) || defined (COSP_OFFLINE)
     type (cosp_type)               :: cosp                      !< cosp output
 #endif
@@ -4061,6 +4064,10 @@ end subroutine overrides_create
        allocate (Diag%ulwsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
        allocate (Diag%dswsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
        allocate (Diag%uswsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
+       if (Model%ldiag3d) then
+          allocate (Diag%htrlw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
+          allocate (Diag%htrsw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
+       endif
     endif
     !--- Physics
     !--- In/Out
@@ -4368,6 +4375,9 @@ end subroutine overrides_create
        Diag%ulwsfc_with_scaled_co2 = zero
        Diag%dswsfc_with_scaled_co2 = zero
        Diag%uswsfc_with_scaled_co2 = zero
+       ! Note the 3d radiation multi-call diagnostics are handled as
+       ! diagnostics manager controlled fields, so they do not need
+       ! to be manually zeroed, so we do not touch them here.
     endif
 
   end subroutine diag_rad_zero
