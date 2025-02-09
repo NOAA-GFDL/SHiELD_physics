@@ -3,7 +3,7 @@
 !...................................
 !  ---  inputs:
      &     ( im, ps, u1, v1, t1, q1, tskin, cm, ch,                     &
-     &       prsl1, prslki, islimsk, ddvel, flag_iter,                  &
+     &       prsl1, prslki, islimsk, ddvel, flag_iter, maxevap,         &
      &       shflx, lhflx, ! kgao: shflx and lhflx from coupler
 !  ---  outputs:
      &       qsurf, cmm, chh, gflux, evap, hflx, ep                     &
@@ -14,10 +14,11 @@
 !                                                                       !
 !  usage:                                                               !
 !                                                                       !
-!    call sfc_ocean                                                     !
+!    call sfc_ocean_coupled                                             !
 !       inputs:                                                         !
 !          ( im, ps, u1, v1, t1, q1, tskin, cm, ch,                     !
-!            prsl1, prslki, islimsk, ddvel, flag_iter,                  !
+!            prsl1, prslki, islimsk, ddvel, flag_iter, maxevap,         !
+!            shflx, lhflx,                                              !
 !       outputs:                                                        !
 !            qsurf, cmm, chh, gflux, evap, hflx, ep )                   !
 !                                                                       !
@@ -33,6 +34,7 @@
 !                  reformatted the code and added program documentation !
 !    sep  2009  -- s. moorthi removed rcl and made pa as pressure unit  !
 !                  and furthur reformatted the code                     !
+!    feb  2025  -- k. gao (gfdl) redesigned for coupled shield          !            
 !                                                                       !
 !                                                                       !
 !  ====================  defination of variables  ====================  !
@@ -80,7 +82,7 @@
       integer, intent(in) :: im
 
       real (kind=kind_phys), dimension(im), intent(in) :: ps, u1, v1,   &
-     &      t1, q1, tskin, cm, ch, prsl1, prslki, ddvel
+     &      t1, q1, tskin, cm, ch, prsl1, prslki, ddvel, maxevap
       integer, dimension(im), intent(in):: islimsk
 
       logical, intent(in) :: flag_iter(im)
@@ -130,23 +132,35 @@
           cmm(i)   = cm(i) * wind
           chh(i)   = rho * ch(i) * wind
 
-!  --- ...  sensible and latent heat flux over open water
+!  --- ...  sensible and latent heat flux over water points
+!           (redesigned by kun gao) 
 
-          !hflx(i)  = rch * (tskin(i) - t1(i) * prslki(i))
-          !evap(i)  = elocp*rch * (qss - q0)
-          qsurf(i) = qss
           tem      = 1.0 / rho
-          !hflx(i)  = hflx(i) * tem * cpinv
-          !evap(i)  = evap(i) * tem * hvapi
+          qsurf(i) = qss
 
-          !kgao: get hflx and evap from data provided by coupler
-          hflx(i)  = shflx(i) * tem * cpinv
-          evap(i)  = lhflx(i) * tem
+          if ( shflx(i) == -999 ) then
+            !if not over a dynamical ocean point
+            hflx(i)  = rch * (tskin(i) - t1(i) * prslki(i))
+            evap(i)  = elocp*rch * (qss - q0)
+            hflx(i)  = hflx(i) * tem * cpinv
+            evap(i)  = evap(i) * tem * hvapi
+            if (evap(i) .lt. -maxevap(i)) then
+               chh(i) = -maxevap(i)/evap(i)*chh(i)
+               hflx(i) = -maxevap(i)/evap(i)*hflx(i)
+               evap(i) = -maxevap(i)
+            endif
+
+          else
+            !if over dynamical ocean point, 
+            !get hflx and evap from data provided by coupler
+            hflx(i)  = shflx(i) * tem * cpinv
+            evap(i)  = lhflx(i) * tem
+          endif
 
         endif
       enddo
 !
       return
 !...................................
-      end subroutine !sfc_ocean
+      end subroutine sfc_ocean_coupled
 !-----------------------------------
