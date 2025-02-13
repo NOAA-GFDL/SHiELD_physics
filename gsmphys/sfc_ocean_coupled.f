@@ -138,8 +138,9 @@
           tem      = 1.0 / rho
           qsurf(i) = qss
 
-          if ( shflx(i) == -999 ) then
-            !if not over a dynamical ocean point
+          if ( shflx(i) .eq. -999 ) then
+            !if not over a dynamical ocean point,
+            !use similar procedure as in uncoupled SHiELD (sfc_ocean.f)
             hflx(i)  = rch * (tskin(i) - t1(i) * prslki(i))
             evap(i)  = elocp*rch * (qss - q0)
             hflx(i)  = hflx(i) * tem * cpinv

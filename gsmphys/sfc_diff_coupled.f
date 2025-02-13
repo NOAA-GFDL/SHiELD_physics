@@ -144,7 +144,7 @@
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), stress(i), ustar(i))
 
-          elseif (islimsk(i) == 0 .and. ocean_flag(i) .gt. 0 ) then
+          elseif (islimsk(i) == 0 .and. ocean_flag(i) .ne. -999 ) then
 
 !================================================ 
 ! this is a valid dynamical ocean point
@@ -170,7 +170,7 @@
             ! kgao: use ustar from coupler to get stress
             stress(i) =  ustar(i) * ustar(i)
 
-          elseif (islimsk(i) == 0 .and. ocean_flag (i) .le. 0) then
+          elseif (islimsk(i) == 0 .and. ocean_flag (i) .eq. -999) then
 
 !================================================ 
 ! this is a water point in SHiELD but not a 
