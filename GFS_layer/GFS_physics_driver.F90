@@ -1200,7 +1200,7 @@ module module_physics_driver
                  Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
                  wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
                  sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
-                 tsurf, flag_iter, Sfcprop%shflx)
+                 tsurf, flag_iter, Sfcprop%lhflx)
 
             else if (Model%sfc_gfdl) then
 ! a new and more flexible version of sfc_diff by kgao
