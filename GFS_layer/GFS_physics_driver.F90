@@ -1192,7 +1192,7 @@ module module_physics_driver
 
             if (Model%sfc_coupled) then
 ! a version of sfc_diff for coupling with MOM6 by kgao 
-! shflx is used as a flag to indicate if a grid point is a valid dynamical ocean point
+! lhflx is used as a flag to indicate if a grid point is a valid dynamical ocean point
             call sfc_diff_coupled(im, Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
                  Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
