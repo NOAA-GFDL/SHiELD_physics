@@ -4,10 +4,7 @@
      &                    stress,fm,fh,
      &                    ustar,wind,ddvel,fm10,fh2,
      &                    sigmaf,vegtype,shdmax,ivegsrc,
-     &                    tsurf,flag_iter) !,redrag,
-!     &                    z0s_max)
-!     &                    do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,
-!     &                    do_z0_hwrf17_hwonly, wind_th_hwrf)
+     &                    tsurf,flag_iter,ocean_flag)
 
       use machine , only : kind_phys
       use funcphys, only : fpvs    
@@ -26,7 +23,7 @@
      &,                                    prsl1, prslki, stress
      &,                                    fm, fh, ustar, wind, ddvel
      &,                                    fm10, fh2, sigmaf, shdmax
-     &,                                    tsurf, snwdph
+     &,                                    tsurf, snwdph, ocean_flag
       integer, dimension(im)             ::vegtype, islimsk
 
       logical   flag_iter(im)
@@ -147,14 +144,15 @@
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), stress(i), ustar(i))
 
-          elseif (islimsk(i) == 0) then
+          elseif (islimsk(i) == 0 .and. ocean_flag(i) .ne. -999 ) then
 
 !================================================ 
-! if over water 
-! - redesigned by Kun Gao for coupling with MOM6
-! - not updating z0, zt and ustar over ocean 
+! this is a valid dynamical ocean point
+! - designed by Kun Gao for coupling with MOM6
+! - use z0, zt and ustar directly from the coupler
+! - diagnose 2m and 10m var using SHiELD M-O 
 !================================================
-
+          
             ! --- z0/zt from coupler
             z0      = 0.01 * z0rl(i)
             zt      = 0.01 * ztrl(i)
@@ -171,6 +169,57 @@
 
             ! kgao: use ustar from coupler to get stress
             stress(i) =  ustar(i) * ustar(i)
+
+          elseif (islimsk(i) == 0 .and. ocean_flag (i) .eq. -999) then
+
+!================================================ 
+! this is a water point in SHiELD but not a 
+! valid dynamical ocean point; use similar 
+! procedure as in uncoupled SHiELD (sfc_diff_gfdl.f) 
+!
+!    iteration 1 
+!         step 1 get z0/zt from previous step
+!         step 2 call similarity
+!    iteration 2 
+!         step 1 update z0/zt 
+!         step 2 call similarity 
+!================================================
+
+! === iteration 1
+
+            ! --- get z0/zt
+            z0      = 0.01 * z0rl(i)
+            zt      = 0.01 * ztrl(i)
+
+            z0max   = max(1.0e-6, min(z0,z1(i)))
+            ztmax   = max(zt,1.0e-6)
+
+            ! --- call similarity
+            call monin_obukhov_similarity
+     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
+     &        cm(i), ch(i), stress(i), ustar(i))
+
+! === iteration 2
+
+            u10m = u1(i) * fm10(i) / fm(i)
+            v10m = v1(i) * fm10(i) / fm(i)
+            ws10m = sqrt(u10m*u10m + v10m*v10m)
+
+            call cal_z0_hwrf17(ws10m, z0)
+            call cal_zt_hwrf17(ws10m, zt)
+
+            z0max = max(z0,1.0e-6)
+            ztmax  = max(zt,1.0e-6)
+
+            ! --- call similarity
+            call monin_obukhov_similarity
+     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
+     &        cm(i), ch(i), stress(i), ustar(i))
+
+            z0rl(i) = 100.0 * z0max
+            ztrl(i) = 100.0 * ztmax
 
           endif       ! end of if(islimsk) loop
         endif         ! end of if(flagiter) loop
