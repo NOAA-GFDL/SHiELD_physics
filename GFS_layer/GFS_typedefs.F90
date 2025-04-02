@@ -661,7 +661,8 @@ module GFS_typedefs
     logical              :: shcnvcw         !< flag for shallow convective cloud
     logical              :: redrag          !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl        !< flag for using updated sfc layer scheme
-    logical              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupling
+    logical              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupled SHiELD 
+                                            !< will set to true by atmos_driver; this is not a namelist parameter
     real(kind=kind_phys) :: z0s_max         !< a limiting value for z0 under high winds
     logical              :: do_z0_moon      !< flag for using z0 scheme in Moon et al. 2007 (kgao)
     logical              :: do_z0_hwrf15    !< flag for using z0 scheme in 2015 HWRF (kgao)
@@ -1726,8 +1727,8 @@ module GFS_typedefs
     Sfcprop%uustar  = clear_val
     Sfcprop%oro     = clear_val
     Sfcprop%oro_uf  = clear_val
-    Sfcprop%shflx   = clear_val
-    Sfcprop%lhflx   = clear_val
+    Sfcprop%shflx   = -999 !clear_val
+    Sfcprop%lhflx   = -999 !clear_val
 
     if (Model%myj_pbl) then
        allocate (Sfcprop%QZ0  (IM))
@@ -2393,7 +2394,7 @@ end subroutine overrides_create
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl       = .false.                  !< flag for using new sfc layer scheme by kgao at GFDL
-    logical              :: sfc_coupled    = .false.                !< flag for using sfc layer scheme designed for coupling 
+    logical              :: sfc_coupled    = .false.                  !< flag for using sfc layer scheme designed for coupled SHiELD 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
     logical              :: do_z0_hwrf15   = .false.                  !< flag for using z0 scheme in 2015 HWRF
@@ -2647,7 +2648,7 @@ end subroutine overrides_create
                                ras, trans_trac, old_monin, cnvgwd, mstrat, moist_adj,       &
                                cscnv, cal_pre, do_aw, do_shoc, shocaftcnv, shoc_cld,        &
                                h2o_phys, pdfcld, shcnvcw, redrag, sfc_gfdl, z0s_max,        &
-                               sfc_coupled, do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,         &
+                               do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,                      &
                                do_z0_hwrf17_hwonly, wind_th_hwrf,                           &
                                hybedmf, dspheat, lheatstrg, hour_canopy, afac_canopy,       &
                                cnvcld, no_pbl, xkzm_lim, xkzm_fac, xkgdx,                   &
@@ -2888,7 +2889,6 @@ end subroutine overrides_create
     Model%shcnvcw          = shcnvcw
     Model%redrag           = redrag
     Model%sfc_gfdl         = sfc_gfdl
-    Model%sfc_coupled      = sfc_coupled
     Model%z0s_max          = z0s_max
     Model%do_z0_moon       = do_z0_moon
     Model%do_z0_hwrf15     = do_z0_hwrf15
@@ -3620,7 +3620,6 @@ end subroutine overrides_create
       print *, ' shcnvcw           : ', Model%shcnvcw
       print *, ' redrag            : ', Model%redrag
       print *, ' sfc_gfdl          : ', Model%sfc_gfdl
-      print *, ' sfc_coupled       : ', Model%sfc_coupled
       print *, ' z0s_max           : ', Model%z0s_max
       print *, ' do_z0_moon        : ', Model%do_z0_moon
       print *, ' do_z0_hwrf15      : ', Model%do_z0_hwrf15
