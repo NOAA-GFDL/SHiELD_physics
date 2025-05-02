@@ -17,7 +17,7 @@
 !      inputs:                                                          !
 !          ( solhr,slag,sdec,cdec,sinlat,coslat,                        !
 !            xlon,coszen,tsea,tf,tsflw,sfcemis,                         !
-!            sfcdsw,sfcnsw,sfcdlw,swh,swhc,hlw,hlwc,                    !
+!            sfcdsw,sfcnsw,sfcdlw,topfsw,swh,swhc,hlw,hlwc,             !
 !            sfcnirbmu,sfcnirdfu,sfcvisbmu,sfcvisdfu,                   !
 !            sfcnirbmd,sfcnirdfd,sfcvisbmd,sfcvisdfd,                   !
 !            ix, im, levs,                                              !
@@ -76,6 +76,7 @@
 !     sfcdsw (im)  - real, total sky sfc downward sw flux ( w/m**2 )    !
 !     sfcnsw (im)  - real, total sky sfc net sw into ground (w/m**2)    !
 !     sfcdlw (im)  - real, total sky sfc downward lw flux ( w/m**2 )    !
+!     topfsw (im)  - topfsw_type, derived type for toa up sw fluxes     !
 !     swh(ix,levs) - real, total sky sw heating rates ( k/s )           !
 !     swhc(ix,levs) - real, clear sky sw heating rates ( k/s )          !
 !     hlw(ix,levs) - real, total sky lw heating rates ( k/s )           !
@@ -110,6 +111,8 @@
 !     adjnirdfd(im)- real, t adj sfc nir-diff sw downward flux (w/m2)   !
 !     adjvisbmd(im)- real, t adj sfc uv+vis-beam sw dnward flux (w/m2)  !
 !     adjvisdfd(im)- real, t adj sfc uv+vis-diff sw dnward flux (w/m2)  !
+!     adjtoadsw(im)- real, time step adjusted toa dn sw flux (w/m**2)   !
+!     adjtoausw(im)- real, time step adjusted toa up sw flux (w/m**2)   !
 !     xmu   (im)   - real, time step zenith angle adjust factor for sw  !
 !     xcosz (im)   - real, cosine of zenith angle at current time step  !
 !                                                                       !
@@ -121,19 +124,21 @@
 !  ---  inputs:
      &     ( solhr,slag,sdec,cdec,sinlat,coslat,                        &
      &       xlon,coszen,tsea,tf,tsflw,sfcemis,                         &
-     &       sfcdsw,sfcnsw,sfcdlw,swh,swhc,hlw,hlwc,                    &
-     &       sfcnirbmu,sfcnirdfu,sfcvisbmu,sfcvisdfu,                   &
-     &       sfcnirbmd,sfcnirdfd,sfcvisbmd,sfcvisdfd,                   &
-     &       ix, im, levs, daily_mean,                                  &
+     &       sfcdsw,sfcnsw,sfcdlw,topfsw,swh,swhc,                      &
+     &       hlw,hlwc,sfcnirbmu,sfcnirdfu,sfcvisbmu,                    &
+     &       sfcvisdfu,sfcnirbmd,sfcnirdfd,sfcvisbmd,                   &
+     &       sfcvisdfd,ix,im,levs,daily_mean,                           &
 !  ---  input/output:
      &       dtdt,dtdtc,                                                &
 !  ---  outputs:
      &       adjsfcdsw,adjsfcnsw,adjsfcdlw,adjsfculw,xmu,xcosz,         &
      &       adjnirbmu,adjnirdfu,adjvisbmu,adjvisdfu,                   &
-     &       adjnirbmd,adjnirdfd,adjvisbmd,adjvisdfd                    &
+     &       adjnirbmd,adjnirdfd,adjvisbmd,adjvisdfd,                   &
+     &       adjtoadsw, adjtoausw
      &     )
 !
       use machine,         only : kind_phys
+      use module_radsw_parameters, only: topfsw_type
       use physcons,        only : con_pi, con_sbc
 
       implicit none
@@ -152,6 +157,7 @@
       real(kind=kind_phys), dimension(im), intent(in) ::                &
      &      sfcnirbmu, sfcnirdfu, sfcvisbmu, sfcvisdfu,                 &
      &      sfcnirbmd, sfcnirdfd, sfcvisbmd, sfcvisdfd
+      type(topfsw_type), dimension(im), intent(in) :: topfsw
 
       real(kind=kind_phys), dimension(ix,levs), intent(in) :: swh,  hlw
      &,                                                       swhc, hlwc&
@@ -166,7 +172,8 @@
       real(kind=kind_phys), dimension(im), intent(out) ::               &
      &      adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz,     &
      &      adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                 &
-     &      adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd
+     &      adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd,                 &
+     &      adjtoadsw, adjtoausw
 
 !  ---  locals:
       integer :: i, k
@@ -231,6 +238,9 @@
         adjnirdfd(i)  = sfcnirdfd(i) * xmu(i)
         adjvisbmd(i)  = sfcvisbmd(i) * xmu(i)
         adjvisdfd(i)  = sfcvisdfd(i) * xmu(i)
+
+        adjtoadsw(i)  = topfsw(i)%dnfxc * xmu(i)
+        adjtoausw(i)  = topfsw(i)%upfxc * xmu(i)
       enddo
 
 !  --- ...  adjust sw heating rates with zenith angle change and

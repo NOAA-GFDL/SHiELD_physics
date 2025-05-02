@@ -3564,6 +3564,60 @@ module FV3GFS_io_mod
 
     idx = idx + 1
     Diag(idx)%axes = 2
+    Diag(idx)%name = 'DSWRFtoa_adjusted'
+    Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted top of atmosphere downward shortwave flux'
+    Diag(idx)%unit = 'W/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%time_avg = .TRUE.
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswtoa(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'USWRFtoa_adjusted'
+    Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted top of atmosphere upward shortwave flux'
+    Diag(idx)%unit = 'W/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%time_avg = .TRUE.
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswtoa(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'DSWRFItoa_adjusted'
+    Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted top of atmosphere downward shortwave flux'
+    Diag(idx)%unit = 'W/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswtoai(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
+    Diag(idx)%name = 'USWRFItoa_adjusted'
+    Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted top of atmosphere upward shortwave flux'
+    Diag(idx)%unit = 'W/m**2'
+    Diag(idx)%mod_name = 'gfs_phys'
+    Diag(idx)%cnvfac = cn_one
+    Diag(idx)%intpl_method = 'bilinear'
+    allocate (Diag(idx)%data(nblks))
+    do nb = 1,nblks
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswtoai(:)
+    enddo
+
+    idx = idx + 1
+    Diag(idx)%axes = 2
     Diag(idx)%name = 'ULWRFtoa'
     Diag(idx)%desc = 'top of atmos upward longwave flux [W/m**2]'
     Diag(idx)%unit = 'W/m**2'
@@ -3625,6 +3679,60 @@ module FV3GFS_io_mod
          allocate (Diag(idx)%data(nblks))
          do nb = 1,nblks
            Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%ulwrftoa_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'DSWRFtoa_adjusted_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted top of atmosphere downward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%time_avg = .TRUE.
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswtoa_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'USWRFtoa_adjusted_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'Interval-averaged zenith-angle-adjusted top of atmosphere upward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%time_avg = .TRUE.
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswtoa_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'DSWRFItoa_adjusted_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted top of atmosphere downward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%dswtoai_with_scaled_co2(n,:)
+         enddo
+
+         idx = idx + 1
+         Diag(idx)%axes = 2
+         Diag(idx)%name = 'USWRFItoa_adjusted_with_scaled_co2_' // trim(xtra)
+         Diag(idx)%desc = 'Instantaneous zenith-angle-adjusted top of atmosphere upward shortwave flux with ' // trim(adjustl(scaling)) // 'xCO2'
+         Diag(idx)%unit = 'W/m**2'
+         Diag(idx)%mod_name = 'gfs_phys'
+         Diag(idx)%cnvfac = cn_one
+         Diag(idx)%intpl_method = 'bilinear'
+         allocate (Diag(idx)%data(nblks))
+         do nb = 1,nblks
+           Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%uswtoai_with_scaled_co2(n,:)
          enddo
        enddo
     endif
