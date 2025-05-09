@@ -2393,8 +2393,8 @@ end subroutine overrides_create
     logical              :: pdfcld         = .false.                  !< flag for pdfcld
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
-    logical              :: sfc_gfdl       = .true.                  !< flag for using new sfc layer scheme by kgao at GFDL
-    logical              :: sfc_coupled    = .false.                !< flag for using sfc layer scheme designed for coupling 
+    logical              :: sfc_gfdl       = .true.                   !< flag for using new sfc layer scheme by kgao at GFDL
+    logical              :: sfc_coupled    = .false.                  !< flag for using sfc layer scheme designed for coupling 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
     logical              :: do_z0_hwrf15   = .false.                  !< flag for using z0 scheme in 2015 HWRF
@@ -2867,6 +2867,10 @@ end subroutine overrides_create
     Model%shcnvcw          = shcnvcw
     Model%redrag           = redrag
     Model%sfc_gfdl         = sfc_gfdl
+    if (sfc_coupled) then
+      print*, "Setting sfc_coupled to .False., we use our own coupler!"
+      sfc_coupled = .False.
+    endif
     Model%sfc_coupled      = sfc_coupled
     Model%z0s_max          = z0s_max
     Model%do_z0_moon       = do_z0_moon
