@@ -1326,7 +1326,6 @@ module module_physics_driver
             Sfcprop%shflx, Sfcprop%lhflx,                               &
 !  ---  outputs:
              qss, Diag%cmm, Diag%chh, gflx, evap, hflx, ep1d)
-            endif
 
           else
           call sfc_ocean                                                &  
