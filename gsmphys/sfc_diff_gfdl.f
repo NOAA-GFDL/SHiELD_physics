@@ -22,7 +22,8 @@
      &                    tsurf,flag_iter,redrag,
      &                    z0s_max,
      &                    do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,
-     &                    do_z0_hwrf17_hwonly, wind_th_hwrf)
+     &                    do_z0_hwrf17_hwonly, wind_th_hwrf, 
+     &                    alpha_stable, alpha_unstable)
 
 ! oct 2019 - a clean and updated version by Kun Gao at GFDL (Kun.Gao@noaa.gov)
 
@@ -50,7 +51,7 @@
      &,                                    fm10, fh2, sigmaf, shdmax
      &,                                    tsurf, snwdph
      &,                                    fm_neutral, fm10_neutral     ! Sofar added Spring 2023
-      real(kind=kind_phys) :: ws1, ws10n                                ! Sofar added 10/19/23
+      real(kind=kind_phys) :: ws1, ws10n, alpha_stable, alpha_unstable  ! Sofar added 10/19/23
       integer, dimension(im)             ::vegtype, islimsk
 
       logical   flag_iter(im)
@@ -171,7 +172,9 @@
 ! --- call similarity
 
             call monin_obukhov_similarity
-     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max,
+     &        ztmax, tvs,
+     &        alpha_stable, alpha_unstable,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
@@ -202,7 +205,9 @@
 
             ! --- call similarity
             call monin_obukhov_similarity
-     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max,
+     &        ztmax, tvs,
+     &        alpha_stable, alpha_unstable,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
@@ -302,7 +307,9 @@
 
             ! --- call similarity
             call monin_obukhov_similarity
-     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max,
+     &        ztmax, tvs,
+     &        alpha_stable, alpha_unstable,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
      &        cm(i), ch(i), stress(i), ustar(i))
@@ -508,8 +515,9 @@
 ! =======================================================================
 
       subroutine monin_obukhov_similarity
-     &     ( z1, snwdph, thv1, wind, z0max, ztmax, tvs,
-     &       rb, fm, fh, fm10, fh2, 
+     &     ( ilsimask, z1, snwdph, thv1, wind, z0max, ztmax, tvs,
+     &       alpha_stable, alpha_unstable,
+     &       rb, fm, fh, fm10, fh2,
      &       fm_neutral, fm10_neutral,                                 !(ADDED by Sofar)
      &       cm, ch, stress, ustar)
 
@@ -536,7 +544,10 @@
 
 !  ---  inputs:
       real(kind=kind_phys), intent(in) :: 
-     &       z1, snwdph, thv1, wind, z0max, ztmax, tvs
+     &       z1, snwdph, thv1, wind, z0max, ztmax, tvs, alpha_stable,
+     &       alpha_unstable
+
+      integer, intent(in) :: ilsimask
 
 !  ---  outputs:
       real(kind=kind_phys), intent(out) ::
@@ -547,7 +558,8 @@
 !  ---  locals:
 
       real(kind=kind_phys), parameter :: alpha=5., a0=-3.975
-     &,             a1=12.32, alpha4=4.0*alpha
+     &,             a1=12.32, alpha4_nonocean=4.0*alpha 
+     &,             alpha4_ocean = 4.*alpha_stable
      &,             b1=-7.755,  b2=6.041,  alpha2=alpha+alpha, beta=1.0
      &,             a0p=-7.941, a1p=24.75, b1p=-8.705, b2p=7.899
      &,             ztmin1=-999.0, ca=.4
@@ -557,9 +569,15 @@
      &                     z1i,
      &                     fms,    fhs,    hl0,    hl0inf, hlinf,
      &                     hl110,  hlt,    hltinf, olinf,
-     &                     tem1,   tem2,   ztmax1
+     &                     tem1,   tem2,   ztmax1, alpha4
 
           z1i = 1.0 / z1
+
+          if (ilsimask == 0) then
+            alpha4 = alpha4_ocean
+          else
+            alpha4 = alpha4_nonocean
+          end if
 
           tem1   = z0max/z1
           if (abs(1.0-tem1) > 1.0e-6) then
@@ -642,32 +660,49 @@
 !
 !  get pm and ph
 !
+          
             if (hlinf >= -0.5) then
               hl1   = hlinf
-              pm    = (a0  + a1*hl1)  * hl1   / (1.+ (b1+b2*hl1)  *hl1)
-              ph    = (a0p + a1p*hl1) * hl1   / (1.+ (b1p+b2p*hl1)*hl1)
               hl110 = hl1 * 10. * z1i
               hl110 = min(max(hl110, ztmin1), ztmax1)
-              pm10  = (a0 + a1*hl110) * hl110 / (1.+(b1+b2*hl110)*hl110)
+              if (ilsimask == 0) then
+                call get_psim_unstable(hlinf, z1i, z0max,
+     &                                 alpha_unstable, pm)
+                call get_psim_unstable(hl110, 1./10., z0max,
+     &                                 alpha_unstable, pm10)  
+              else
+                pm = (a0  + a1*hl1)  * hl1   / (1.+ (b1+b2*hl1)  *hl1)
+                pm10  = (a0 + a1*hl110) * hl110 / 
+     &                  (1.+(b1+b2*hl110)*hl110)
+              endif
+              ph    = (a0p + a1p*hl1) * hl1   / (1.+ (b1p+b2p*hl1)*hl1)
               hl12  = (hl1+hl1) * z1i
               hl12  = min(max(hl12, ztmin1), ztmax1)
               ph2   = (a0p + a1p*hl12) * hl12 / (1.+(b1p+b2p*hl12)*hl12)
             else                       ! hlinf < 0.05
               hl1   = -hlinf
+              hl110 = hl1 * 10. * z1i
+              hl110 = min(max(hl110, ztmin1), ztmax1)
               tem1  = 1.0 / sqrt(hl1)
-              pm    = log(hl1) + 2. * sqrt(tem1) - .8776
+              if (ilsimask == 0) then
+                call get_psim_unstable(hlinf, z1i, z0max,
+     &                                 alpha_unstable, pm)
+                call get_psim_unstable(-hl110, 1./10., z0max,
+     &                                 alpha_unstable, pm10)
+              else
+                pm = log(hl1) + 2. * sqrt(tem1) - .8776
+                pm10 = log(hl110) + 2.0 / sqrt(sqrt(hl110)) - .8776
+              endif
               ph    = log(hl1) + .5 * tem1 + 1.386
 !             pm    = log(hl1) + 2.0 * hl1 ** (-.25) - .8776
 !             ph    = log(hl1) + 0.5 * hl1 ** (-.5) + 1.386
-              hl110 = hl1 * 10. * z1i
-              hl110 = min(max(hl110, ztmin1), ztmax1)
-              pm10  = log(hl110) + 2.0 / sqrt(sqrt(hl110)) - .8776
 !             pm10  = log(hl110) + 2. * hl110 ** (-.25) - .8776
               hl12  = (hl1+hl1) * z1i
               hl12  = min(max(hl12, ztmin1), ztmax1)
               ph2   = log(hl12) + 0.5 / sqrt(hl12) + 1.386
 !             ph2   = log(hl12) + .5 * hl12 ** (-.5) + 1.386
             endif
+            
 
           endif          ! end of if (dtv >= 0 ) then loop
 !
@@ -687,3 +722,18 @@
 
       return
       end subroutine monin_obukhov_similarity
+
+      subroutine get_psim_unstable(zeta, z1i, z0, alpha, psi_m)
+        use machine , only : kind_phys
+        implicit none
+        real(kind=kind_phys),intent(in) :: zeta, z1i, z0, alpha
+        real(kind=kind_phys),intent(out) :: psi_m
+        real(kind=kind_phys) :: tem1, zeta0, Rz, R0
+        tem1   = zeta * z1i
+        zeta0 = z0 * tem1
+        Rz = (1. - alpha * zeta)**0.25
+        R0 = (1. - alpha * zeta0)**0.25
+        psi_m = log((1. + Rz)**2. * (1. + Rz**2.) / ((1. + R0)**2.
+     &  *(1. + R0**2.))) + 2. * np.arctan(R0) - 2. * np.arctan(Rz)
+        return
+      end subroutine

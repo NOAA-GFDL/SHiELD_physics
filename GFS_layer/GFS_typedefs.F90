@@ -680,6 +680,8 @@ module GFS_typedefs
     logical              :: do_z0_hwrf17    !< flag for using z0 scheme in 2017 HWRF (kgao)
     logical              :: do_z0_hwrf17_hwonly !< flag for using z0 scheme in 2017 HWRF only under high wind (kgao)
     real(kind=kind_phys) :: wind_th_hwrf    !< wind speed threshold when z0 level off as in HWRF (kgao)
+    real(kind=kind_phys) :: alpha_stable    !< description TBD
+    real(kind=kind_phys) :: alpha_unstable  !< description TBD
     logical              :: hybedmf         !< flag for hybrid edmf pbl scheme
     logical              :: myj_pbl         !< flag for NAM MYJ tke scheme
     logical              :: ysupbl          !< flag for ysu pbl scheme (version in WRFV3.8)
@@ -2401,6 +2403,8 @@ end subroutine overrides_create
     logical              :: do_z0_hwrf17   = .false.                  !< flag for using z0 scheme in 2017 HWRF
     logical              :: do_z0_hwrf17_hwonly = .false.             !< flag for using z0 scheme in 2017 HWRF only under high wind
     real(kind=kind_phys) :: wind_th_hwrf   = 33.                      !< wind speed threshold when z0 level off as in HWRF
+    real(kind=kind_phys) :: alpha_stable   = 5.                       !< TBD
+    real(kind=kind_phys) :: alpha_unstable = 16.                      !< TBD
     logical              :: hybedmf        = .false.                  !< flag for hybrid edmf pbl scheme
     logical              :: myj_pbl        = .false.                  !< flag for NAM MYJ tke-based scheme
     logical              :: ysupbl         = .false.                  !< flag for hybrid edmf pbl scheme
@@ -2878,6 +2882,8 @@ end subroutine overrides_create
     Model%do_z0_hwrf17     = do_z0_hwrf17
     Model%do_z0_hwrf17_hwonly = do_z0_hwrf17_hwonly
     Model%wind_th_hwrf     = wind_th_hwrf
+    Model%alpha_stable     = alpha_stable
+    Model%alpha_unstable   = alpha_unstable
     Model%hybedmf          = hybedmf
     Model%myj_pbl          = myj_pbl
     Model%ysupbl           = ysupbl
@@ -3585,6 +3591,8 @@ end subroutine overrides_create
       print *, ' do_z0_hwrf17      : ', Model%do_z0_hwrf17
       print *, ' do_z0_hwrf17_hwonly : ', Model%do_z0_hwrf17_hwonly
       print *, ' wind_th_hwrf      : ', Model%wind_th_hwrf
+      print *, ' alpha_stable      : ', Model%alpha_stable
+      print *, ' alpha_unstable    : ', Model%alpha_unstable
       print *, ' hybedmf           : ', Model%hybedmf
       print *, ' myj_pbl           : ', Model%myj_pbl
       print *, ' ysupbl            : ', Model%ysupbl

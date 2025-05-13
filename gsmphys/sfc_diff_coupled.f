@@ -4,7 +4,8 @@
      &                    stress,fm,fh,
      &                    ustar,wind,ddvel,fm10,fh2,
      &                    sigmaf,vegtype,shdmax,ivegsrc,
-     &                    tsurf,flag_iter) !,redrag,
+     &                    tsurf,flag_iter, alpha_stable, alpha_unstable) 
+!                         ,redrag,
 !     &                    z0s_max)
 !     &                    do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,
 !     &                    do_z0_hwrf17_hwonly, wind_th_hwrf)
@@ -26,7 +27,9 @@
      &,                                    prsl1, prslki, stress
      &,                                    fm, fh, ustar, wind, ddvel
      &,                                    fm10, fh2, sigmaf, shdmax
-     &,                                    tsurf, snwdph
+     &,                                    tsurf, snwdph, alpha_stable 
+     &,                                    alpha_unstable
+
       integer, dimension(im)             ::vegtype, islimsk
 
       logical   flag_iter(im)
@@ -143,7 +146,9 @@
 ! --- call similarity
 
             call monin_obukhov_similarity
-     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max, 
+     &        ztmax, tvs,
+     &        alpha_stable, alpha_unstable,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), stress(i), ustar(i))
 
@@ -165,7 +170,9 @@
             ! --- call similarity
             ! kgao: use z0/zt to do sfc diagnosis
             call monin_obukhov_similarity
-     &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
+     &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max, 
+     &        ztmax, tvs,
+     &        alpha_stable, alpha_unstable,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), tem1, tem2) !stress(i), ustar(i))
 
