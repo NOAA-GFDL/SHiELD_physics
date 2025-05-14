@@ -4,7 +4,8 @@
      &                    stress,fm,fh,
      &                    ustar,wind,ddvel,fm10,fh2,
      &                    sigmaf,vegtype,shdmax,ivegsrc,
-     &                    tsurf,flag_iter, alpha_stable, alpha_unstable) 
+     &                    tsurf,flag_iter, alpha_stable, alpha_unstable,
+     &                    tune_ocean_surface_layer) 
 !                         ,redrag,
 !     &                    z0s_max)
 !     &                    do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,
@@ -32,7 +33,7 @@
 
       integer, dimension(im)             ::vegtype, islimsk
 
-      logical   flag_iter(im)
+      logical   flag_iter(im), tune_ocean_surface_layer
 !      logical   redrag        
 !      logical   do_z0_moon, do_z0_hwrf15, do_z0_hwrf17 ! kgao 
 !     &,         do_z0_hwrf17_hwonly                    ! kgao 
@@ -148,7 +149,7 @@
             call monin_obukhov_similarity
      &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max, 
      &        ztmax, tvs,
-     &        alpha_stable, alpha_unstable,
+     &        alpha_stable, alpha_unstable, tune_ocean_surface_layer,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), stress(i), ustar(i))
 
@@ -172,7 +173,7 @@
             call monin_obukhov_similarity
      &       (islimsk(i), z1(i), snwdph(i), thv1, wind(i), z0max, 
      &        ztmax, tvs,
-     &        alpha_stable, alpha_unstable,
+     &        alpha_stable, alpha_unstable, tune_ocean_surface_layer,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        cm(i), ch(i), tem1, tem2) !stress(i), ustar(i))
 
