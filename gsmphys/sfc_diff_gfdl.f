@@ -22,7 +22,7 @@
      &                    tsurf,flag_iter,redrag,
      &                    z0s_max,
      &                    do_z0_moon, do_z0_hwrf15, do_z0_hwrf17,
-     &                    do_z0_hwrf17_hwonly, wind_th_hwrf)
+     &                    do_z0_hwrf17_hwonly, wind_th_hwrf, zol)
 
 ! oct 2019 - a clean and updated version by Kun Gao at GFDL (Kun.Gao@noaa.gov)
 
@@ -49,8 +49,9 @@
      &,                                    ddvel
      &,                                    fm10, fh2, sigmaf, shdmax
      &,                                    tsurf, snwdph
-     &,                                    fm_neutral, fm10_neutral     ! Sofar added Spring 2023
-      real(kind=kind_phys) :: ws1, ws10n                                ! Sofar added 10/19/23
+     &,                                    fm_neutral, fm10_neutral,   
+     &                                     zol
+      real(kind=kind_phys) :: ws1, ws10n                               
       integer, dimension(im)             ::vegtype, islimsk
 
       logical   flag_iter(im)
@@ -174,7 +175,7 @@
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
-     &        cm(i), ch(i), stress(i), ustar(i))
+     &        cm(i), ch(i), stress(i), ustar(i), zol(i))
 
           elseif (islimsk(i) == 0) then ! over water
 
@@ -205,7 +206,7 @@
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
-     &        cm(i), ch(i), stress(i), ustar(i))
+     &        cm(i), ch(i), stress(i), ustar(i), zol(i))
 
 ! === iteration 2
 
@@ -305,7 +306,7 @@
      &       (z1(i), snwdph(i), thv1, wind(i), z0max, ztmax, tvs,
      &        rb(i), fm(i), fh(i), fm10(i), fh2(i),
      &        fm_neutral(i), fm10_neutral(i),                          !(ADDED by Sofar)
-     &        cm(i), ch(i), stress(i), ustar(i))
+     &        cm(i), ch(i), stress(i), ustar(i), zol(i))
 
             z0rl(i) = 100.0 * z0max
             ztrl(i) = 100.0 * ztmax
@@ -511,7 +512,7 @@
      &     ( z1, snwdph, thv1, wind, z0max, ztmax, tvs,
      &       rb, fm, fh, fm10, fh2, 
      &       fm_neutral, fm10_neutral,                                 !(ADDED by Sofar)
-     &       cm, ch, stress, ustar)
+     &       cm, ch, stress, ustar, zol)
 
 ! --- input 
 ! z1     - lowest model level height 
@@ -530,6 +531,7 @@
 ! cm, ch    - surface exchange coefficients for momentum and heat
 ! stress    - surface wind stress
 ! ustar     - surface frictional velocity 
+! zol       - dimensionless stability
 
       use machine , only : kind_phys
       use physcons, grav => con_g
@@ -585,6 +587,7 @@
           fh2     = log((ztmax+2.)  * tem2)
           hlinf   = rb * fm * fm / fh
           hlinf   = min(max(hlinf,ztmin1),ztmax1)
+          zol     = hlinf
 
           fm_neutral = fm                                              !(ADDED by Sofar)
           fm10_neutral = fm10                                          !(ADDED by Sofar)

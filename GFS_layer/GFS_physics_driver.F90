@@ -1202,7 +1202,7 @@ module module_physics_driver
                  Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
                  wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
                  sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
-                 tsurf, flag_iter) !, Model%redrag, Model%z0s_max,     &
+                 tsurf, flag_iter, Diag%zol) !, Model%redrag, Model%z0s_max,     &
                  !Model%do_z0_moon, Model%do_z0_hwrf15,              &
                  !Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
                  !Model%wind_th_hwrf)
@@ -1225,7 +1225,7 @@ module module_physics_driver
                  tsurf, flag_iter, Model%redrag, Model%z0s_max,     &
                  Model%do_z0_moon, Model%do_z0_hwrf15,              &
                  Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
-                 Model%wind_th_hwrf)
+                 Model%wind_th_hwrf, Diag%zol)
             else
 ! GFS original sfc_diff modified by kgao 
             call sfc_diff (im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
@@ -1239,8 +1239,9 @@ module module_physics_driver
                  Model%z0s_max,     &
                  Model%do_z0_moon, Model%do_z0_hwrf15,              &
                  Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
-                 Model%wind_th_hwrf)
+                 Model%wind_th_hwrf, Diag%zol)
             endif
+            Diag%rb = rb
          !endif
 
          !endif
