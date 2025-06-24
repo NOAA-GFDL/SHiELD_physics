@@ -1273,6 +1273,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: ulwsfc_with_scaled_co2(:,:) => null()    !< interval-average lw up at sfc with scaled carbon dioxide (w/m**2)
     real (kind=kind_phys), pointer :: dswsfc_with_scaled_co2(:,:) => null()    !< interval-average sw dn at sfc with scaled carbon dioxide (w/m**2)
     real (kind=kind_phys), pointer :: uswsfc_with_scaled_co2(:,:) => null()    !< interval-average sw up at sfc with scaled carbon dioxide (w/m**2)
+    real (kind=kind_phys), pointer :: dswtoa_with_scaled_co2(:,:) => null()    !< interval-average sw dn at toa with scaled carbon dioxide (w/m**2)
+    real (kind=kind_phys), pointer :: uswtoa_with_scaled_co2(:,:) => null()    !< interval-average sw up at toa with scaled carbon dioxide (w/m**2)
+    real (kind=kind_phys), pointer :: dswtoai_with_scaled_co2(:,:) => null()    !< instantaneous sw dn at toa with scaled carbon dioxide (w/m**2)
+    real (kind=kind_phys), pointer :: uswtoai_with_scaled_co2(:,:) => null()    !< instantaneous sw up at toa with scaled carbon dioxide (w/m**2)
 
     real (kind=kind_phys), pointer :: htrlw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky longwave radiative heating rate with scaled co2
     real (kind=kind_phys), pointer :: htrsw_with_scaled_co2(:,:,:) => null()    !< instantaneous 3d all-sky shortwave radiative heating rate with scaled co2
@@ -1306,6 +1310,10 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dlwsfc_override (:) => null()   !< time accumulated sfc dn lw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: dswsfc_override (:) => null()   !< time accumulated sfc dn sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
     real (kind=kind_phys), pointer :: uswsfc_override (:) => null()   !< time accumulated sfc up sw flux ( w/m**2 ) when gfs_physics_nml.override_surface_radiative_fluxes == .true.
+    real (kind=kind_phys), pointer :: dswtoa (:)    => null()   !< time accumulated toa dn sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: uswtoa (:)    => null()   !< time accumulated toa up sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: dswtoai (:)    => null()   !< instantaneous toa dn sw flux ( w/m**2 )
+    real (kind=kind_phys), pointer :: uswtoai (:)    => null()   !< instantaneous toa up sw flux ( w/m**2 )
     real (kind=kind_phys), pointer :: suntim (:)    => null()   !< sunshine duration time (s)
     real (kind=kind_phys), pointer :: runoff (:)    => null()   !< total water runoff
     real (kind=kind_phys), pointer :: ep     (:)    => null()   !< potential evaporation
@@ -4063,6 +4071,10 @@ end subroutine overrides_create
        allocate (Diag%ulwsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
        allocate (Diag%dswsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
        allocate (Diag%uswsfc_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
+       allocate (Diag%dswtoa_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
+       allocate (Diag%uswtoa_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
+       allocate (Diag%dswtoai_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
+       allocate (Diag%uswtoai_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM))
        if (Model%ldiag3d) then
           allocate (Diag%htrlw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
           allocate (Diag%htrsw_with_scaled_co2 (Model%n_diagnostic_radiation_calls,IM,Model%levs))
@@ -4099,6 +4111,10 @@ end subroutine overrides_create
     endif
     allocate (Diag%ulwsfc  (IM))
     allocate (Diag%uswsfc  (IM))
+    allocate (Diag%dswtoa  (IM))
+    allocate (Diag%uswtoa  (IM))
+    allocate (Diag%dswtoai  (IM))
+    allocate (Diag%uswtoai  (IM))
     if (Model%override_surface_radiative_fluxes) then
       allocate (Diag%dlwsfc_override(IM))
       allocate (Diag%dswsfc_override(IM))
@@ -4374,6 +4390,10 @@ end subroutine overrides_create
        Diag%ulwsfc_with_scaled_co2 = zero
        Diag%dswsfc_with_scaled_co2 = zero
        Diag%uswsfc_with_scaled_co2 = zero
+       Diag%dswtoa_with_scaled_co2 = zero
+       Diag%uswtoa_with_scaled_co2 = zero
+       Diag%dswtoai_with_scaled_co2 = zero
+       Diag%uswtoai_with_scaled_co2 = zero
        ! Note the 3d radiation multi-call diagnostics are handled as
        ! diagnostics manager controlled fields, so they do not need
        ! to be manually zeroed, so we do not touch them here.
@@ -4415,6 +4435,10 @@ end subroutine overrides_create
     Diag%tclim_iano    = zero
     Diag%ulwsfc  = zero
     Diag%uswsfc  = zero
+    Diag%dswtoa  = zero
+    Diag%uswtoa  = zero
+    Diag%dswtoai = zero
+    Diag%uswtoai = zero
     Diag%suntim  = zero
     Diag%runoff  = zero
     Diag%ep      = zero
