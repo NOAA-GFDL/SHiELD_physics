@@ -376,6 +376,18 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: sfcdlw_with_scaled_co2(:,:)      => null()   !< total sky sfc downward lw flux with scaled carbon dioxide ( w/m**2 )
                                                                  !< GFS_radtend_type%sfclsw%dnfxc
 
+    !--- Surface radiative fluxes adjusted to physics time step (kun gao)
+    real (kind=kind_phys), pointer :: nirbmda(:)    => null()  !< sfc nir beam sw downward flux (w/m2)
+    real (kind=kind_phys), pointer :: nirdfda(:)    => null()  !< sfc nir diff sw downward flux (w/m2)
+    real (kind=kind_phys), pointer :: visbmda(:)    => null()  !< sfc uv+vis beam sw downward flux (w/m2)
+    real (kind=kind_phys), pointer :: visdfda(:)    => null()  !< sfc uv+vis diff sw downward flux (w/m2)
+    real (kind=kind_phys), pointer :: nirbmua(:)    => null()  !< sfc nir beam sw upward flux (w/m2)
+    real (kind=kind_phys), pointer :: nirdfua(:)    => null()  !< sfc nir diff sw upward flux (w/m2)
+    real (kind=kind_phys), pointer :: visbmua(:)    => null()  !< sfc uv+vis beam sw upward flux (w/m2)
+    real (kind=kind_phys), pointer :: visdfua(:)    => null()  !< sfc uv+vis diff sw upward flux (w/m2)
+    real (kind=kind_phys), pointer :: coszena(:)    => null()  !< cos of zenith angle
+    real (kind=kind_phys), pointer :: sfcdlwa(:)    => null()  !< sfc lw downward flux (w/m2)
+
     !--- incoming quantities
     real (kind=kind_phys), pointer :: dusfcin_cpl(:) => null()   !< aoi_fld%dusfcin(item,lan)
     real (kind=kind_phys), pointer :: dvsfcin_cpl(:) => null()   !< aoi_fld%dvsfcin(item,lan)
@@ -1970,6 +1982,28 @@ module GFS_typedefs
     Coupling%sfcdsw    = clear_val
     Coupling%sfcnsw    = clear_val
     Coupling%sfcdlw    = clear_val
+
+    allocate (Coupling%nirbmda  (IM))
+    allocate (Coupling%nirdfda  (IM))
+    allocate (Coupling%visbmda  (IM))
+    allocate (Coupling%visdfda  (IM))
+    allocate (Coupling%nirbmua  (IM))
+    allocate (Coupling%nirdfua  (IM))
+    allocate (Coupling%visbmua  (IM))
+    allocate (Coupling%visdfua  (IM))
+    allocate (Coupling%coszena  (IM))
+    allocate (Coupling%sfcdlwa  (IM))
+
+    Coupling%nirbmda = clear_val
+    Coupling%nirdfda = clear_val
+    Coupling%visbmda = clear_val
+    Coupling%visdfda = clear_val
+    Coupling%nirbmua = clear_val
+    Coupling%nirdfua = clear_val
+    Coupling%visbmua = clear_val
+    Coupling%visdfua = clear_val
+    Coupling%coszena = clear_val
+    Coupling%sfcdlwa = clear_val
 
     if (Model%do_diagnostic_radiation_with_scaled_co2) then
        allocate (Coupling%nirbmdi_with_scaled_co2  (Model%n_diagnostic_radiation_calls,IM))
