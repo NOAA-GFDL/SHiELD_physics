@@ -890,6 +890,18 @@ module module_physics_driver
              adjtoadsw, adjtoausw                                           &
            )
 
+        ! Surface radiative fluxes adjusted to the current physics time step
+        Coupling%nirbmda(:) = adjnirbmd(:)
+        Coupling%nirdfda(:) = adjnirdfd(:)
+        Coupling%visbmda(:) = adjvisbmd(:)
+        Coupling%visdfda(:) = adjvisdfd(:)
+        Coupling%nirbmua(:) = adjnirbmu(:)
+        Coupling%nirdfua(:) = adjnirdfu(:)
+        Coupling%visbmua(:) = adjvisbmu(:)
+        Coupling%visdfua(:) = adjvisdfu(:)
+        Coupling%coszena(:) = xcosz(:)
+        Coupling%sfcdlwa(:) = adjsfcdlw(:)
+
         if (Model%do_diagnostic_radiation_with_scaled_co2) then
            call compute_diagnostics_with_scaled_co2(                        &
               Model, Statein, Sfcprop, Coupling, Grid, Radtend, ix, im,     &
