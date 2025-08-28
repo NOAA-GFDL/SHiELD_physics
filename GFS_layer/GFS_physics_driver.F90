@@ -563,6 +563,10 @@ module module_physics_driver
       logical, dimension(size(Grid%xlon,1),1) ::  & ! for myj
            flag_iter1
 
+! Elements of the tridiag matrix for the _down _up sweep
+      real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
+      real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
+      real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
       !--- ALLOCATABLE ELEMENTS
       !--- in clw, the first two varaibles are cloud water and ice.
       !--- from third to ntrac are convective transportable tracers,
@@ -1753,7 +1757,27 @@ module module_physics_driver
                    endif
                 enddo
                 ! updated version of satmedmfvdif (May 2019) modified by kgao
-                call satmedmfvdifq(ix, im, levs, nvdiff,                            &
+!                call satmedmfvdifq(ix, im, levs, nvdiff,                            &
+!                       Model%ntcw, Model%ntiw, Model%ntke,                          &
+!                       dvdt, dudt, dtdt, dqdt,                                      &
+!                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
+!                       Radtend%htrsw, Radtend%htrlw, xmu, garea, zvfun, islmsk,     &
+!                       Statein%prsik(1,1), rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
+!                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, hflx, evap,        &
+!                       stress, wind, kpbl, Statein%prsi, del, Statein%prsl,         &
+!                       Statein%prslk, Statein%phii, Statein%phil, dtp,              &
+!                       Model%dspheat, dusfc1, dvsfc1, dtsfc1, dqsfc1, Diag%hpbl,    &
+!                       kinver, Model%xkzm_m, Model%xkzm_h,                          & 
+!                       Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
+!                       Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
+!                       Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
+!                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
+!                       Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
+!                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
+!                       dkt, flux_cg, flux_en, elm_pbl) !cg as up and en as down
+
+!               Orginal routine broken into _down and _up for implicit coupling
+                call satmedmfvdifq_down(ix, im, levs, nvdiff,                            &
                        Model%ntcw, Model%ntiw, Model%ntke,                          &
                        dvdt, dudt, dtdt, dqdt,                                      &
                        Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
@@ -1770,7 +1794,16 @@ module module_physics_driver
                        Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
                        Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
                        Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
-                       dkt, flux_cg, flux_en, elm_pbl) !cg as up and en as down
+                       dkt, flux_cg, flux_en, elm_pbl, & !cg as up and en as down
+                       au_out,f1_out,f2_out, diss_out)
+
+                call satmedmfvdifq_up(ix, im, levs, nvdiff, model%ntke,                  &
+                       dtdt, dqdt, Statein%qgrs, Statein%tgrs, model%dspheat, model%dspfac,                &
+                       del, dtp,                                                           &
+                       dtsfc1, dqsfc1,                                                     &
+                       au_out, f1_out, f2_out, diss_out)
+
+
         endif
 
         elseif (Model%ysupbl) then
