@@ -9,7 +9,7 @@ module GFS_driver
                                       GFS_radtend_type, GFS_diag_type,     &
                                       GFS_overrides_type
   use module_radiation_driver,  only: GFS_radiation_driver, radupdate
-  use module_physics_driver,    only: GFS_physics_driver
+  use module_physics_driver,    only: GFS_physics_driver_down, GFS_physics_driver_up
   use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
   use module_radlw_parameters,  only: topflw_type, sfcflw_type
   use funcphys,                 only: gfuncphys
@@ -93,7 +93,8 @@ module GFS_driver
   public  GFS_initialize              !< GFS initialization routine
   public  GFS_time_vary_step          !< perform operations needed prior radiation or physics
   public  GFS_radiation_driver        !< radiation_driver (was grrad)
-  public  GFS_physics_driver          !< physics_driver (was gbphys)
+  public  GFS_physics_driver_down          !< physics_driver (was gbphys)
+  public  GFS_physics_driver_up          !< physics_driver (was gbphys)
   public  GFS_stochastic_driver       !< stochastic physics
   public  GFS_physics_end             !< GFS physics end routine
 
