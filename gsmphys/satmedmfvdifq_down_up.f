@@ -1615,10 +1615,10 @@ c     Modified: downward sweep only
       call tridin_down(im,km,ntrac1,al,ad,au,f1,f2,au,f1,f2)
       
 c     Save upper diag and RHS for upward sweep 
-      au_out=au 
-      f1_out=f1
-      f2_out=f2
-      diss_out=diss
+      au_out(:,:)=au(:,:) 
+      f1_out(:,:)=f1(:,:)
+      f2_out(:,:)=f2(:,:)
+      diss_out(:,:)=diss(:,:)
 c
 c     recover tendencies of heat and moisture
 c     for the lowest level
@@ -1647,10 +1647,10 @@ c
       endif
       
       ! to be rearranged in the upward sweep
-      rtg_in=rtg
+      rtg_in(:,:,:)=rtg(:,:,:)
 
 
-! Commented out, to be done in the upwaerd sweep
+! Commented out, to be done in the upward sweep
 ! after updated all levels
 !
 ! kgao note - rearrange tracer tendencies 
