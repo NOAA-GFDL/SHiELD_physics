@@ -673,7 +673,7 @@ module GFS_typedefs
     logical              :: shcnvcw         !< flag for shallow convective cloud
     logical              :: redrag          !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl        !< flag for using updated sfc layer scheme
-    logical              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupled SHiELD 
+    integer              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupled SHiELD 
                                             !< will set to true by atmos_driver; this is not a namelist parameter
     real(kind=kind_phys) :: z0s_max         !< a limiting value for z0 under high winds
     logical              :: do_z0_moon      !< flag for using z0 scheme in Moon et al. 2007 (kgao)
@@ -2484,7 +2484,7 @@ end subroutine overrides_create
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl       = .false.                  !< flag for using new sfc layer scheme by kgao at GFDL
-    logical              :: sfc_coupled    = .false.                  !< flag for using sfc layer scheme designed for coupled SHiELD 
+    integer              :: sfc_coupled    = 0                  !< flag for using sfc layer scheme designed for coupled SHiELD 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
     logical              :: do_z0_hwrf15   = .false.                  !< flag for using z0 scheme in 2015 HWRF
