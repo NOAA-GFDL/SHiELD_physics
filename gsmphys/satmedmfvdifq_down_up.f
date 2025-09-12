@@ -1622,7 +1622,10 @@ c     Save upper diag and RHS for upward sweep
 c
 c     recover tendencies of heat and moisture
 c     for the lowest level
-c
+c     Notice the k-loops below, only the lowest level tendencies
+c     are updated, the rest is done in the _up call after 
+c     performing the upward sweep
+
       do  k = km,km
          do i = 1,im
             ttend      = (f1(i,k)-t1(i,k))*rdt
