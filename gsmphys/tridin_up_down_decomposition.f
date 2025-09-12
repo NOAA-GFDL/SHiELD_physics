@@ -38,6 +38,8 @@
 
 !!    Downward sweep for heat and moisture system
 !!    Based on tridin but focused on heat (r1,a1) and moisture+tracers (r2,a2)
+!!    cl, cm, cu, r1, r2 are intputs
+!!    au, a1, a2 are outputs
 
       use machine     , only : kind_phys
       implicit none
@@ -106,6 +108,8 @@ c-----------------------------------------------------------------------
 
 !!    Upward sweep
 !!    Now solving from bot to top
+!!    au, a1, a2 are inputs
+!!    a1, a2 are outputs
 
       use machine     , only : kind_phys
       implicit none
