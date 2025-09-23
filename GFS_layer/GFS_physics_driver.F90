@@ -391,12 +391,13 @@ module module_physics_driver
 !!   - Deallocate arrays for SHOC scheme, deep convective scheme, and Morrison et al. microphysics
 
 
-  public GFS_physics_driver
+  public GFS_physics_driver_down
+  public GFS_physics_driver_up
 
   CONTAINS
 !*******************************************************************************************
 
-    subroutine GFS_physics_driver                         &
+    subroutine GFS_physics_driver_down                         &
          (Model, Statein, Stateout, Sfcprop, Coupling,  &
           Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
 
@@ -580,12 +581,12 @@ module module_physics_driver
       !--- for 2 M microphysics
       real(kind=kind_phys), allocatable, dimension(:) ::                &
              cn_prc, cn_snr
-      real(kind=kind_phys), allocatable, dimension(:,:) ::              &
-             qlcn, qicn, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,   &
-             CLCN, CNV_FICE, CNV_NDROP, CNV_NICE
+!      real(kind=kind_phys), allocatable, dimension(:,:) ::              &
+!             qlcn, qicn, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,   &
+!             CLCN, CNV_FICE, CNV_NDROP, CNV_NICE
 
-      integer, allocatable, dimension(:) :: clw_trac_idx
-      real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
+!      integer, allocatable, dimension(:) :: clw_trac_idx
+!      real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
       real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
       real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
       integer :: nwat
@@ -623,12 +624,12 @@ module module_physics_driver
         
       enddo
 
-      if (Model%ldiag3d) then
-        allocate(dt3dt_initial(1:im,1:levs,9))
-        allocate(dq3dt_initial(1:im,1:levs,9))
-        dt3dt_initial = Diag%dt3dt
-        dq3dt_initial = Diag%dq3dt
-      endif
+!      if (Model%ldiag3d) then
+!        allocate(dt3dt_initial(1:im,1:levs,9))
+!        allocate(dq3dt_initial(1:im,1:levs,9))
+!        dt3dt_initial = Diag%dt3dt
+!        dq3dt_initial = Diag%dq3dt
+!      endif
       
       ! Assign pointers for the downward longwave, downward shortwave, and net
       ! shortwave radiative fluxes used in ocean, sea-ice, and land surface
@@ -646,84 +647,84 @@ module module_physics_driver
 
       ! perform aerosol convective transport and PBL diffusion
       !trans_aero = Model%cplchm .and. Model%trans_trac
-      trans_aero = Model%trans_trac
+!      trans_aero = Model%trans_trac
 !
 !  figure out number of extra tracers (other than hydrometeors and could amount)
 !
-
-      if (Model%ntiw > 0) then
-        if (Model%ntclamt > 0) then
-          nn = ntrac - 2
-        else
-          nn = ntrac - 1
-        endif
-      elseif (Model%ntcw > 0) then
-        nn = ntrac
-      else
-        nn = ntrac + 1
-      endif
-      allocate (clw(ix,levs,nn))
-      allocate( clw_trac_idx(nn-2) )
-  
-
-
-      skip_macro = .false.
-
-
-      if (Model%imfdeepcnv >= 0 .or.  Model%imfshalcnv > 0  .or. &
-         (Model%npdf3d == 3     .and. Model%num_p3d   == 4) .or. &
-         (Model%npdf3d == 0     .and. Model%ncnvcld3d == 1) ) then
-        allocate (cnvc(ix,levs), cnvw(ix,levs))
-        do k=1,levs
-          do i=1,im
-            cnvc(i,k) = 0.
-            cnvw(i,k) = 0.
-          enddo
-        enddo
-
-        if (Model%npdf3d == 3 .and. Model%num_p3d == 4) then
-          num2 = Model%num_p3d + 2
-          num3 = num2 + 1
-        elseif (Model%npdf3d == 0 .and. Model%ncnvcld3d == 1) then
-          num2 = Model%num_p3d + 1
-        endif
-        !CCPP: num2 = Model%ncnvw
-        !CCPP: num3 = Model%ncnvc
-      endif
-
 !
-!  ---  set initial quantities for stochastic physics deltas
-      if (Model%do_sppt) then
-        Tbd%dtdtr = 0.0
-        do i=1,im
-          Tbd%drain_cpl(i) = Coupling%rain_cpl (i)
-          Tbd%dsnow_cpl(i) = Coupling%snow_cpl (i)
-        enddo
-      endif
+!      if (Model%ntiw > 0) then
+!        if (Model%ntclamt > 0) then
+!          nn = ntrac - 2
+!        else
+!          nn = ntrac - 1
+!        endif
+!      elseif (Model%ntcw > 0) then
+!        nn = ntrac
+!      else
+!        nn = ntrac + 1
+!      endif
+!      allocate (clw(ix,levs,nn))
+!      allocate( clw_trac_idx(nn-2) )
+!
+!
+!
+!      skip_macro = .false.
+!
+!
+!      if (Model%imfdeepcnv >= 0 .or.  Model%imfshalcnv > 0  .or. &
+!         (Model%npdf3d == 3     .and. Model%num_p3d   == 4) .or. &
+!         (Model%npdf3d == 0     .and. Model%ncnvcld3d == 1) ) then
+!        allocate (cnvc(ix,levs), cnvw(ix,levs))
+!        do k=1,levs
+!          do i=1,im
+!            cnvc(i,k) = 0.
+!            cnvw(i,k) = 0.
+!          enddo
+!        enddo
+!
+!        if (Model%npdf3d == 3 .and. Model%num_p3d == 4) then
+!          num2 = Model%num_p3d + 2
+!          num3 = num2 + 1
+!        elseif (Model%npdf3d == 0 .and. Model%ncnvcld3d == 1) then
+!          num2 = Model%num_p3d + 1
+!        endif
+!        !CCPP: num2 = Model%ncnvw
+!        !CCPP: num3 = Model%ncnvc
+!      endif
+!
+!!
+!!  ---  set initial quantities for stochastic physics deltas
+!      if (Model%do_sppt) then
+!        Tbd%dtdtr = 0.0
+!        do i=1,im
+!          Tbd%drain_cpl(i) = Coupling%rain_cpl (i)
+!          Tbd%dsnow_cpl(i) = Coupling%snow_cpl (i)
+!        enddo
+!      endif
+!
+!      if (Model%do_shoc) then
+!        allocate (qpl(im,levs),  qpi(im,levs), ncpl(im,levs), ncpi(im,levs))
+!        do k=1,levs
+!          do i=1,im
+!            ncpl(i,k) = 0.0
+!            ncpi(i,k) = 0.0
+!          enddo
+!        enddo
+!      endif
 
-      if (Model%do_shoc) then
-        allocate (qpl(im,levs),  qpi(im,levs), ncpl(im,levs), ncpi(im,levs))
-        do k=1,levs
-          do i=1,im
-            ncpl(i,k) = 0.0
-            ncpi(i,k) = 0.0
-          enddo
-        enddo
-      endif
-
-      if (Model%ncld == 2) then         ! For MGB double moment microphysics
-        allocate (qlcn(im,levs), qicn(im,levs), w_upi(im,levs),         &
-                 cf_upi(im,levs), CNV_MFD(im,levs), CNV_PRC3(im,levs),  &
-                 CNV_DQLDT(im,levs), clcn(im,levs),  cnv_fice(im,levs), &
-                 cnv_ndrop(im,levs), cnv_nice(im,levs))
-        allocate (cn_prc(im),   cn_snr(im))
-        allocate (qsnw(im,levs), ncpr(im,levs), ncps(im,levs))
-      else
-        allocate (qlcn(1,1), qicn(1,1), w_upi(1,1), cf_upi(1,1),  &
-                  CNV_MFD(1,1), CNV_PRC3(1,1), CNV_DQLDT(1,1),    &
-                  clcn(1,1), cnv_fice(1,1), cnv_ndrop(1,1), cnv_nice(1,1))
-      endif
-      allocate (qrn(im,levs))
+!      if (Model%ncld == 2) then         ! For MGB double moment microphysics
+!        allocate (qlcn(im,levs), qicn(im,levs), w_upi(im,levs),         &
+!                 cf_upi(im,levs), CNV_MFD(im,levs), CNV_PRC3(im,levs),  &
+!                 CNV_DQLDT(im,levs), clcn(im,levs),  cnv_fice(im,levs), &
+!                 cnv_ndrop(im,levs), cnv_nice(im,levs))
+!        allocate (cn_prc(im),   cn_snr(im))
+!        allocate (qsnw(im,levs), ncpr(im,levs), ncps(im,levs))
+!      else
+!        allocate (qlcn(1,1), qicn(1,1), w_upi(1,1), cf_upi(1,1),  &
+!                  CNV_MFD(1,1), CNV_PRC3(1,1), CNV_DQLDT(1,1),    &
+!                  clcn(1,1), cnv_fice(1,1), cnv_ndrop(1,1), cnv_nice(1,1))
+!      endif
+!      allocate (qrn(im,levs))
 
 
 #ifdef GFS_HYDRO
@@ -1639,6 +1640,521 @@ module module_physics_driver
 
       endif
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!! call the down part of satmedmfvdifq
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        if (Model%satmedmf) then
+          if (Model%isatmedmf == 1) then
+
+              do i=1,im
+                   if (islmsk(i) == 1) then
+                      z0fun =  min(max((Sfcprop%zorl(i)*0.01-0.1)/0.9, 0.0), 1.0) ! jih jul2020:  (z0fun=0.~1.0)
+                      zvfun(i) = sqrt( max(sigmaf(i), 0.1) * z0fun ) !jih jul2020: over land, zvfun=0 over ocean
+                   else
+                      zvfun(i) = 0.
+                   endif
+                enddo
+
+                call satmedmfvdifq_down(ix, im, levs, nvdiff,                            &
+                       Model%ntcw, Model%ntiw, Model%ntke,                          &
+                       dvdt, dudt, dtdt, dqdt,                                      &
+                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
+                       Radtend%htrsw, Radtend%htrlw, xmu, garea, zvfun, islmsk,     &
+                       Statein%prsik(1,1), rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
+                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, hflx, evap,        &
+                       stress, wind, kpbl, Statein%prsi, del, Statein%prsl,         &
+                       Statein%prslk, Statein%phii, Statein%phil, dtp,              &
+                       Model%dspheat, dusfc1, dvsfc1, dtsfc1, dqsfc1, Diag%hpbl,    &
+                       kinver, Model%xkzm_m, Model%xkzm_h,                          & 
+                       Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
+                       Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
+                       Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
+                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
+                       Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
+                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
+                       dkt, flux_cg, flux_en, elm_pbl, & !cg as up and en as down
+                       au_out,f1_out,f2_out, diss_out) ! output of the tridiagonal matrix for heat, moisture, tracers !joseph
+
+          endif
+        endif
+
+!  --- ...  return updated smsoil and stsoil to global arrays
+      Sfcprop%smc(:,:) = smsoil(:,:)
+      Sfcprop%stc(:,:) = stsoil(:,:)
+      Sfcprop%slc(:,:) = slsoil(:,:)
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!! STORE VARIABLES FOR the _up part !!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      Tbd%stored_au_out(:,:) = au_out(:,:)
+      Tbd%stored_f1_out(:,:) = f1_out(:,:)
+      Tbd%stored_f2_out(:,:) = f2_out(:,:)
+      Tbd%stored_diss_out(:,:) = diss_out(:,:)
+
+      Tbd%stored_kpbl(:) = kpbl(:)
+      Tbd%stored_flux_cg(:,:) = flux_cg(:,:)
+      Tbd%stored_flux_en(:,:) = flux_en(:,:)
+      Tbd%stored_elm_pbl(:,:) = elm_pbl(:,:)
+
+      Tbd%stored_dvdt(:,:) = dvdt(:,:)
+      Tbd%stored_dudt(:,:) = dudt(:,:)
+      Tbd%stored_dtdt(:,:) = dtdt(:,:)
+      Tbd%stored_dqdt(:,:,:) = dqdt(:,:,:)
+
+      Tbd%stored_dusfc1(:) = dusfc1(:)
+      Tbd%stored_dvsfc1(:) = dvsfc1(:)
+      Tbd%stored_dtsfc1(:) = dtsfc1(:)
+      Tbd%stored_dqsfc1(:) = dqsfc1(:)
+
+      ! Surface fluxes and state from surface schemes
+      Tbd%stored_hflx(:) = hflx(:)
+      Tbd%stored_evap(:) = evap(:)
+      Tbd%stored_stress(:) = stress(:)
+      Tbd%stored_wind(:) = wind(:)
+      Tbd%stored_rb(:) = rb(:)
+      Tbd%stored_qss(:) = qss(:)
+      Tbd%stored_zice(:) = zice(:)
+      Tbd%stored_cice(:) = cice(:)
+      Tbd%stored_tice(:) = tice(:)
+      Tbd%stored_snowc(:) = snowc(:)
+      Tbd%stored_drain(:) = drain(:)
+      Tbd%stored_runof(:) = runof(:)
+      !Tbd%stored_ep1d(:) = ep1d(:)
+      !Tbd%stored_gflx(:) = gflx(:)
+
+      ! Radiation variables
+      Tbd%stored_xmu(:) = xmu(:)
+      Tbd%stored_xcosz(:) = xcosz(:)
+      Tbd%stored_adjsfculw(:) = adjsfculw(:)
+
+      Tbd%stored_adjsfcdlw(:) = adjsfcdlw(:)
+      Tbd%stored_adjsfcdsw(:) = adjsfcdsw(:)
+      Tbd%stored_adjsfcnsw(:) = adjsfcnsw(:)
+
+      !Tbd%stored_adjnirbmd(:) = adjnirbmd(:)
+      !Tbd%stored_adjnirdfd(:) = adjnirdfd(:)
+      !Tbd%stored_adjvisbmd(:) = adjvisbmd(:)
+      !Tbd%stored_adjvisdfd(:) = adjvisdfd(:)
+      !Tbd%stored_adjnirbmu(:) = adjnirbmu(:)
+      !Tbd%stored_adjnirdfu(:) = adjnirdfu(:)
+      !Tbd%stored_adjvisbmu(:) = adjvisbmu(:)
+      !Tbd%stored_adjvisdfu(:) = adjvisdfu(:)
+
+      ! State tendencies from radiation
+      Tbd%stored_dtdt(:,:) = dtdt(:,:)
+      Tbd%stored_dtdtc(:,:) = dtdtc(:,:)
+
+      ! Grid and state-related variables
+      Tbd%stored_islmsk(:) = islmsk(:)
+      Tbd%stored_del(:,:) = del(:,:)
+      Tbd%stored_del_gz(:,:) = del_gz(:,:)
+      Tbd%stored_frain = frain
+      !Tbd%stored_frland(:) = frland(:)
+      !Tbd%stored_dry(:) = dry(:)
+      Tbd%stored_sigmaf(:) = sigmaf(:)
+      !Tbd%stored_nvdiff = nvdiff
+
+      ! Physics scheme inputs
+      Tbd%stored_kinver(:) = kinver(:)
+      Tbd%stored_kcnv(:) = kcnv(:)
+      Tbd%stored_ctei_rml(:) = ctei_rml(:)
+      Tbd%stored_ctei_r(:) = ctei_r(:)
+      !Tbd%stored_tx1(:) = tx1(:)
+      !Tbd%stored_tx2(:) = tx2(:)
+      Tbd%stored_work1(:) = work1(:)
+      Tbd%stored_work2(:) = work2(:)
+      Tbd%stored_garea(:) = garea(:)
+      Tbd%stored_dlength(:) = dlength(:)
+      Tbd%stored_cldf(:) = cldf(:)
+      Tbd%stored_wcbmax(:) = wcbmax(:)
+
+      ! CICE coupling variables
+      Tbd%stored_flag_cice(:) = flag_cice(:)
+      Tbd%stored_tsea_cice(:) = tsea_cice(:)
+      Tbd%stored_fice_cice(:) = fice_cice(:)
+      Tbd%stored_dusfc_cice(:) = dusfc_cice(:)
+      Tbd%stored_dvsfc_cice(:) = dvsfc_cice(:)
+      Tbd%stored_dqsfc_cice(:) = dqsfc_cice(:)
+      Tbd%stored_dtsfc_cice(:) = dtsfc_cice(:)
+
+    end subroutine GFS_physics_driver_down
+
+
+
+
+
+    subroutine GFS_physics_driver_up(Model, Statein, Stateout, Sfcprop, Coupling, Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
+
+      implicit none
+!
+!  ---  interface variables
+      type(GFS_control_type),         intent(in)    :: Model
+      type(GFS_statein_type),         intent(inout) :: Statein
+      type(GFS_stateout_type),        intent(inout) :: Stateout
+      type(GFS_sfcprop_type),         intent(inout) :: Sfcprop
+      type(GFS_coupling_type),        intent(inout) :: Coupling
+      type(GFS_grid_type),            intent(in)    :: Grid
+      type(GFS_tbd_type),             intent(inout) :: Tbd
+      type(GFS_cldprop_type),         intent(inout) :: Cldprop
+      type(GFS_radtend_type),         intent(inout) :: Radtend
+      type(GFS_diag_type),            intent(inout) :: Diag
+      type(GFS_overrides_type),       intent(in)    :: Overrides
+!
+      integer :: me, lprint, ipr, ix, im, levs, ntrac, nvdiff, kdt
+
+      integer :: kflip, nsamftrac, levshcm, nwat
+      integer :: i, k, n, nn, kk, ic, itc, ntk, tracers, tottracer, num2, num3
+      integer, dimension(size(Grid%xlon,1)) :: kbot, lmh, ktop, kcnv, kpbl, kinver, islmsk, levshc
+      logical :: lprnt, revap, do_awdd, trans_aero
+      logical, dimension(size(Grid%xlon,1)) :: skip_macro, flag_cice, dry
+     ! real(kind=kind_phys) :: dtf, dtp, frain, tem, tem1, tem2, xcosz_loc, rhbbot, rhbtop, rhpbl, rdt
+      real(kind=kind_phys), dimension(size(Grid%xlon,1))  :: xcosz
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) :: ccwfac, garea, dlength, cumabs, cice, zice, tice, gflx, &
+           rain1, raincs, snowmt, cd, cdq, qss, dusfcg, dvsfcg, dusfc1, dvsfc1, dtsfc1, dqsfc1, rb, drain, evap, hflx, &
+           stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma, sigma, elvmax, wind, work1, work2, runof, xmu, &
+           tsurf, tx1, tx2, work3, ctei_r, snowc, frland, dlqfac, ctei_rml, cldf, domr, domzr,domip, wcbmax, &
+           adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd, &
+           ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl, &
+           dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, tsea_cice, hice_cice, fice_cice, &
+           z01d, bexp1d, xlai1d, vegf1d, netswsfc, netflxsfc, qflux_restore, temrain1
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
+            fm10, fh2, cld1d,    &
+           doms, psautco_l, prautco_l,     &
+           dtzm, t2mmp, q2mp
+
+#ifdef fvGFS_2017
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::           &
+          area, land, water0, rain0, ice0, snow0, graupel0
+#else
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
+          gsize, hs, land, water0, rain0, ice0, snow0, graupel0,        &
+          dte, zvfun
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
+          mppcw, mppew, mppe1, mpper, mppdi, mppd1, mppds, mppdg,       &
+          mppsi, mpps1, mppss, mppsg, mppfw, mppfr, mppmi, mppms,       &
+          mppmg, mppm1, mppm2, mppm3, mppar, mppas, mppag, mpprs,       &
+          mpprg, mppxr, mppxs, mppxg
+#endif
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) :: dtdt,  &
+        dtdtc, del, prnum,  rhc, dudt, dvdt, gwdcu, gwdcv, rainp, &
+           ud_mf, dd_mf, dt_mf, dkt, flux_cg, flux_en, elm_pbl,   &
+          prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
+          sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
+          wu2_shal,  eta_shal
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs+1) ::&
+           del_gz
+
+      real(kind=kind_phys) ::                                           &
+           dtf, dtp, rhbbot, rhbtop, rhpbl, frain, tem, tem1, tem2,     &
+           xcosz_loc, zsea1, zsea2, eng0, eng1, dpshc, den, rdt,        &
+           !--- experimental for shoc sub-stepping
+           dtshoc,                                                      &
+           !--- GFDL Cloud microphysics
+           crain, csnow,                                                &
+           z0fun, diag_water, diag_rain, diag_rain1
+
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%ntrac) ::  &
+           dqdt
+
+
+      real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
+      real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
+      real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
+
+      real(kind=kind_phys), allocatable, dimension(:,:) ::              &
+             qlcn, qicn, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,   &
+             CLCN, CNV_FICE, CNV_NDROP, CNV_NICE
+      real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
+      real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::    adjsfculw
+
+      real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
+      integer, allocatable, dimension(:) :: clw_trac_idx
+      real(kind=kind_phys), allocatable ::                              &
+           clw(:,:,:), qpl(:,:),  qpi(:,:), ncpl(:,:), ncpi(:,:),       &
+           qrn(:,:), qsnw(:,:), ncpr(:,:), ncps(:,:), cnvc(:,:),        &
+           cnvw(:,:)
+       real (kind=kind_phys), dimension(size(Grid%xlon,1)) :: &
+          zt1d, alb1d
+
+      real(kind=kind_phys), allocatable, dimension(:) ::                &
+             cn_prc, cn_snr
+
+      real(kind=kind_phys), dimension(Model%ntrac-Model%ncld+2) ::      &
+           fscav, fswtr
+
+      logical, dimension(Model%ntrac-Model%ncld+2,2) ::                 &
+           otspt 
+      real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::  & ! for MYJ scheme
+           vegfrac, ht, tsfc1, qsfc1, ustar1, z01, pblh1, one, akms1, akhs1, cd1, cdq1, &
+           hflx1, evap1, rb1, cice1, csnow1, mixh1, u10m1, v10m1, T2m1, Q2m1, &
+           th2m1, tshelter1, th10m1, qshelter1, q10m1, pshelter1, thz01, qz01, uz01, vz01
+#ifdef fvGFS_2017
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),1,Model%levs) ::  &
+           delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qn1, qi1,   &
+           qs1, pt_dt, qa_dt, udt, vdt, w, qv_dt, ql_dt, qr_dt, qi_dt,  &
+           qs_dt, qg_dt
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
+           phmid, th, tke, exner, exchh1, el1 ! for myj
+#else
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
+           delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qnl1, qi1,  &
+           qs1, pt_dt, udt, vdt, w, qv_dt, ql_dt, qr_dt, qi_dt, qni1,   &
+           qs_dt, qg_dt, adj_vmr, te, q_con, cappa, &
+           phmid, th, tke, exner, exchh1, el1 ! for myj
+#endif
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),1,Model%levs+1) ::&
+           phint ! myj
+
+      real(kind=kind_phys), dimension(Model%levs) :: epsq2 ! myj
+      real(kind=kind_phys), dimension(Model%levs-1) :: epsL ! myj
+      integer(kind=8), dimension(size(Grid%xlon,1),1) ::  & ! for myj
+           pblk1
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),4) ::           &
+           oa4, clx
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,4) ::  &
+           dq3dt_loc
+
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%nctp) ::  &
+           sigmai, vverti
+
+      ! --- Retrieve variables stored in _down ---
+      hflx(:)   =   Tbd%stored_hflx(:)
+      evap(:)   =   Tbd%stored_evap(:)
+      stress(:) =   Tbd%stored_stress(:)
+      wind(:)   =   Tbd%stored_wind(:)
+      rb(:)     =   Tbd%stored_rb(:)
+      qss(:)    =   Tbd%stored_qss(:)
+      zice(:)   =   Tbd%stored_zice(:)
+      cice(:)   =   Tbd%stored_cice(:)
+      tice(:)   =   Tbd%stored_tice(:)
+      snowc(:)  =   Tbd%stored_snowc(:)
+      drain(:)  =   Tbd%stored_drain(:)
+      runof(:)  =   Tbd%stored_runof(:)
+      xmu(:)    =   Tbd%stored_xmu(:)
+      xcosz(:)  =   Tbd%stored_xcosz(:)
+
+      adjsfcdlw(:)   =  Tbd%stored_adjsfcdlw(:)
+      adjsfcdsw(:)   =  Tbd%stored_adjsfcdsw(:)
+      adjsfcnsw(:)   =  Tbd%stored_adjsfcnsw(:)
+      adjsfculw(:)   =  Tbd%stored_adjsfculw(:)
+      !adjnirbmd=Tbd%stored_adjnirbmd
+      !adjnirdfd=Tbd%stored_adjnirdfd
+      !adjvisbmd=Tbd%stored_adjvisbmd
+      !adjvisdfd=Tbd%stored_adjvisdfd
+      !adjnirbmu=Tbd%stored_adjnirbmu
+      !adjnirdfu=Tbd%stored_adjnirdfu
+      !adjvisbmu=Tbd%stored_adjvisbmu
+      !adjvisdfu=Tbd%stored_adjvisdfu
+
+      dtdtc(:,:)   =   Tbd%stored_dtdtc(:,:)
+      islmsk(:)    =   Tbd%stored_islmsk(:)
+      del(:,:)     =   Tbd%stored_del(:,:)
+      del_gz(:,:)  =   Tbd%stored_del_gz(:,:)
+      frain        =   Tbd%stored_frain
+      dtp          =   Tbd%stored_dtp
+      sigmaf(:)    =   Tbd%stored_sigmaf(:)
+      kinver(:)    =   Tbd%stored_kinver(:)
+      kcnv(:)      =   Tbd%stored_kcnv(:)
+      ctei_rml(:)  =   Tbd%stored_ctei_rml(:)
+      ctei_r(:)    =   Tbd%stored_ctei_r(:)
+      work1(:)     =   Tbd%stored_work1(:)
+      work2(:)     =   Tbd%stored_work2(:)
+      garea(:)     =   Tbd%stored_garea(:)
+      dlength(:)   =   Tbd%stored_dlength(:)
+      cldf(:)      =   Tbd%stored_cldf(:)
+      wcbmax(:)    =   Tbd%stored_wcbmax(:)
+
+      !z01d=Tbd%stored_z01d
+      !bexp1d=Tbd%stored_bexp1d
+      !xlai1d=Tbd%stored_xlai1d
+      !vegf1d=Tbd%stored_vegf1d
+      !itc=Tbd%stored_itc
+      !ntk=Tbd%stored_ntk
+      !trans_aero=Tbd%stored_trans_aero
+      !skip_macro=Tbd%stored_skip_macro
+
+      flag_cice(:)     =   Tbd%stored_flag_cice(:)
+      tsea_cice(:)     =   Tbd%stored_tsea_cice(:)
+      fice_cice(:)     =   Tbd%stored_fice_cice(:)
+      dusfc_cice(:)    =   Tbd%stored_dusfc_cice(:)
+      dvsfc_cice(:)    =   Tbd%stored_dvsfc_cice(:)
+      dqsfc_cice(:)    =   Tbd%stored_dqsfc_cice(:)
+      dtsfc_cice(:)    =   Tbd%stored_dtsfc_cice(:)
+
+      au_out(:,:)   =   Tbd%stored_au_out(:,:)
+      f1_out(:,:)   =   Tbd%stored_f1_out(:,:)
+      f2_out(:,:)   =   Tbd%stored_f2_out(:,:)
+      diss_out(:,:) =   Tbd%stored_diss_out(:,:)
+
+      kpbl(:)      = Tbd%stored_kpbl(:)
+      flux_cg(:,:) = Tbd%stored_flux_cg(:,:)
+      flux_en(:,:) = Tbd%stored_flux_en(:,:)
+      elm_pbl(:,:) = Tbd%stored_elm_pbl(:,:)
+
+      dvdt(:,:)   = Tbd%stored_dvdt(:,:)
+      dudt(:,:)   = Tbd%stored_dudt(:,:)
+      dtdt(:,:)   = Tbd%stored_dtdt(:,:)
+      dqdt(:,:,:) = Tbd%stored_dqdt(:,:,:)
+
+      dusfc1(:) = Tbd%stored_dusfc1(:)
+      dvsfc1(:) = Tbd%stored_dvsfc1(:)
+      dtsfc1(:) = Tbd%stored_dtsfc1(:)
+      dqsfc1(:) = Tbd%stored_dqsfc1(:)
+!
+!      me     = Model%me
+      ix     = size(Grid%xlon,1)
+      im     = size(Grid%xlon,1)
+      levs   = Model%levs
+      ntrac  = Model%ntrac
+      dtf    = Model%dtf
+      dtp    = Model%dtp
+      kdt    = Model%kdt
+      lprnt  = Model%lprnt
+!      lprnt  = (me == 3) !root_pe) .and. (this_pe > 0 )
+      nvdiff = ntrac           ! vertical diffusion of all tracers!
+      ipr    = min(im,10)
+
+      do i = 1, im
+        if(nint(Sfcprop%slmsk(i)) == 1) then
+          frland(i) = 1.0
+          dry(i)    = .true.
+        else
+          frland(i) = 0.
+          dry(i)     = .false.
+        endif
+
+         z01d(i)   = 0.
+         zt1d(i)   = 0.
+         bexp1d(i) = 0.
+         xlai1d(i) = 0.
+         vegf1d(i) = 0.
+
+      enddo
+
+      if (Model%ldiag3d) then
+        allocate(dt3dt_initial(1:im,1:levs,9))
+        allocate(dq3dt_initial(1:im,1:levs,9))
+        dt3dt_initial = Diag%dt3dt
+        dq3dt_initial = Diag%dq3dt
+      endif
+
+    !  dudt(:,:)  = 0.
+    !  dvdt(:,:)  = 0.
+    !  dqdt(:,:,:) = 0.
+
+
+    !  dusfc1(:)  = 0.
+    !  dvsfc1(:) = 0.
+    !  dtsfc1(:) = 0.
+    !  dqsfc1(:) = 0.
+
+! redo here for update_ocean
+
+      if (Model%override_surface_radiative_fluxes) then
+        adjsfcdlw_for_coupling => Overrides%adjsfcdlw_override
+        adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
+        adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
+      else
+        adjsfcdlw_for_coupling => adjsfcdlw
+        adjsfcdsw_for_coupling => adjsfcdsw
+        adjsfcnsw_for_coupling => adjsfcnsw
+      endif
+
+      ! perform aerosol convective transport and PBL diffusion
+      !trans_aero = Model%cplchm .and. Model%trans_trac
+      trans_aero = Model%trans_trac
+!
+!  figure out number of extra tracers (other than hydrometeors and could amount)
+!
+
+      if (Model%ntiw > 0) then
+        if (Model%ntclamt > 0) then
+          nn = ntrac - 2
+        else
+          nn = ntrac - 1
+        endif
+      elseif (Model%ntcw > 0) then
+        nn = ntrac
+      else
+        nn = ntrac + 1
+      endif
+      allocate (clw(ix,levs,nn))
+      allocate( clw_trac_idx(nn-2) )
+
+      skip_macro = .false.
+
+      if (Model%imfdeepcnv >= 0 .or.  Model%imfshalcnv > 0  .or. &
+         (Model%npdf3d == 3     .and. Model%num_p3d   == 4) .or. &
+         (Model%npdf3d == 0     .and. Model%ncnvcld3d == 1) ) then
+        allocate (cnvc(ix,levs), cnvw(ix,levs))
+        do k=1,levs
+          do i=1,im
+            cnvc(i,k) = 0.
+            cnvw(i,k) = 0.
+          enddo
+        enddo
+
+        if (Model%npdf3d == 3 .and. Model%num_p3d == 4) then
+          num2 = Model%num_p3d + 2
+          num3 = num2 + 1
+        elseif (Model%npdf3d == 0 .and. Model%ncnvcld3d == 1) then
+          num2 = Model%num_p3d + 1
+        endif
+        !CCPP: num2 = Model%ncnvw
+        !CCPP: num3 = Model%ncnvc
+      endif
+
+!
+!  ---  set initial quantities for stochastic physics deltas
+      if (Model%do_sppt) then
+        Tbd%dtdtr = 0.0
+        do i=1,im
+          Tbd%drain_cpl(i) = Coupling%rain_cpl (i)
+          Tbd%dsnow_cpl(i) = Coupling%snow_cpl (i)
+        enddo
+      endif
+
+      if (Model%do_shoc) then
+        allocate (qpl(im,levs),  qpi(im,levs), ncpl(im,levs), ncpi(im,levs))
+        do k=1,levs
+          do i=1,im
+            ncpl(i,k) = 0.0
+            ncpi(i,k) = 0.0
+          enddo
+        enddo
+      endif
+
+      rhbbot = Model%crtrh(1)
+      rhpbl  = Model%crtrh(2)
+      rhbtop = Model%crtrh(3)
+
+
+      if (Model%ncld == 2) then         ! For MGB double moment microphysics
+        allocate (qlcn(im,levs), qicn(im,levs), w_upi(im,levs),         &
+                 cf_upi(im,levs), CNV_MFD(im,levs), CNV_PRC3(im,levs),  &
+                 CNV_DQLDT(im,levs), clcn(im,levs),  cnv_fice(im,levs), &
+                 cnv_ndrop(im,levs), cnv_nice(im,levs))
+        allocate (cn_prc(im),   cn_snr(im))
+        allocate (qsnw(im,levs), ncpr(im,levs), ncps(im,levs))
+      else
+        allocate (qlcn(1,1), qicn(1,1), w_upi(1,1), cf_upi(1,1),  &
+                  CNV_MFD(1,1), CNV_PRC3(1,1), CNV_DQLDT(1,1),    &
+                  clcn(1,1), cnv_fice(1,1), cnv_ndrop(1,1), cnv_nice(1,1))
+      endif
+      allocate (qrn(im,levs))
+
 !!!!!!!!!!!!!!!!!Commented by Moorthi on July 18, 2012 !!!!!!!!!!!!!!!!!!!
 !     do i = 1, im
 !  --- ...  compute coefficient of evaporation in evapc
@@ -1665,10 +2181,10 @@ module module_physics_driver
 
 !     write(0,*)' before monin clstp=',clstp,' kdt=',kdt,' lat=',lat
 
-      dusfc1(:)  = 0.
-      dvsfc1(:) = 0.
-      dtsfc1(:) = 0.
-      dqsfc1(:) = 0.
+!      dusfc1(:)  = 0.
+!      dvsfc1(:) = 0.
+!      dtsfc1(:) = 0.
+!      dqsfc1(:) = 0.
 
       if (Model%do_shoc) then
         call moninshoc(ix, im, levs, ntrac, Model%ntcw, dvdt, dudt, dtdt, dqdt,  &
@@ -1776,34 +2292,32 @@ module module_physics_driver
 !                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
 !                       dkt, flux_cg, flux_en, elm_pbl) !cg as up and en as down
 
-!               Orginal routine broken into _down and _up for implicit coupling
-                call satmedmfvdifq_down(ix, im, levs, nvdiff,                            &
-                       Model%ntcw, Model%ntiw, Model%ntke,                          &
-                       dvdt, dudt, dtdt, dqdt,                                      &
-                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
-                       Radtend%htrsw, Radtend%htrlw, xmu, garea, zvfun, islmsk,     &
-                       Statein%prsik(1,1), rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
-                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, hflx, evap,        &
-                       stress, wind, kpbl, Statein%prsi, del, Statein%prsl,         &
-                       Statein%prslk, Statein%phii, Statein%phil, dtp,              &
-                       Model%dspheat, dusfc1, dvsfc1, dtsfc1, dqsfc1, Diag%hpbl,    &
-                       kinver, Model%xkzm_m, Model%xkzm_h,                          & 
-                       Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
-                       Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
-                       Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
-                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
-                       Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
-                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
-                       dkt, flux_cg, flux_en, elm_pbl, & !cg as up and en as down
-                       au_out,f1_out,f2_out, diss_out)
+! MOVED to down
+!!!                call satmedmfvdifq_down(ix, im, levs, nvdiff,                            &
+!!!                       Model%ntcw, Model%ntiw, Model%ntke,                          &
+!!!                       dvdt, dudt, dtdt, dqdt,                                      &
+!!!                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
+!!!                       Radtend%htrsw, Radtend%htrlw, xmu, garea, zvfun, islmsk,     &
+!!!                       Statein%prsik(1,1), rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
+!!!                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, hflx, evap,        &
+!!!                       stress, wind, kpbl, Statein%prsi, del, Statein%prsl,         &
+!!!                       Statein%prslk, Statein%phii, Statein%phil, dtp,              &
+!!!                       Model%dspheat, dusfc1, dvsfc1, dtsfc1, dqsfc1, Diag%hpbl,    &
+!!!                       kinver, Model%xkzm_m, Model%xkzm_h,                          & 
+!!!                       Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
+!!!                       Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
+!!!                       Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
+!!!                       Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
+!!!                       Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
+!!!                       Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
+!!!                       dkt, flux_cg, flux_en, elm_pbl, & !cg as up and en as down
+!!!                       au_out,f1_out,f2_out, diss_out)
 
                 call satmedmfvdifq_up(ix, im, levs, nvdiff, model%ntke,                  &
                        dtdt, dqdt, Statein%qgrs, Statein%tgrs, model%dspheat, model%dspfac,                &
                        del, dtp,                                                           &
                        dtsfc1, dqsfc1,                                                     &
                        au_out, f1_out, f2_out, diss_out)
-
-
         endif
 
         elseif (Model%ysupbl) then
@@ -4013,9 +4527,10 @@ module module_physics_driver
       enddo
 
 !  --- ...  return updated smsoil and stsoil to global arrays
-      Sfcprop%smc(:,:) = smsoil(:,:)
-      Sfcprop%stc(:,:) = stsoil(:,:)
-      Sfcprop%slc(:,:) = slsoil(:,:)
+! now done in down
+!      Sfcprop%smc(:,:) = smsoil(:,:)
+!      Sfcprop%stc(:,:) = stsoil(:,:)
+!      Sfcprop%slc(:,:) = slsoil(:,:)
 
 !  --- ...  calculate column precipitable water "pwat"
       Diag%pwat(:) = 0.0
@@ -4121,10 +4636,7 @@ module module_physics_driver
         endif
       endif
 
-      return
-!...................................
-      end subroutine GFS_physics_driver
-!-----------------------------------
+    end subroutine GFS_physics_driver_up
 
 
       subroutine moist_bud(im,ix,ix2,levs,me,kdt,grav,dtp,delp,rain, &

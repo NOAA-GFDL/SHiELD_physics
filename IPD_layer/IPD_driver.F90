@@ -5,7 +5,7 @@ module IPD_driver
                                         IPD_diag_type,     IPD_restart_type
 
   use physics_abstraction_layer,  only: initialize,        time_vary_step,   &
-                                        radiation_step1,   physics_step1,    &
+                                        radiation_step1,   physics_step1_down, physics_step1_up,    &
                                         physics_step2,     physics_end
 
   use physics_diag_layer,         only: diag_populate
@@ -30,7 +30,8 @@ module IPD_driver
   public IPD_initialize
   public IPD_setup_step 
   public IPD_radiation_step
-  public IPD_physics_step1
+  public IPD_physics_step1_down
+  public IPD_physics_step1_up
   public IPD_physics_step2
   public IPD_physics_end
 
@@ -109,18 +110,33 @@ module IPD_driver
 !-------------------
 !  IPD physics step1
 !-------------------
-  subroutine IPD_physics_step1 (IPD_Control, IPD_Data, IPD_Diag, IPD_Restart)
+  subroutine IPD_physics_step1_down (IPD_Control, IPD_Data, IPD_Diag, IPD_Restart)
     type(IPD_control_type), intent(inout) :: IPD_Control
     type(IPD_data_type),    intent(inout) :: IPD_Data
     type(IPD_diag_type),    intent(inout) :: IPD_Diag(:)
     type(IPD_restart_type), intent(inout) :: IPD_Restart
 
-    call physics_step1 (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
+    call physics_step1_down (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
                         IPD_Data%Sfcprop, IPD_Data%Coupling, IPD_Data%Grid, &
                         IPD_Data%Tbd, IPD_Data%Cldprop, IPD_Data%Radtend,   &
                         IPD_Data%Intdiag, IPD_Data%Overrides)
 
-  end subroutine IPD_physics_step1
+  end subroutine IPD_physics_step1_down
+
+  subroutine IPD_physics_step1_up (IPD_Control, IPD_Data, IPD_Diag, IPD_Restart)
+    type(IPD_control_type), intent(inout) :: IPD_Control
+    type(IPD_data_type),    intent(inout) :: IPD_Data
+    type(IPD_diag_type),    intent(inout) :: IPD_Diag(:)
+    type(IPD_restart_type), intent(inout) :: IPD_Restart
+
+    call physics_step1_up (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
+                        IPD_Data%Sfcprop, IPD_Data%Coupling, IPD_Data%Grid, &
+                        IPD_Data%Tbd, IPD_Data%Cldprop, IPD_Data%Radtend,   &
+                        IPD_Data%Intdiag, IPD_Data%Overrides)
+
+
+  end subroutine IPD_physics_step1_up
+
 
 
 !-------------------

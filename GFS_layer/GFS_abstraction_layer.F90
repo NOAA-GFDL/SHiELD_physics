@@ -16,7 +16,8 @@ module physics_abstraction_layer
   use GFS_driver,      only: initialize       =>  GFS_initialize,       &
                              time_vary_step   =>  GFS_time_vary_step,   &
                              radiation_step1  =>  GFS_radiation_driver, &
-                             physics_step1    =>  GFS_physics_driver,   &
+                             physics_step1_down    =>  GFS_physics_driver_down,   &
+                             physics_step1_up      =>  GFS_physics_driver_up,   &
                              physics_step2    =>  GFS_stochastic_driver,&
                              physics_end      =>  GFS_physics_end
 

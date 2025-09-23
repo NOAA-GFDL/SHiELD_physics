@@ -1027,6 +1027,54 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: phy_f2d  (:,:)   => null()  !< 2d arrays saved for restart
     real (kind=kind_phys), pointer :: phy_f3d  (:,:,:) => null()  !< 3d arrays saved for restart
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! --- Declarations for variables stored between physics driver _down and _up parts ---
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    real(kind=kind_phys), allocatable :: stored_au_out(:,:), stored_f1_out(:,:), stored_f2_out(:,:), stored_diss_out(:,:)
+    real(kind=kind_phys), allocatable :: stored_kpbl(:)
+    real(kind=kind_phys), allocatable :: stored_flux_cg(:,:), stored_flux_en(:,:), stored_elm_pbl(:,:)
+    real(kind=kind_phys), allocatable :: stored_dudt(:,:), stored_dvdt(:,:), stored_dqdt(:,:,:)
+    real(kind=kind_phys), allocatable :: stored_dusfc1(:), stored_dvsfc1(:), stored_dtsfc1(:), stored_dqsfc1(:)
+
+    ! Surface fluxes and state
+    real(kind=kind_phys), allocatable :: stored_hflx(:), stored_evap(:), stored_stress(:), stored_wind(:)
+    real(kind=kind_phys), allocatable :: stored_rb(:), stored_qss(:), stored_zice(:), stored_cice(:), stored_tice(:)
+    real(kind=kind_phys), allocatable :: stored_snowc(:), stored_drain(:), stored_runof(:)
+
+    ! Radiation variables
+    real(kind=kind_phys), allocatable :: stored_xmu(:), stored_xcosz(:), stored_adjsfculw(:)
+    !real(kind=kind_phys), allocatable :: stored_adjnirbmd(:), stored_adjnirdfd(:), stored_adjvisbmd(:), stored_adjvisdfd(:)
+    !real(kind=kind_phys), allocatable :: stored_adjnirbmu(:), stored_adjnirdfu(:), stored_adjvisbmu(:), stored_adjvisdfu(:)
+    !real(kind=kind_phys), pointer :: stored_adjsfcdlw_ptr(:), stored_adjsfcnsw_ptr(:)
+    real(kind=kind_phys), allocatable ::  stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
+
+    ! State tendencies
+    real(kind=kind_phys), allocatable, dimension(:,:) :: stored_dtdt, stored_dtdtc
+
+    ! Grid and state-related variables
+    integer, allocatable :: stored_islmsk(:)
+    real(kind=kind_phys), allocatable, dimension(:,:) :: stored_del, stored_del_gz
+    real(kind=kind_phys) :: stored_frain, stored_dtp
+    integer :: stored_kdt
+
+    real(kind=kind_phys), allocatable :: stored_sigmaf(:)
+
+    ! Physics scheme inputs
+    integer, allocatable :: stored_kinver(:), stored_kcnv(:)
+    real(kind=kind_phys), allocatable :: stored_ctei_rml(:), stored_ctei_r(:)
+    real(kind=kind_phys), allocatable :: stored_work1(:), stored_work2(:), stored_garea(:), stored_dlength(:)
+    real(kind=kind_phys), allocatable :: stored_cldf(:), stored_wcbmax(:)
+
+
+    ! Tracer transport variables
+    integer, allocatable :: stored_clw_trac_idx(:)
+
+    ! CICE coupling variables
+    logical, allocatable :: stored_flag_cice(:)
+    real(kind=kind_phys), allocatable :: stored_tsea_cice(:), stored_fice_cice(:)
+    real(kind=kind_phys), allocatable :: stored_dusfc_cice(:), stored_dvsfc_cice(:), stored_dqsfc_cice(:), stored_dtsfc_cice(:)
+
     contains
       procedure :: create  => tbd_create  !<   allocate array data
   end type GFS_tbd_type
@@ -3967,6 +4015,123 @@ end subroutine overrides_create
     Tbd%phy_fctd = clear_val
     Tbd%phy_f2d  = clear_val
     Tbd%phy_f3d  = clear_val
+
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! --- For variables stored between physics driver _down and _up parts ---
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     allocate (Tbd%stored_au_out(IM,model%levs-1))
+     allocate (Tbd%stored_f1_out(IM,model%levs))
+     allocate (Tbd%stored_f2_out(IM,model%levs*(model%ntrac-1)))
+     allocate (Tbd%stored_diss_out(IM,model%levs-1))
+
+     allocate (Tbd%stored_kpbl(IM))
+     allocate (Tbd%stored_flux_cg(IM,model%levs))
+     allocate (Tbd%stored_flux_en(IM,model%levs))
+     allocate (Tbd%stored_elm_pbl(IM,model%levs))
+
+     allocate (Tbd%stored_dudt(IM,model%levs))
+     allocate (Tbd%stored_dvdt(IM,model%levs))
+     allocate (Tbd%stored_dqdt(IM,model%levs,model%ntrac))
+
+     allocate (Tbd%stored_dusfc1(IM))
+     allocate (Tbd%stored_dvsfc1(IM))
+     allocate (Tbd%stored_dtsfc1(IM))
+     allocate (Tbd%stored_dqsfc1(IM))
+
+     ! Surface fluxes and state
+     allocate (Tbd%stored_hflx(IM), Tbd%stored_evap(IM), Tbd%stored_stress(IM), Tbd%stored_wind(IM))
+     allocate (Tbd%stored_rb(IM), Tbd%stored_qss(IM), Tbd%stored_zice(IM), Tbd%stored_cice(IM), Tbd%stored_tice(IM))
+     allocate (Tbd%stored_snowc(IM), Tbd%stored_drain(IM), Tbd%stored_runof(IM) )!, Tbd%stored_ep1d(IM), Tbd%stored_gflx(IM))
+     Tbd%stored_hflx = clear_val
+     Tbd%stored_evap = clear_val
+     Tbd%stored_stress = clear_val
+     Tbd%stored_wind = clear_val
+     Tbd%stored_rb = clear_val
+     Tbd%stored_qss = clear_val
+     Tbd%stored_zice = clear_val
+     Tbd%stored_cice = clear_val
+     Tbd%stored_tice = clear_val
+     Tbd%stored_snowc = clear_val
+     Tbd%stored_drain = clear_val
+     Tbd%stored_runof = clear_val
+     !Tbd%stored_ep1d = clear_val
+     !Tbd%stored_gflx = clear_val
+
+     ! Radiation variables
+     allocate (Tbd%stored_xmu(IM), Tbd%stored_xcosz(IM), Tbd%stored_adjsfculw(IM))
+     allocate (Tbd%stored_adjsfcdlw(IM), Tbd%stored_adjsfcdsw(IM), Tbd%stored_adjsfcnsw(IM))
+     Tbd%stored_xmu = clear_val
+     Tbd%stored_xcosz = clear_val
+     Tbd%stored_adjsfculw = clear_val
+     Tbd%stored_adjsfcdlw=clear_val
+     Tbd%stored_adjsfcdsw=clear_val
+     Tbd%stored_adjsfcnsw=clear_val
+
+     !allocate (Tbd%stored_adjnirbmd(IM), Tbd%stored_adjnirdfd(IM), Tbd%stored_adjvisbmd(IM), Tbd%stored_adjvisdfd(IM))
+     !allocate (Tbd%stored_adjnirbmu(IM), Tbd%stored_adjnirdfu(IM), Tbd%stored_adjvisbmu(IM), Tbd%stored_adjvisdfu(IM))
+     !Tbd%stored_adjnirbmd = clear_val
+     !Tbd%stored_adjnirdfd = clear_val
+     !Tbd%stored_adjvisbmd = clear_val
+     !Tbd%stored_adjvisdfd = clear_val
+     !Tbd%stored_adjnirbmu = clear_val
+     !Tbd%stored_adjnirdfu = clear_val
+     !Tbd%stored_adjvisbmu = clear_val
+     !Tbd%stored_adjvisdfu = clear_val
+
+     ! State tendencies
+     allocate (Tbd%stored_dtdt(IM,model%LEVS), Tbd%stored_dtdtc(IM,model%LEVS))
+     Tbd%stored_dtdt = clear_val
+     Tbd%stored_dtdtc = clear_val
+
+     ! Grid and state-related variables
+     allocate (Tbd%stored_islmsk(IM))
+     allocate (Tbd%stored_del(IM,model%LEVS), Tbd%stored_del_gz(IM,model%LEVS+1))
+     !allocate (Tbd%stored_frland(IM))
+     !allocate (Tbd%stored_dry(IM))
+     allocate (Tbd%stored_sigmaf(IM))
+     Tbd%stored_islmsk = 0
+     Tbd%stored_del = clear_val
+     Tbd%stored_del_gz = clear_val
+     Tbd%stored_frain = clear_val
+     Tbd%stored_dtp = clear_val
+     Tbd%stored_kdt = 0
+     !Tbd%stored_nvdiff = 0
+     !Tbd%stored_frland = clear_val
+     !Tbd%stored_dry = .false.
+     Tbd%stored_sigmaf = clear_val
+
+     ! Physics scheme inputs
+     allocate (Tbd%stored_kinver(IM), Tbd%stored_kcnv(IM))
+     allocate (Tbd%stored_ctei_rml(IM), Tbd%stored_ctei_r(IM))!, Tbd%stored_tx1(IM), Tbd%stored_tx2(IM))
+     allocate (Tbd%stored_work1(IM), Tbd%stored_work2(IM), Tbd%stored_garea(IM), Tbd%stored_dlength(IM))
+     allocate (Tbd%stored_cldf(IM), Tbd%stored_wcbmax(IM))
+     Tbd%stored_kinver = 0
+     Tbd%stored_kcnv = 0
+     Tbd%stored_ctei_rml = clear_val
+     Tbd%stored_ctei_r = clear_val
+     !Tbd%stored_tx1 = clear_val
+     !Tbd%stored_tx2 = clear_val
+     Tbd%stored_work1 = clear_val
+     Tbd%stored_work2 = clear_val
+     Tbd%stored_garea = clear_val
+     Tbd%stored_dlength = clear_val
+     Tbd%stored_cldf = clear_val
+     Tbd%stored_wcbmax = clear_val
+
+     ! CICE Tbd variables
+     allocate (Tbd%stored_flag_cice(IM))
+     allocate (Tbd%stored_tsea_cice(IM), Tbd%stored_fice_cice(IM))
+     allocate (Tbd%stored_dusfc_cice(IM), Tbd%stored_dvsfc_cice(IM), Tbd%stored_dqsfc_cice(IM), Tbd%stored_dtsfc_cice(IM))
+     Tbd%stored_flag_cice = .false.
+     Tbd%stored_tsea_cice = clear_val
+     Tbd%stored_fice_cice = clear_val
+     Tbd%stored_dusfc_cice = clear_val
+     Tbd%stored_dvsfc_cice = clear_val
+     Tbd%stored_dqsfc_cice = clear_val
+     Tbd%stored_dtsfc_cice = clear_val
 
   end subroutine tbd_create
 
