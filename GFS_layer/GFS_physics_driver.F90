@@ -1072,8 +1072,27 @@ module module_physics_driver
       Diag%zlvl(:)    = Statein%phil(:,1) * onebg
       Diag%smcwlt2(:) = 0.0
       Diag%smcref2(:) = 0.0
-      
-      
+
+
+! check the definition from atmos_model.F90
+! 2: all ocean and land fluxes from full coupler
+! 1: ocean fluxes only
+
+      if (Model%sfc_coupled==2) then !! ALL surface fluxes form the full coupler
+        do i=1,im
+           maxevap(i) = statein%qgrs(i,1,1)/(dtp/(statein%phii(i,2)-statein%phii(i,1))*con_g)
+        enddo
+
+        call populate_from_fms_coupler (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &
+                    Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),              &
+                    work3, Tbd%phy_f2d(1,Model%num_p2d),                                 &
+                    maxevap, Sfcprop%shflx, Sfcprop%lhflx, sfcprop%qsfc,                 &
+                    Diag%zlvl, Sfcprop%snowd, Sfcprop%zorl, Sfcprop%ztrl,                &
+                    rb, stress, Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,             &
+                    wind,  fm10, fh2, tsurf,                                             &
+                    qss, Diag%cmm, Diag%chh, gflx, evap, hflx, ep1d)
+
+      else ! For standalone shield and shiemom
 
 !  --- ...  lu: iter-loop over (sfc_diff,sfc_drv,sfc_ocean,sfc_sice)
 
@@ -1213,7 +1232,7 @@ module module_physics_driver
          !else
 !!$         endif
 
-            if (Model%sfc_coupled) then
+            if (Model%sfc_coupled==1) then
 ! a version of sfc_diff for coupling with MOM6 by kgao 
 ! lhflx is used as a flag to indicate if a grid point is a valid dynamical ocean point
             call sfc_diff_coupled(im, Statein%pgr, Statein%ugrs, Statein%vgrs,&
@@ -1326,7 +1345,7 @@ module module_physics_driver
 
 !  --- ...  surface energy balance over ocean
 
-          if (Model%sfc_coupled) then
+          if (Model%sfc_coupled==1) then
           ! kgao: this version is for coupling with MOM6, which
           !       gets hflx and evap over ocean points
           !       based on shflx and lhflx from coupler
@@ -1498,6 +1517,9 @@ module module_physics_driver
         enddo
 
       enddo   ! end iter_loop
+
+      endif   ! sfc_coupled  !! ALL surface fluxes form the full coupler
+
 
       Diag%epi(:)     = ep1d(:)
 
