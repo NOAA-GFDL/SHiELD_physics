@@ -1608,21 +1608,17 @@ module module_physics_driver
       integer :: me, ipr, ix, im, levs, ntrac, nvdiff, kdt
       integer :: kflip, nsamftrac, levshcm, nwat
       integer :: i, k, n, nn, kk, ic, itc, ntk, tracers, tottracer, num2, num3
-      integer, dimension(size(Grid%xlon,1)) :: kbot, lmh, ktop, kcnv, kpbl, kinver, islmsk, levshc
+      integer, dimension(size(Grid%xlon,1)) :: kbot, lmh, ktop, levshc
       logical :: lprnt, revap, do_awdd, trans_aero
-      logical, dimension(size(Grid%xlon,1)) :: skip_macro, flag_cice, dry
-      real(kind=kind_phys), dimension(size(Grid%xlon,1))  :: xcosz
-      real(kind=kind_phys), dimension(size(Grid%xlon,1)) :: ccwfac, garea, dlength, cumabs, cice, zice, tice, &
-           rain1, raincs, cd, qss, dusfcg, dvsfcg, dusfc1, dvsfc1, dtsfc1, dqsfc1, rb, drain, evap, hflx, &
-           stress, t850, gamt, gamq, sigmaf, oc, theta, gamma, sigma, elvmax, wind, work1, work2, runof, xmu, &
-           work3, ctei_r, snowc, frland, dlqfac, ctei_rml, cldf, domr, domzr,domip, wcbmax, &
-           ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl, &
-           dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, tsea_cice, fice_cice, &
-           z01d, bexp1d, xlai1d, vegf1d, netswsfc, netflxsfc, qflux_restore, temrain1
+      logical, dimension(size(Grid%xlon,1)) :: skip_macro, dry
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) :: ccwfac, cumabs, &
+           rain1, raincs, cd, dusfcg, dvsfcg, t850, gamt, gamq, oc, theta,  &
+           gamma, sigma, elvmax, work3, frland, dlqfac, domr, domzr,domip,  &
+           ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl, z01d,&
+           bexp1d, xlai1d, vegf1d, netswsfc, netflxsfc, qflux_restore, temrain1
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
-            fm10, fh2, cld1d,    &
-           doms, psautco_l, prautco_l
+            fm10, fh2, cld1d, doms, psautco_l, prautco_l
 
 #ifdef fvGFS_2017
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::           &
@@ -1638,37 +1634,24 @@ module module_physics_driver
           mpprg, mppxr, mppxs, mppxg
 #endif
 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) :: dtdt,  &
-        dtdtc, del, prnum,  rhc, dudt, dvdt, gwdcu, gwdcv, rainp, &
-           ud_mf, dd_mf, dt_mf, dkt, flux_cg, flux_en, elm_pbl,   &
-          prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
-          sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
+      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::   &
+          prnum,  rhc,  gwdcu, gwdcv, rainp, ud_mf, dd_mf, dt_mf, dkt,   &
+          prefluxw, prefluxr, prefluxi, prefluxs, prefluxg, sigmatot,    &
+          sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps,     &
           wu2_shal,  eta_shal
 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs+1) ::&
-           del_gz
-
       real(kind=kind_phys) ::                                           &
-           dtf, dtp, rhbbot, rhbtop, rhpbl, frain, tem, tem1, tem2,     &
+           dtf, dtp, rhbbot, rhbtop, rhpbl, tem, tem1, tem2,            &
            xcosz_loc,  eng0, eng1, dpshc, rdt,                          &
            !--- GFDL Cloud microphysics
            crain, csnow,                                                &
            z0fun, diag_water, diag_rain, diag_rain1
 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%ntrac) ::  &
-           dqdt
-
-      real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
-      real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
-      real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
-
       real(kind=kind_phys), allocatable, dimension(:,:) ::              &
              qlcn, qicn, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,   &
              CLCN, CNV_FICE, CNV_NDROP, CNV_NICE
       real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
-      real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::    adjsfculw
 
-      real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
       integer, allocatable, dimension(:) :: clw_trac_idx
       real(kind=kind_phys), allocatable ::                              &
            clw(:,:,:), qpl(:,:),  qpi(:,:), ncpl(:,:), ncpi(:,:),       &
@@ -1717,92 +1700,8 @@ module module_physics_driver
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%nctp) ::  &
            sigmai, vverti
-
-      ! --- Retrieve variables stored in _down ---
-      !Tbd%stored_hflx(:)   =   Tbd%stored_hflx(:)
-      !Tbd%stored_evap(:)   =   Tbd%stored_evap(:)
-      !Tbd%stored_stress(:) =   Tbd%stored_stress(:)
-      !Tbd%stored_wind(:)   =   Tbd%stored_wind(:)
-      !Tbd%stored_rb(:)     =   Tbd%stored_rb(:)
-      !Tbd%stored_qss(:)    =   Tbd%stored_qss(:)
-      !Tbd%stored_zice(:)   =   Tbd%stored_zice(:)
-      !Tbd%stored_cice(:)   =   Tbd%stored_cice(:)
-      !Tbd%stored_tice(:)   =   Tbd%stored_tice(:)
-      !Tbd%stored_snowc(:)  =   Tbd%stored_snowc(:)
-      !Tbd%stored_drain(:)  =   Tbd%stored_drain(:)
-      !Tbd%stored_runof(:)  =   Tbd%stored_runof(:)
-      !Tbd%stored_xmu(:)    =   Tbd%stored_xmu(:)
-      !Tbd%stored_xcosz(:)  =   Tbd%stored_xcosz(:)
-
-      !Tbd%stored_adjsfcdlw(:)   =  Tbd%stored_adjsfcdlw(:)
-      !Tbd%stored_adjsfcdsw(:)   =  Tbd%stored_adjsfcdsw(:)
-      !Tbd%stored_adjsfcnsw(:)   =  Tbd%stored_adjsfcnsw(:)
-      !Tbd%stored_adjsfculw(:)   =  Tbd%stored_adjsfculw(:)
-      !!adjnirbmd=Tbd%stored_adjnirbmd
-      !!adjnirdfd=Tbd%stored_adjnirdfd
-      !!adjvisbmd=Tbd%stored_adjvisbmd
-      !!adjvisdfd=Tbd%stored_adjvisdfd
-      !!adjnirbmu=Tbd%stored_adjnirbmu
-      !!adjnirdfu=Tbd%stored_adjnirdfu
-      !!adjvisbmu=Tbd%stored_adjvisbmu
-      !!adjvisdfu=Tbd%stored_adjvisdfu
-
-      !Tbd%stored_dtdtc(:,:)   =   Tbd%stored_dtdtc(:,:)
-      !Tbd%stored_islmsk(:)    =   Tbd%stored_islmsk(:)
-      !Tbd%stored_del(:,:)     =   Tbd%stored_del(:,:)
-      !Tbd%stored_del_gz(:,:)  =   Tbd%stored_del_gz(:,:)
-      !Tbd%stored_frain        =   Tbd%stored_frain
-      !Tbd%stored_dtp          =   Tbd%stored_dtp
-      !Tbd%stored_sigmaf(:)    =   Tbd%stored_sigmaf(:)
-      !Tbd%stored_kinver(:)    =   Tbd%stored_kinver(:)
-      !Tbd%stored_kcnv(:)      =   Tbd%stored_kcnv(:)
-      !Tbd%stored_ctei_rml(:)  =   Tbd%stored_ctei_rml(:)
-      !Tbd%stored_ctei_r(:)    =   Tbd%stored_ctei_r(:)
-      !Tbd%stored_work1(:)     =   Tbd%stored_work1(:)
-      !Tbd%stored_work2(:)     =   Tbd%stored_work2(:)
-      !Tbd%stored_garea(:)     =   Tbd%stored_garea(:)
-      !Tbd%stored_dlength(:)   =   Tbd%stored_dlength(:)
-      !Tbd%stored_cldf(:)      =   Tbd%stored_cldf(:)
-      !Tbd%stored_wcbmax(:)    =   Tbd%stored_wcbmax(:)
-
-      !!z01d=Tbd%stored_z01d
-      !!bexp1d=Tbd%stored_bexp1d
-      !!xlai1d=Tbd%stored_xlai1d
-      !!vegf1d=Tbd%stored_vegf1d
-      !!itc=Tbd%stored_itc
-      !!ntk=Tbd%stored_ntk
-      !!trans_aero=Tbd%stored_trans_aero
-      !!skip_macro=Tbd%stored_skip_macro
-
-      !Tbd%stored_flag_cice(:)     =   Tbd%stored_flag_cice(:)
-      !Tbd%stored_tsea_cice(:)     =   Tbd%stored_tsea_cice(:)
-      !Tbd%stored_fice_cice(:)     =   Tbd%stored_fice_cice(:)
-      !Tbd%stored_dusfc_cice(:)    =   Tbd%stored_dusfc_cice(:)
-      !Tbd%stored_dvsfc_cice(:)    =   Tbd%stored_dvsfc_cice(:)
-      !Tbd%stored_dqsfc_cice(:)    =   Tbd%stored_dqsfc_cice(:)
-      !Tbd%stored_dtsfc_cice(:)    =   Tbd%stored_dtsfc_cice(:)
-
-      !Tbd%stored_au_out(:,:)   =   Tbd%stored_au_out(:,:)
-      !Tbd%stored_f1_out(:,:)   =   Tbd%stored_f1_out(:,:)
-      !Tbd%stored_f2_out(:,:)   =   Tbd%stored_f2_out(:,:)
-      !Tbd%stored_diss_out(:,:) =   Tbd%stored_diss_out(:,:)
-
-      !Tbd%stored_kpbl(:)      = Tbd%stored_kpbl(:)
-      !Tbd%stored_flux_cg(:,:) = Tbd%stored_flux_cg(:,:)
-      !Tbd%stored_flux_en(:,:) = Tbd%stored_flux_en(:,:)
-      !Tbd%stored_elm_pbl(:,:) = Tbd%stored_elm_pbl(:,:)
-
-      !Tbd%stored_dvdt(:,:)   = Tbd%stored_dvdt(:,:)
-      !Tbd%stored_dudt(:,:)   = Tbd%stored_dudt(:,:)
-      !Tbd%stored_dtdt(:,:)   = Tbd%stored_dtdt(:,:)
-      !Tbd%stored_dqdt(:,:,:) = Tbd%stored_dqdt(:,:,:)
-
-      !Tbd%stored_dusfc1(:) = Tbd%stored_dusfc1(:)
-      !Tbd%stored_dvsfc1(:) = Tbd%stored_dvsfc1(:)
-      !Tbd%stored_dtsfc1(:) = Tbd%stored_dtsfc1(:)
-      !Tbd%stored_dqsfc1(:) = Tbd%stored_dqsfc1(:)
 !
-!      me     = Model%me
+      me     = Model%me
       ix     = size(Grid%xlon,1)
       im     = size(Grid%xlon,1)
       levs   = Model%levs
