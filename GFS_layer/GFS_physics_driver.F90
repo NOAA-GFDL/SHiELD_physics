@@ -410,7 +410,7 @@ module module_physics_driver
       type(GFS_sfcprop_type),         intent(inout) :: Sfcprop
       type(GFS_coupling_type),        intent(inout) :: Coupling
       type(GFS_grid_type),            intent(in)    :: Grid
-      type(GFS_tbd_type),             intent(inout) :: Tbd
+      type(GFS_tbd_type), target,     intent(inout) :: Tbd
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
@@ -485,7 +485,7 @@ module module_physics_driver
       real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
       real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
 
-      real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
+     !real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: Tbd%stored_adjsfcdlw, Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw
       real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
 !
 !===> ...  begin here
@@ -536,9 +536,9 @@ module module_physics_driver
         adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
         adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
       else
-        adjsfcdlw_for_coupling => adjsfcdlw
-        adjsfcdsw_for_coupling => adjsfcdsw
-        adjsfcnsw_for_coupling => adjsfcnsw
+        adjsfcdlw_for_coupling => Tbd%stored_adjsfcdlw
+        adjsfcdsw_for_coupling => Tbd%stored_adjsfcdsw
+        adjsfcnsw_for_coupling => Tbd%stored_adjsfcnsw
       endif
 
       ! perform aerosol convective transport and PBL diffusion
@@ -764,7 +764,7 @@ module module_physics_driver
 !  ---  input/output:
              Tbd%stored_dtdt,                                                          &
 !  ---  outputs:
-             adjsfcdsw, adjsfcnsw, adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
+             Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw, Tbd%stored_adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
              adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                    &
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd                     &
            )
@@ -785,7 +785,7 @@ module module_physics_driver
 !  ---  input/output:
              Tbd%stored_dtdt, Tbd%stored_dtdtc,                                                   &
 !  ---  outputs:
-             adjsfcdsw, adjsfcnsw, adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
+             Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw, Tbd%stored_adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
              adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                    &
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd,                    &
              adjtoadsw, adjtoausw                                           &
@@ -801,7 +801,7 @@ module module_physics_driver
         Coupling%visbmua(:) = adjvisbmu(:)
         Coupling%visdfua(:) = adjvisdfu(:)
         Coupling%coszena(:) = Tbd%stored_xcosz(:)
-        Coupling%sfcdlwa(:) = adjsfcdlw(:)
+        Coupling%sfcdlwa(:) = Tbd%stored_adjsfcdlw(:)
 
         if (Model%do_diagnostic_radiation_with_scaled_co2) then
            call compute_diagnostics_with_scaled_co2(                        &
@@ -847,7 +847,7 @@ module module_physics_driver
 
         do i = 1, im
           if ( Tbd%stored_xcosz(i) >= czmin ) then   ! zenth angle > 89.994 deg
-            tem1 = adjsfcdsw(i) / Tbd%stored_xcosz(i)
+            tem1 = Tbd%stored_adjsfcdsw(i) / Tbd%stored_xcosz(i)
             if ( tem1 >= 120.0 ) then
               Diag%suntim(i) = Diag%suntim(i) + dtf
             endif
@@ -864,7 +864,7 @@ module module_physics_driver
 
         ! Diag%dlwsfc is always meant to refer to an RRTMG flux, so we do not
         ! use the adjsfcdlw_for_coupling pointer here.
-        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   adjsfcdlw(:)*dtf
+        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   Tbd%stored_adjsfcdlw(:)*dtf
         Diag%ulwsfc(:) = Diag%ulwsfc(:) +   Tbd%stored_adjsfculw(:)*dtf
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
@@ -1422,12 +1422,12 @@ module module_physics_driver
       ! Diag%dlwsfci, Diag%uswsfci, Diag%dswsfci, Diag%uswsfc, and Diag%dswsfc
       ! are always meant to refer to RRTMG fluxes, so we do not use the
       ! adjsfc??w_for_coupling pointers here.
-      Diag%dlwsfci(:) = adjsfcdlw(:)
+      Diag%dlwsfci(:) = Tbd%stored_adjsfcdlw(:)
       Diag%ulwsfci(:) = Tbd%stored_adjsfculw(:)
-      Diag%uswsfci(:) = adjsfcdsw(:) - adjsfcnsw(:)
-      Diag%dswsfci(:) = adjsfcdsw(:)
-      Diag%uswsfc(:) =  Diag%uswsfc(:) + (adjsfcdsw(:) - adjsfcnsw(:))*dtf
-      Diag%dswsfc(:) =  Diag%dswsfc(:) + adjsfcdsw(:)*dtf
+      Diag%uswsfci(:) = Tbd%stored_adjsfcdsw(:) - Tbd%stored_adjsfcnsw(:)
+      Diag%dswsfci(:) = Tbd%stored_adjsfcdsw(:)
+      Diag%uswsfc(:) =  Diag%uswsfc(:) + (Tbd%stored_adjsfcdsw(:) - Tbd%stored_adjsfcnsw(:))*dtf
+      Diag%dswsfc(:) =  Diag%dswsfc(:) + Tbd%stored_adjsfcdsw(:)*dtf
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
@@ -1650,9 +1650,9 @@ module module_physics_driver
     !  Tbd%stored_xcosz(:) = Tbd%stored_xcosz(:)
     !  Tbd%stored_adjsfculw(:) = Tbd%stored_adjsfculw(:)
 
-      Tbd%stored_adjsfcdlw(:) = adjsfcdlw(:)
-      Tbd%stored_adjsfcdsw(:) = adjsfcdsw(:)
-      Tbd%stored_adjsfcnsw(:) = adjsfcnsw(:)
+    !  Tbd%stored_adjsfcdlw(:) = Tbd%stored_adjsfcdlw(:)
+    !  Tbd%stored_adjsfcdsw(:) = Tbd%stored_adjsfcdsw(:)
+    !  Tbd%stored_adjsfcnsw(:) = Tbd%stored_adjsfcnsw(:)
 
     !  !Tbd%stored_adjnirbmd(:) = adjnirbmd(:)
     !  !Tbd%stored_adjnirdfd(:) = adjnirdfd(:)

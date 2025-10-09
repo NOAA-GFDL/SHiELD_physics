@@ -1047,7 +1047,7 @@ module GFS_typedefs
     !real(kind=kind_phys), allocatable :: stored_adjnirbmd(:), stored_adjnirdfd(:), stored_adjvisbmd(:), stored_adjvisdfd(:)
     !real(kind=kind_phys), allocatable :: stored_adjnirbmu(:), stored_adjnirdfu(:), stored_adjvisbmu(:), stored_adjvisdfu(:)
     !real(kind=kind_phys), pointer :: stored_adjsfcdlw_ptr(:), stored_adjsfcnsw_ptr(:)
-    real(kind=kind_phys), allocatable ::  stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
+    real(kind=kind_phys), pointer ::  stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
 
     ! State tendencies
     real(kind=kind_phys), allocatable, dimension(:,:) :: stored_dtdt, stored_dtdtc
