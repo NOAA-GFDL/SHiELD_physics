@@ -422,37 +422,29 @@ module module_physics_driver
       integer :: me, ipr, ix, im, levs, ntrac, nvdiff, kdt
       integer :: i,  k, iter
 
-      integer, dimension(size(Grid%xlon,1)) ::  kcnv, soiltyp, vegtype, &
-           kpbl, slopetyp, kinver, islmsk, soilcol,  islmsk_cice
+      integer, dimension(size(Grid%xlon,1)) ::  soiltyp, vegtype, &
+            slopetyp, soilcol,  islmsk_cice
 
       !--- LOGICAL VARIABLES
       logical :: lprnt
 
-      logical, dimension(size(Grid%xlon,1)) ::                          &
-           flag_iter, flag_guess, invrsn, flag_cice
+      logical, dimension(size(Grid%xlon,1)) :: flag_iter, flag_guess, invrsn
 
       !--- REAL VARIABLES
-      real(kind=kind_phys) ::                                           &
-           dtf, dtp, rhbbot, rhbtop, rhpbl, frain, tem, tem1, tem2,     &
-           xcosz_loc, zsea1, zsea2,  z0fun
+      real(kind=kind_phys) ::  dtf, dtp, rhbbot, rhbtop, rhpbl,  tem,   &
+       tem1, tem2, xcosz_loc, zsea1, zsea2,  z0fun
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
-           garea, dlength, cice, zice, tice, gflx, snowmt, cd, cdq,     &
-           qss, dusfc1, dvsfc1,  dtsfc1, dqsfc1, rb, drain,  evap,      &
-           hflx, stress,  ep1d,  sigmaf, wind, work1, work2, runof,     &
-           xmu, fm10, fh2, snohf,  work3, ctei_rml, cldf,               &
-           tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
-           frland, adjsfculw, maxevap, adjtoadsw, adjtoausw,            &
+           gflx, snowmt, cd, cdq, dqsfc1, ep1d, fm10, fh2, snohf,       &
+           work3, tsurf,  tx1, tx2,  evbs, evcw, trans, sbsno,          &
+           frland,  maxevap, adjtoadsw, adjtoausw,                      &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
-           adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
+           adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw,  tseal,           &
            ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl,  &
            dtzm,  t2mmp, q2mp,   &
            !--- coupling inputs for physics
-           dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, ulwsfc_cice, &
-           tisfc_cice, tsea_cice, hice_cice, fice_cice,                 &
-           !--- for CS-convection
-           wcbmax
-           
+           ulwsfc_cice, tisfc_cice,  hice_cice
+
       logical, dimension(size(Grid%xlon,1))      ::  dry
 
 #ifdef fvGFS_2017
@@ -467,25 +459,13 @@ module module_physics_driver
           smsoil, stsoil, slsoil
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
-          del, dtdt, dudt, dvdt, dtdtc, dkt, flux_cg, flux_en, elm_pbl
+           dkt
 
-      !--- GFDL modification for FV3 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs+1) ::&
-           del_gz
 
 !  mg, sfc perts
       real (kind=kind_phys), dimension(size(Grid%xlon,1)) :: &
          z01d, zt1d, bexp1d, xlai1d, vegf1d
 
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%ntrac) ::  &
-           dqdt
-
-! Elements of the tridiag matrix for the _down _up sweep
-      real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
-      real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
-      real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
-
-     !real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: Tbd%stored_adjsfcdlw, Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw
       real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
 !
 !===> ...  begin here
@@ -1601,104 +1581,6 @@ module module_physics_driver
       Sfcprop%smc(:,:) = smsoil(:,:)
       Sfcprop%stc(:,:) = stsoil(:,:)
       Sfcprop%slc(:,:) = slsoil(:,:)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!! STORE VARIABLES FOR the _up part !!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-      !Tbd%stored_au_out(:,:) = au_out(:,:)
-      !Tbd%stored_f1_out(:,:) = f1_out(:,:)
-      !Tbd%stored_f2_out(:,:) = f2_out(:,:)
-      !Tbd%stored_diss_out(:,:) = diss_out(:,:)
-
-      !Tbd%stored_kpbl(:) = kpbl(:)
-      !Tbd%stored_flux_cg(:,:) = flux_cg(:,:)
-      !Tbd%stored_flux_en(:,:) = flux_en(:,:)
-      !Tbd%stored_elm_pbl(:,:) = elm_pbl(:,:)
-
-      !Tbd%stored_dvdt(:,:) = dvdt(:,:)
-      !Tbd%stored_dudt(:,:) = dudt(:,:)
-      !Tbd%stored_dtdt(:,:) = dtdt(:,:)
-      !Tbd%stored_dqdt(:,:,:) = dqdt(:,:,:)
-
-      !Tbd%stored_dusfc1(:) = dusfc1(:)
-      !Tbd%stored_dvsfc1(:) = dvsfc1(:)
-      !Tbd%stored_dtsfc1(:) = dtsfc1(:)
-      !Tbd%stored_dqsfc1(:) = dqsfc1(:)
-
-      ! Surface fluxes and state from surface schemes
-      !Tbd%stored_hflx(:) = hflx(:)
-      !Tbd%stored_evap(:) = evap(:)
-      !Tbd%stored_stress(:) = stress(:)
-      !Tbd%stored_wind(:) = wind(:)
-      !Tbd%stored_rb(:) = Tbd%stored_rb(:)
-      !Tbd%stored_qss(:) = Tbd%stored_qss(:)
-      !Tbd%stored_zice(:) = Tbd%stored_zice(:)
-      !Tbd%stored_cice(:) = Tbd%stored_cice(:)
-      !Tbd%stored_tice(:) = Tbd%stored_tice(:)
-      !Tbd%stored_snowc(:) = Tbd%stored_snowc(:)
-      !Tbd%stored_drain(:) = Tbd%stored_drain(:)
-      !Tbd%stored_runof(:) = Tbd%stored_runof(:)
-      !Tbd%stored_ep1d(:) = ep1d(:)
-      !Tbd%stored_gflx(:) = gflx(:)
-
-    !  ! Radiation variables
-    !  Tbd%stored_xmu(:) = Tbd%stored_xmu(:)
-    !  Tbd%stored_xcosz(:) = Tbd%stored_xcosz(:)
-    !  Tbd%stored_adjsfculw(:) = Tbd%stored_adjsfculw(:)
-
-    !  Tbd%stored_adjsfcdlw(:) = Tbd%stored_adjsfcdlw(:)
-    !  Tbd%stored_adjsfcdsw(:) = Tbd%stored_adjsfcdsw(:)
-    !  Tbd%stored_adjsfcnsw(:) = Tbd%stored_adjsfcnsw(:)
-
-    !  !Tbd%stored_adjnirbmd(:) = adjnirbmd(:)
-    !  !Tbd%stored_adjnirdfd(:) = adjnirdfd(:)
-    !  !Tbd%stored_adjvisbmd(:) = adjvisbmd(:)
-    !  !Tbd%stored_adjvisdfd(:) = adjvisdfd(:)
-    !  !Tbd%stored_adjnirbmu(:) = adjnirbmu(:)
-    !  !Tbd%stored_adjnirdfu(:) = adjnirdfu(:)
-    !  !Tbd%stored_adjvisbmu(:) = adjvisbmu(:)
-    !  !Tbd%stored_adjvisdfu(:) = adjvisdfu(:)
-
-    !  ! State tendencies from radiation
-    !  !Tbd%stored_dtdt(:,:) = Tbd%stored_dtdt(:,:)
-    !  !Tbd%stored_dtdtc(:,:) = Tbd%stored_dtdtc(:,:)
-
-    !  ! Grid and state-related variables
-    !  Tbd%stored_islmsk(:) = Tbd%stored_islmsk(:)
-    !  Tbd%stored_del(:,:) = Tbd%stored_del(:,:)
-    !  Tbd%stored_del_gz(:,:) = Tbd%stored_del_gz(:,:)
-    !  Tbd%stored_frain = Tbd%stored_frain
-    !  !Tbd%stored_frland(:) = frland(:)
-    !  !Tbd%stored_dry(:) = dry(:)
-    !  Tbd%stored_sigmaf(:) = Tbd%stored_sigmaf(:)
-    !  !Tbd%stored_nvdiff = nvdiff
-
-    !  ! Physics scheme inputs
-    !  Tbd%stored_kinver(:) = Tbd%stored_kinver(:)
-    !  Tbd%stored_kcnv(:) = Tbd%stored_kcnv(:)
-    !  Tbd%stored_ctei_rml(:) = Tbd%stored_ctei_rml(:)
-    !  Tbd%stored_ctei_r(:) = Tbd%stored_ctei_r(:)
-    !  !Tbd%stored_tx1(:) = tx1(:)
-    !  !Tbd%stored_tx2(:) = tx2(:)
-    !  Tbd%stored_work1(:) = Tbd%stored_work1(:)
-    !  Tbd%stored_work2(:) = Tbd%stored_work2(:)
-    !  Tbd%stored_garea(:) = Tbd%stored_garea(:)
-    !  Tbd%stored_dlength(:) = Tbd%stored_dlength(:)
-    !  Tbd%stored_cldf(:) = Tbd%stored_cldf(:)
-    !  Tbd%stored_wcbmax(:) = Tbd%stored_wcbmax(:)
-
-    !  ! CICE coupling variables
-    !  Tbd%stored_flag_cice(:) = Tbd%stored_flag_cice(:)
-    !  Tbd%stored_tsea_cice(:) = Tbd%stored_tsea_cice(:)
-    !  Tbd%stored_fice_cice(:) = Tbd%stored_fice_cice(:)
-    !  Tbd%stored_dusfc_cice(:) = Tbd%stored_dusfc_cice(:)
-    !  Tbd%stored_dvsfc_cice(:) = Tbd%stored_dvsfc_cice(:)
-    !  Tbd%stored_dqsfc_cice(:) = Tbd%stored_dqsfc_cice(:)
-    !  Tbd%stored_dtsfc_cice(:) = Tbd%stored_dtsfc_cice(:)
 
     end subroutine GFS_physics_driver_down
 
