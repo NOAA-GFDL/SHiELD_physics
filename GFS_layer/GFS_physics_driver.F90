@@ -419,178 +419,74 @@ module module_physics_driver
 !  ---  local variables
 
       !--- INTEGER VARIABLES
-      integer :: me, lprint, ipr, ix, im, levs, ntrac, nvdiff, kdt
-      integer :: i, kk, ic, k, n, k1, iter, levshcm, tracers,           &
-                 tottracer, nsamftrac, num2, num3, nshocm, nshoc, ntk,  &
-                 itc, nn
-      integer :: kflip
-      integer :: ntsd ! for myj
+      integer :: me, ipr, ix, im, levs, ntrac, nvdiff, kdt
+      integer :: i,  k, iter
 
-      integer, dimension(size(Grid%xlon,1)) ::                          &
-           kbot, ktop, kcnv, soiltyp, vegtype, kpbl, slopetyp, kinver,  &
-           lmh, levshc, islmsk, soilcol,                                &
-           !--- coupling inputs for physics
-           islmsk_cice
+      integer, dimension(size(Grid%xlon,1)) ::  kcnv, soiltyp, vegtype, &
+           kpbl, slopetyp, kinver, islmsk, soilcol,  islmsk_cice
 
       !--- LOGICAL VARIABLES
-      logical :: lprnt, revap, do_awdd, trans_aero
+      logical :: lprnt
 
       logical, dimension(size(Grid%xlon,1)) ::                          &
-           flag_iter, flag_guess, invrsn, skip_macro,                   &
-           !--- coupling inputs for physics
-           flag_cice
-
-      logical, dimension(Model%ntrac-Model%ncld+2,2) ::                 &
-           otspt 
+           flag_iter, flag_guess, invrsn, flag_cice
 
       !--- REAL VARIABLES
       real(kind=kind_phys) ::                                           &
            dtf, dtp, rhbbot, rhbtop, rhpbl, frain, tem, tem1, tem2,     &
-           xcosz_loc, zsea1, zsea2, eng0, eng1, dpshc, den, rdt,        &
-           !--- experimental for shoc sub-stepping 
-           dtshoc,                                                      &
-           !--- GFDL Cloud microphysics
-           crain, csnow,                                                &
-           z0fun, diag_water, diag_rain, diag_rain1
-
-      real(kind=kind_phys), dimension(Model%ntrac-Model%ncld+2) ::      &
-           fscav, fswtr
+           xcosz_loc, zsea1, zsea2,  z0fun
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
-           ccwfac, garea, dlength, cumabs, cice, zice, tice, gflx,      &
-           rain1, raincs, snowmt, cd, cdq, qss, dusfcg, dvsfcg, dusfc1, &
-           dvsfc1,  dtsfc1, dqsfc1, rb, drain,  cld1d, evap, hflx,      &
-           stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma,    &
-           sigma, elvmax, wind, work1, work2, runof, xmu, fm10, fh2,    &
+           garea, dlength, cice, zice, tice, gflx, snowmt, cd, cdq,     &
+           qss, dusfc1, dvsfc1,  dtsfc1, dqsfc1, rb, drain,  evap,      &
+           hflx, stress,  ep1d,  sigmaf, wind, work1, work2, runof,     &
+           xmu, fm10, fh2, snohf,  work3, ctei_rml, cldf,               &
            tsurf,  tx1, tx2, ctei_r, evbs, evcw, trans, sbsno, snowc,   &
            frland, adjsfculw, maxevap, adjtoadsw, adjtoausw,            &
            adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd,       &
            adjnirdfd, adjvisbmd, adjvisdfd, gabsbdlw, xcosz, tseal,     &
-           snohf, dlqfac, work3, ctei_rml, cldf, domr, domzr, domip,    &
-           doms, psautco_l, prautco_l, ocalnirbm_cpl, ocalnirdf_cpl,    &
-           ocalvisbm_cpl, ocalvisdf_cpl, dtzm, temrain1, t2mmp, q2mp,   &
+           ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl,  &
+           dtzm,  t2mmp, q2mp,   &
            !--- coupling inputs for physics
            dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, ulwsfc_cice, &
            tisfc_cice, tsea_cice, hice_cice, fice_cice,                 &
            !--- for CS-convection
            wcbmax
            
-      logical, dimension(size(Grid%xlon,1))                ::           &
-           wet, dry,              icy
-!
-      real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
-           netflxsfc,                                                   & ! net surface heat flux
-           netswsfc,                                                    & ! 
-           qflux_restore,                                               & ! 
-           qflux_adj                                                     ! 
-!
+      logical, dimension(size(Grid%xlon,1))      ::  dry
 
 #ifdef fvGFS_2017
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::           &
           area, land, water0, rain0, ice0, snow0, graupel0
 #else
       real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
-          gsize, hs, land, water0, rain0, ice0, snow0, graupel0,        &
-          dte, zvfun
-      real(kind=kind_phys), dimension(size(Grid%xlon,1)) ::             &
-          mppcw, mppew, mppe1, mpper, mppdi, mppd1, mppds, mppdg,       &
-          mppsi, mpps1, mppss, mppsg, mppfw, mppfr, mppmi, mppms,       &
-          mppmg, mppm1, mppm2, mppm3, mppar, mppas, mppag, mpprs,       &
-          mpprg, mppxr, mppxs, mppxg
+          zvfun
 #endif
-
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),4) ::           &
-           oa4, clx
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%lsoil) :: &
           smsoil, stsoil, slsoil
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
-          del, rhc, dtdt, dudt, dvdt, gwdcu, gwdcv, dtdtc, rainp,       &
-          ud_mf, dd_mf, dt_mf, prnum, dkt, flux_cg, flux_en, elm_pbl,   &
-          prefluxw, prefluxr, prefluxi, prefluxs, prefluxg,             &
-          sigmatot, sigmafrac, specific_heat, final_dynamics_delp, dtdt_gwdps, &
-          wu2_shal,  eta_shal 
-
-      real(kind=kind_phys), allocatable ::                              &
-           pfr(:,:), pfs(:,:), pfg(:,:)
+          del, dtdt, dudt, dvdt, dtdtc, dkt, flux_cg, flux_en, elm_pbl
 
       !--- GFDL modification for FV3 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs+1) ::&
            del_gz
 
-#ifdef fvGFS_2017
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),1,Model%levs) ::  &
-           delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qn1, qi1,   &
-           qs1, pt_dt, qa_dt, udt, vdt, w, qv_dt, ql_dt, qr_dt, qi_dt,  &
-           qs_dt, qg_dt
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
-           phmid, th, tke, exner, exchh1, el1 ! for myj
-#else
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
-           delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qnl1, qi1,  &
-           qs1, pt_dt, udt, vdt, w, qv_dt, ql_dt, qr_dt, qi_dt, qni1,   &
-           qs_dt, qg_dt, adj_vmr, te, q_con, cappa, &
-           phmid, th, tke, exner, exchh1, el1 ! for myj
-#endif
-
 !  mg, sfc perts
       real (kind=kind_phys), dimension(size(Grid%xlon,1)) :: &
-         z01d, zt1d, bexp1d, xlai1d, alb1d, vegf1d
-
-      real(kind=kind_phys), dimension(Model%levs) :: epsq2 ! myj
-      real(kind=kind_phys), dimension(Model%levs-1) :: epsL ! myj
-
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),1,Model%levs+1) ::&
-           phint ! myj
+         z01d, zt1d, bexp1d, xlai1d, vegf1d
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%ntrac) ::  &
            dqdt
-
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%nctp) ::  &
-           sigmai, vverti 
-
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,4) ::  &
-           dq3dt_loc
-
-      real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::  & ! for MYJ scheme
-           vegfrac, ht, tsfc1, qsfc1, ustar1, z01, pblh1, one, akms1, akhs1, cd1, cdq1, &
-           hflx1, evap1, rb1, cice1, csnow1, mixh1, u10m1, v10m1, T2m1, Q2m1, &
-           th2m1, tshelter1, th10m1, qshelter1, q10m1, pshelter1, thz01, qz01, uz01, vz01
-
-      integer(kind=8), dimension(size(Grid%xlon,1),1) ::  & ! for myj
-           pblk1
-
-      logical, dimension(size(Grid%xlon,1),1) ::  & ! for myj
-           flag_iter1
 
 ! Elements of the tridiag matrix for the _down _up sweep
       real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
       real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
       real(kind=kind_phys) :: f1_out(size(Grid%xlon,1),Model%levs), f2_out(size(Grid%xlon,1),Model%levs*(Model%ntrac-1))
-      !--- ALLOCATABLE ELEMENTS
-      !--- in clw, the first two varaibles are cloud water and ice.
-      !--- from third to ntrac are convective transportable tracers,
-      !--- third being the ozone, when ntrac=3 (valid only with ras)
-      !--- Anning Cheng 9/21/2016 leave a hook here for diagnosed snow, 
-      !--- rain, and their number
-      real(kind=kind_phys), allocatable ::                              &
-           clw(:,:,:), qpl(:,:),  qpi(:,:), ncpl(:,:), ncpi(:,:),       &
-           qrn(:,:), qsnw(:,:), ncpr(:,:), ncps(:,:), cnvc(:,:),        &
-           cnvw(:,:)
-      !--- for 2 M microphysics
-      real(kind=kind_phys), allocatable, dimension(:) ::                &
-             cn_prc, cn_snr
-!      real(kind=kind_phys), allocatable, dimension(:,:) ::              &
-!             qlcn, qicn, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,   &
-!             CLCN, CNV_FICE, CNV_NDROP, CNV_NICE
 
-!      integer, allocatable, dimension(:) :: clw_trac_idx
-!      real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
       real(kind=kind_phys), target, dimension(size(Grid%xlon,1)) :: adjsfcdlw, adjsfcdsw, adjsfcnsw
       real(kind=kind_phys), pointer :: adjsfcdlw_for_coupling(:), adjsfcdsw_for_coupling(:), adjsfcnsw_for_coupling(:)
-      integer :: nwat
-!
 !
 !===> ...  begin here
 
@@ -1827,28 +1723,24 @@ module module_physics_driver
       type(GFS_diag_type),            intent(inout) :: Diag
       type(GFS_overrides_type),       intent(in)    :: Overrides
 !
-      integer :: me, lprint, ipr, ix, im, levs, ntrac, nvdiff, kdt
-
+      integer :: me, ipr, ix, im, levs, ntrac, nvdiff, kdt
       integer :: kflip, nsamftrac, levshcm, nwat
       integer :: i, k, n, nn, kk, ic, itc, ntk, tracers, tottracer, num2, num3
       integer, dimension(size(Grid%xlon,1)) :: kbot, lmh, ktop, kcnv, kpbl, kinver, islmsk, levshc
       logical :: lprnt, revap, do_awdd, trans_aero
       logical, dimension(size(Grid%xlon,1)) :: skip_macro, flag_cice, dry
-     ! real(kind=kind_phys) :: dtf, dtp, frain, tem, tem1, tem2, xcosz_loc, rhbbot, rhbtop, rhpbl, rdt
       real(kind=kind_phys), dimension(size(Grid%xlon,1))  :: xcosz
-      real(kind=kind_phys), dimension(size(Grid%xlon,1)) :: ccwfac, garea, dlength, cumabs, cice, zice, tice, gflx, &
-           rain1, raincs, snowmt, cd, cdq, qss, dusfcg, dvsfcg, dusfc1, dvsfc1, dtsfc1, dqsfc1, rb, drain, evap, hflx, &
-           stress, t850, ep1d, gamt, gamq, sigmaf, oc, theta, gamma, sigma, elvmax, wind, work1, work2, runof, xmu, &
-           tsurf, tx1, tx2, work3, ctei_r, snowc, frland, dlqfac, ctei_rml, cldf, domr, domzr,domip, wcbmax, &
-           adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu, adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd, &
+      real(kind=kind_phys), dimension(size(Grid%xlon,1)) :: ccwfac, garea, dlength, cumabs, cice, zice, tice, &
+           rain1, raincs, cd, qss, dusfcg, dvsfcg, dusfc1, dvsfc1, dtsfc1, dqsfc1, rb, drain, evap, hflx, &
+           stress, t850, gamt, gamq, sigmaf, oc, theta, gamma, sigma, elvmax, wind, work1, work2, runof, xmu, &
+           work3, ctei_r, snowc, frland, dlqfac, ctei_rml, cldf, domr, domzr,domip, wcbmax, &
            ocalnirbm_cpl, ocalnirdf_cpl, ocalvisbm_cpl, ocalvisdf_cpl, &
-           dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, tsea_cice, hice_cice, fice_cice, &
+           dtsfc_cice, dqsfc_cice, dusfc_cice, dvsfc_cice, tsea_cice, fice_cice, &
            z01d, bexp1d, xlai1d, vegf1d, netswsfc, netflxsfc, qflux_restore, temrain1
 
       real(kind=kind_phys), dimension(size(Grid%xlon,1))  ::            &
             fm10, fh2, cld1d,    &
-           doms, psautco_l, prautco_l,     &
-           dtzm, t2mmp, q2mp
+           doms, psautco_l, prautco_l
 
 #ifdef fvGFS_2017
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::           &
@@ -1876,17 +1768,13 @@ module module_physics_driver
 
       real(kind=kind_phys) ::                                           &
            dtf, dtp, rhbbot, rhbtop, rhpbl, frain, tem, tem1, tem2,     &
-           xcosz_loc, zsea1, zsea2, eng0, eng1, dpshc, den, rdt,        &
-           !--- experimental for shoc sub-stepping
-           dtshoc,                                                      &
+           xcosz_loc,  eng0, eng1, dpshc, rdt,                          &
            !--- GFDL Cloud microphysics
            crain, csnow,                                                &
            z0fun, diag_water, diag_rain, diag_rain1
 
-
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs,Model%ntrac) ::  &
            dqdt
-
 
       real(kind=kind_phys) :: au_out(size(Grid%xlon,1),Model%levs-1)
       real(kind=kind_phys) :: diss_out(size(Grid%xlon,1),Model%levs-1)
@@ -1904,8 +1792,7 @@ module module_physics_driver
            clw(:,:,:), qpl(:,:),  qpi(:,:), ncpl(:,:), ncpi(:,:),       &
            qrn(:,:), qsnw(:,:), ncpr(:,:), ncps(:,:), cnvc(:,:),        &
            cnvw(:,:)
-       real (kind=kind_phys), dimension(size(Grid%xlon,1)) :: &
-          zt1d, alb1d
+       real (kind=kind_phys), dimension(size(Grid%xlon,1)) :: zt1d
 
       real(kind=kind_phys), allocatable, dimension(:) ::                &
              cn_prc, cn_snr
@@ -1917,9 +1804,8 @@ module module_physics_driver
            otspt 
       real(kind=kind_phys), allocatable, dimension(:,:,:) :: dt3dt_initial, dq3dt_initial
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1) ::  & ! for MYJ scheme
-           vegfrac, ht, tsfc1, qsfc1, ustar1, z01, pblh1, one, akms1, akhs1, cd1, cdq1, &
-           hflx1, evap1, rb1, cice1, csnow1, mixh1, u10m1, v10m1, T2m1, Q2m1, &
-           th2m1, tshelter1, th10m1, qshelter1, q10m1, pshelter1, thz01, qz01, uz01, vz01
+           vegfrac, ht, tsfc1, qsfc1, ustar1, z01, pblh1, one, akms1, akhs1, &
+           hflx1, evap1, rb1, cice1, csnow1, mixh1, thz01, qz01, uz01, vz01
 #ifdef fvGFS_2017
       real(kind=kind_phys), dimension(size(Grid%xlon,1),1,Model%levs) ::  &
            delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qn1, qi1,   &
@@ -1929,9 +1815,8 @@ module module_physics_driver
            phmid, th, tke, exner, exchh1, el1 ! for myj
 #else
       real(kind=kind_phys), dimension(size(Grid%xlon,1),Model%levs) ::  &
-           delp, dz, uin, vin, pt, qv1, ql1, qr1, qg1, qa1, qnl1, qi1,  &
-           qs1, pt_dt, udt, vdt, w, qv_dt, ql_dt, qr_dt, qi_dt, qni1,   &
-           qs_dt, qg_dt, adj_vmr, te, q_con, cappa, &
+           delp, dz, uin, vin, pt, qv1, ql1, qnl1, pt_dt, udt, vdt, w,  &
+           qv_dt, ql_dt,  qni1, adj_vmr, te, q_con, cappa,              &
            phmid, th, tke, exner, exchh1, el1 ! for myj
 #endif
 
