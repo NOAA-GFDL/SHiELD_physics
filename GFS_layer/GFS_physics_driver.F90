@@ -13,7 +13,7 @@ module module_physics_driver
   use GFS_typedefs,          only: GFS_statein_type, GFS_stateout_type, &
                                    GFS_sfcprop_type, GFS_coupling_type, &
                                    GFS_control_type, GFS_grid_type,     &
-                                   GFS_tbd_type,     GFS_cldprop_type,  &
+                                   GFS_statemid_type, GFS_cldprop_type, &
                                    GFS_radtend_type, GFS_diag_type,     &
                                    GFS_overrides_type
   use gfdl_cld_mp_mod,       only: gfdl_cld_mp_driver, cld_sat_adj, c_liq, c_ice
@@ -63,7 +63,7 @@ module module_physics_driver
 !     type(GFS_sfcprop_type),         intent(inout) :: Sfcprop          !
 !     type(GFS_coupling_type),        intent(inout) :: Coupling         !
 !     type(GFS_grid_type),            intent(in)    :: Grid             !
-!     type(GFS_tbd_type),             intent(inout  :: Tbd              !
+!     type(GFS_statemid_type),        intent(inout  :: Statemid         !
 !     type(GFS_cldprop_type),         intent(inout) :: Cldprop          !
 !     type(GFS_radtend_type),         intent(inout) :: Radtend          !
 !     type(GFS_diag_type),            intent(inout) :: Diag             !
@@ -399,7 +399,7 @@ module module_physics_driver
 
     subroutine GFS_physics_driver_down                         &
          (Model, Statein, Stateout, Sfcprop, Coupling,  &
-          Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
+          Grid, Statemid, Cldprop, Radtend, Diag, Overrides)
 
       implicit none
 !
@@ -410,7 +410,7 @@ module module_physics_driver
       type(GFS_sfcprop_type),         intent(inout) :: Sfcprop
       type(GFS_coupling_type),        intent(inout) :: Coupling
       type(GFS_grid_type),            intent(in)    :: Grid
-      type(GFS_tbd_type), target,     intent(inout) :: Tbd
+      type(GFS_statemid_type),target, intent(inout) :: Statemid
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
@@ -516,9 +516,9 @@ module module_physics_driver
         adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
         adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
       else
-        adjsfcdlw_for_coupling => Tbd%stored_adjsfcdlw
-        adjsfcdsw_for_coupling => Tbd%stored_adjsfcdsw
-        adjsfcnsw_for_coupling => Tbd%stored_adjsfcnsw
+        adjsfcdlw_for_coupling => Statemid%stored_adjsfcdlw
+        adjsfcdsw_for_coupling => Statemid%stored_adjsfcdsw
+        adjsfcnsw_for_coupling => Statemid%stored_adjsfcnsw
       endif
 
       ! perform aerosol convective transport and PBL diffusion
@@ -571,10 +571,10 @@ module module_physics_driver
 !!
 !!  ---  set initial quantities for stochastic physics deltas
 !      if (Model%do_sppt) then
-!        Tbd%dtdtr = 0.0
+!        Statemid%dtdtr = 0.0
 !        do i=1,im
-!          Tbd%drain_cpl(i) = Coupling%rain_cpl (i)
-!          Tbd%dsnow_cpl(i) = Coupling%snow_cpl (i)
+!          Statemid%drain_cpl(i) = Coupling%rain_cpl (i)
+!          Statemid%dsnow_cpl(i) = Coupling%snow_cpl (i)
 !        enddo
 !      endif
 !
@@ -607,11 +607,11 @@ module module_physics_driver
       call get_prs(im, ix, levs, ntrac, Statein%tgrs, Statein%qgrs,     &
                    Model%thermodyn_id, Model%sfcpress_id,               &
                    Model%gen_coord_hybrid, Statein%prsi, Statein%prsik, &
-                   Statein%prsl, Statein%prslk, Statein%phii, Statein%phil, Tbd%stored_del)
+                   Statein%prsl, Statein%prslk, Statein%phii, Statein%phil, Statemid%stored_del)
 #else
 !GFDL   Adjust the geopotential height hydrostatically in a way consistent with FV3 discretization
       call get_prs_fv3 (ix, levs, ntrac, Statein%phii, Statein%prsi, &
-                        Statein%tgrs, Statein%qgrs, Tbd%stored_del, Tbd%stored_del_gz)
+                        Statein%tgrs, Statein%qgrs, Statemid%stored_del, Statemid%stored_del_gz)
 #endif
 !
       rhbbot = Model%crtrh(1)
@@ -620,7 +620,7 @@ module module_physics_driver
 !
 !  --- ...  frain=factor for centered difference scheme correction of rain amount.
 
-      Tbd%stored_frain = dtf / dtp
+      Statemid%stored_frain = dtf / dtp
 
       do i= 1, im
         if (Model%use_ext_sst .and. Statein%ci(i) > -1. .and. Statein%ci(i) < 2.) then !Avoid bad values
@@ -652,11 +652,11 @@ module module_physics_driver
       enddo
 
       do i = 1, im
-        Tbd%stored_sigmaf(i)   = max( Sfcprop%vfrac(i),0.01 )
-        Tbd%stored_islmsk(i)   = nint(Sfcprop%slmsk(i))
+        Statemid%stored_sigmaf(i)   = max( Sfcprop%vfrac(i),0.01 )
+        Statemid%stored_islmsk(i)   = nint(Sfcprop%slmsk(i))
         soilcol(i)  = nint(Sfcprop%scolor(i))
 
-        if (Tbd%stored_islmsk(i) == 2) then
+        if (Statemid%stored_islmsk(i) == 2) then
           if (Model%isot == 1) then
             soiltyp(i)  = 16
           else
@@ -674,16 +674,16 @@ module module_physics_driver
           slopetyp(i) = int( Sfcprop%slope(i)+0.5 )    !! clu: slope -> slopetyp
         endif
 !  --- ...  xw: transfer ice thickness & concentration from global to local variables
-        Tbd%stored_zice(i) = Sfcprop%hice(i)
-        Tbd%stored_cice(i) = Sfcprop%fice(i)
-        Tbd%stored_tice(i) = Sfcprop%tisfc(i)
+        Statemid%stored_zice(i) = Sfcprop%hice(i)
+        Statemid%stored_cice(i) = Sfcprop%fice(i)
+        Statemid%stored_tice(i) = Sfcprop%tisfc(i)
 !
 !GFDL        work1(i)   = (log(coslat(i) / (nlons(i)*latr)) - dxmin) * dxinv
 !GFS         Moorthi thinks this should be area and not dx
 !       work1(i)   = (log(Grid%dx(i)) - dxmin) * dxinv
-        Tbd%stored_work1(i)   = (log(Grid%area(i)) - dxmin) * dxinv
-        Tbd%stored_work1(i)   = max(0.0, min(1.0,Tbd%stored_work1(i)))
-        Tbd%stored_work2(i)   = 1.0 - Tbd%stored_work1(i)
+        Statemid%stored_work1(i)   = (log(Grid%area(i)) - dxmin) * dxinv
+        Statemid%stored_work1(i)   = max(0.0, min(1.0,Statemid%stored_work1(i)))
+        Statemid%stored_work2(i)   = 1.0 - Statemid%stored_work1(i)
         Diag%psurf(i)   = Statein%pgr(i)
         work3(i)   = Statein%prsik(i,1) / Statein%prslk(i,1)
 !GFDL        tem1       = con_rerth * (con_pi+con_pi)*coslat(i)/nlons(i)
@@ -691,25 +691,25 @@ module module_physics_driver
 !GFDL        garea(i)   = tem1 * tem2
         tem1       = Grid%dx(i)
         tem2       = Grid%dx(i)
-        Tbd%stored_garea(i)   = Grid%area(i)*(Model%scale_awareness_factor**2.)
-        Tbd%stored_dlength(i) = sqrt( tem1*tem1+tem2*tem2 )*Model%scale_awareness_factor
-        Tbd%stored_cldf(i)    = Model%cgwf(1)*Tbd%stored_work1(i) + Model%cgwf(2)*Tbd%stored_work2(i)
-        Tbd%stored_wcbmax(i)  = Model%cs_parm(1)*Tbd%stored_work1(i) + Model%cs_parm(2)*Tbd%stored_work2(i)
+        Statemid%stored_garea(i)   = Grid%area(i)*(Model%scale_awareness_factor**2.)
+        Statemid%stored_dlength(i) = sqrt( tem1*tem1+tem2*tem2 )*Model%scale_awareness_factor
+        Statemid%stored_cldf(i)    = Model%cgwf(1)*Statemid%stored_work1(i) + Model%cgwf(2)*Statemid%stored_work2(i)
+        Statemid%stored_wcbmax(i)  = Model%cs_parm(1)*Statemid%stored_work1(i) + Model%cs_parm(2)*Statemid%stored_work2(i)
       enddo
 !
       if (Model%cplflx) then
         do i = 1, im
           islmsk_cice(i) = nint(Coupling%slimskin_cpl(i))
-          Tbd%stored_flag_cice(i)   = (islmsk_cice(i) == 4)
+          Statemid%stored_flag_cice(i)   = (islmsk_cice(i) == 4)
 
           ulwsfc_cice(i) = Coupling%ulwsfcin_cpl(i)
-          Tbd%stored_dusfc_cice(i)  = Coupling%dusfcin_cpl(i)
-          Tbd%stored_dvsfc_cice(i)  = Coupling%dvsfcin_cpl(i)
-          Tbd%stored_dtsfc_cice(i)  = Coupling%dtsfcin_cpl(i)
-          Tbd%stored_dqsfc_cice(i)  = Coupling%dqsfcin_cpl(i)
+          Statemid%stored_dusfc_cice(i)  = Coupling%dusfcin_cpl(i)
+          Statemid%stored_dvsfc_cice(i)  = Coupling%dvsfcin_cpl(i)
+          Statemid%stored_dtsfc_cice(i)  = Coupling%dtsfcin_cpl(i)
+          Statemid%stored_dqsfc_cice(i)  = Coupling%dqsfcin_cpl(i)
           tisfc_cice(i)  = Sfcprop%tisfc(i)
-          Tbd%stored_tsea_cice(i)   = Sfcprop%tsfc(i)
-          Tbd%stored_fice_cice(i)   = Sfcprop%fice(i)
+          Statemid%stored_tsea_cice(i)   = Sfcprop%tsfc(i)
+          Statemid%stored_fice_cice(i)   = Sfcprop%fice(i)
           hice_cice(i)   = Sfcprop%hice(i)
         enddo
       endif
@@ -718,11 +718,11 @@ module module_physics_driver
       smsoil(:,:) = Sfcprop%smc(:,:)
       stsoil(:,:) = Sfcprop%stc(:,:)
       slsoil(:,:) = Sfcprop%slc(:,:)          !! clu: slc -> slsoil
-      Tbd%stored_dudt(:,:)  = 0.
-      Tbd%stored_dvdt(:,:)  = 0.
-      Tbd%stored_dtdt(:,:)  = 0.
-      Tbd%stored_dtdtc(:,:) = 0.
-      Tbd%stored_dqdt(:,:,:) = 0.
+      Statemid%stored_dudt(:,:)  = 0.
+      Statemid%stored_dvdt(:,:)  = 0.
+      Statemid%stored_dtdt(:,:)  = 0.
+      Statemid%stored_dtdtc(:,:) = 0.
+      Statemid%stored_dqdt(:,:,:) = 0.
 
 !  --- ...  initialize dtdt with heating rate from dcyc2
 
@@ -742,9 +742,9 @@ module module_physics_driver
              Coupling%visdfui, Coupling%nirbmdi, Coupling%nirdfdi,          &
              Coupling%visbmdi, Coupling%visdfdi, ix, im, levs,              &
 !  ---  input/output:
-             Tbd%stored_dtdt,                                                          &
+             Statemid%stored_dtdt,                                                          &
 !  ---  outputs:
-             Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw, Tbd%stored_adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
+             Statemid%stored_adjsfcdsw, Statemid%stored_adjsfcnsw, Statemid%stored_adjsfcdlw, Statemid%stored_adjsfculw, Statemid%stored_xmu, Statemid%stored_xcosz,        &
              adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                    &
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd                     &
            )
@@ -763,9 +763,9 @@ module module_physics_driver
              Coupling%nirdfdi, Coupling%visbmdi, Coupling%visdfdi, ix, im,  &
              levs, Model%daily_mean,                                        &
 !  ---  input/output:
-             Tbd%stored_dtdt, Tbd%stored_dtdtc,                                                   &
+             Statemid%stored_dtdt, Statemid%stored_dtdtc,                                                   &
 !  ---  outputs:
-             Tbd%stored_adjsfcdsw, Tbd%stored_adjsfcnsw, Tbd%stored_adjsfcdlw, Tbd%stored_adjsfculw, Tbd%stored_xmu, Tbd%stored_xcosz,        &
+             Statemid%stored_adjsfcdsw, Statemid%stored_adjsfcnsw, Statemid%stored_adjsfcdlw, Statemid%stored_adjsfculw, Statemid%stored_xmu, Statemid%stored_xcosz,        &
              adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                    &
              adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd,                    &
              adjtoadsw, adjtoausw                                           &
@@ -780,8 +780,8 @@ module module_physics_driver
         Coupling%nirdfua(:) = adjnirdfu(:)
         Coupling%visbmua(:) = adjvisbmu(:)
         Coupling%visdfua(:) = adjvisdfu(:)
-        Coupling%coszena(:) = Tbd%stored_xcosz(:)
-        Coupling%sfcdlwa(:) = Tbd%stored_adjsfcdlw(:)
+        Coupling%coszena(:) = Statemid%stored_xcosz(:)
+        Coupling%sfcdlwa(:) = Statemid%stored_adjsfcdlw(:)
 
         if (Model%do_diagnostic_radiation_with_scaled_co2) then
            call compute_diagnostics_with_scaled_co2(                        &
@@ -796,7 +796,7 @@ module module_physics_driver
       endif
 !
       if (Model%lsidea) then                       !idea jw
-        Tbd%stored_dtdt(:,:) = 0.
+        Statemid%stored_dtdt(:,:) = 0.
       endif
 
 !  ---  convert lw fluxes for land/ocean/sea-ice models
@@ -826,8 +826,8 @@ module module_physics_driver
 !           direction of the sun >= 120 w/m2
 
         do i = 1, im
-          if ( Tbd%stored_xcosz(i) >= czmin ) then   ! zenth angle > 89.994 deg
-            tem1 = Tbd%stored_adjsfcdsw(i) / Tbd%stored_xcosz(i)
+          if ( Statemid%stored_xcosz(i) >= czmin ) then   ! zenth angle > 89.994 deg
+            tem1 = Statemid%stored_adjsfcdsw(i) / Statemid%stored_xcosz(i)
             if ( tem1 >= 120.0 ) then
               Diag%suntim(i) = Diag%suntim(i) + dtf
             endif
@@ -838,14 +838,14 @@ module module_physics_driver
 
         if (Model%cplflx) then
           do i = 1, im
-            if (Tbd%stored_flag_cice(i)) Tbd%stored_adjsfculw(i) = ulwsfc_cice(i)
+            if (Statemid%stored_flag_cice(i)) Statemid%stored_adjsfculw(i) = ulwsfc_cice(i)
           enddo
         endif
 
         ! Diag%dlwsfc is always meant to refer to an RRTMG flux, so we do not
         ! use the adjsfcdlw_for_coupling pointer here.
-        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   Tbd%stored_adjsfcdlw(:)*dtf
-        Diag%ulwsfc(:) = Diag%ulwsfc(:) +   Tbd%stored_adjsfculw(:)*dtf
+        Diag%dlwsfc(:) = Diag%dlwsfc(:) +   Statemid%stored_adjsfcdlw(:)*dtf
+        Diag%ulwsfc(:) = Diag%ulwsfc(:) +   Statemid%stored_adjsfculw(:)*dtf
         Diag%psmean(:) = Diag%psmean(:) + Statein%pgr(:)*dtf        ! mean surface pressure
 
         if (Model%override_surface_radiative_fluxes) then
@@ -870,26 +870,26 @@ module module_physics_driver
           else
             do k = 1, levs
               Diag%dt3dt(:,k,1) = Diag%dt3dt(:,k,1) + Radtend%htrlw(:,k)*dtf
-              Diag%dt3dt(:,k,2) = Diag%dt3dt(:,k,2) + Radtend%htrsw(:,k)*dtf*Tbd%stored_xmu(:)
+              Diag%dt3dt(:,k,2) = Diag%dt3dt(:,k,2) + Radtend%htrsw(:,k)*dtf*Statemid%stored_xmu(:)
               Diag%dt3dt(:,k,8) = Diag%dt3dt(:,k,8) + Radtend%lwhc(:,k)*dtf
-              Diag%dt3dt(:,k,9) = Diag%dt3dt(:,k,9) + Radtend%swhc(:,k)*dtf*Tbd%stored_xmu(:)  
+              Diag%dt3dt(:,k,9) = Diag%dt3dt(:,k,9) + Radtend%swhc(:,k)*dtf*Statemid%stored_xmu(:)  
             enddo
           endif
         endif
       endif    ! end if_lssav_block
 
-      Tbd%stored_kcnv(:)   = 0
-      Tbd%stored_kinver(:) = levs
+      Statemid%stored_kcnv(:)   = 0
+      Statemid%stored_kinver(:) = levs
       invrsn(:) = .false.
       tx1(:)    = 0.0
       tx2(:)    = 10.0
-      Tbd%stored_ctei_r(:) = 10.0
+      Statemid%stored_ctei_r(:) = 10.0
 
 !    Only used for old shallow convection with mstrat=.true.
 
       if (((Model%imfshalcnv == 0 .and. Model%shal_cnv) .or. Model%old_monin)        &
                                            .and. Model%mstrat) then
-        Tbd%stored_ctei_rml(:) = Model%ctei_rm(1)*Tbd%stored_work1(:) + Model%ctei_rm(2)*Tbd%stored_work2(:)
+        Statemid%stored_ctei_rml(:) = Model%ctei_rm(1)*Statemid%stored_work1(:) + Model%ctei_rm(2)*Statemid%stored_work2(:)
         do k = 1, levs/2
           do i = 1, im
             if (Statein%prsi(i,1)-Statein%prsi(i,k+1) < 0.35*Statein%prsi(i,1)       &
@@ -907,16 +907,16 @@ module module_physics_driver
                   tem1 = tem1 / Statein%prslk(i,k+1) - tem2 / Statein%prslk(i,k)
 
 !  --- ...  (cp/l)(deltathetae)/(deltatwater) > ctei_rm -> conditon for CTEI
-                  Tbd%stored_ctei_r(i) = (1.0/hocp)*tem1/(Statein%qgrs(i,k+1,1)-Statein%qgrs(i,k,1)  &
+                  Statemid%stored_ctei_r(i) = (1.0/hocp)*tem1/(Statein%qgrs(i,k+1,1)-Statein%qgrs(i,k,1)  &
                             + Statein%qgrs(i,k+1,Model%ntcw)-Statein%qgrs(i,k,Model%ntcw))
                 else
-                  Tbd%stored_ctei_r(i) = 10
+                  Statemid%stored_ctei_r(i) = 10
                 endif
 
-                if ( Tbd%stored_ctei_rml(i) > Tbd%stored_ctei_r(i) ) then
-                  Tbd%stored_kinver(i) = k
+                if ( Statemid%stored_ctei_rml(i) > Statemid%stored_ctei_r(i) ) then
+                  Statemid%stored_kinver(i) = k
                 else
-                  Tbd%stored_kinver(i) = levs
+                  Statemid%stored_kinver(i) = levs
                 endif
               endif
 
@@ -932,18 +932,18 @@ module module_physics_driver
       tsurf(:)      = Sfcprop%tsfc(:)
       flag_guess(:) = .false.
       flag_iter(:)  = .true.
-      Tbd%stored_drain(:)      = 0.0
+      Statemid%stored_drain(:)      = 0.0
       ep1d(:)       = 0.0
-      Tbd%stored_runof(:)      = 0.0
-      Tbd%stored_hflx(:)       = 0.0
-      Tbd%stored_evap(:)       = 0.0
+      Statemid%stored_runof(:)      = 0.0
+      Statemid%stored_hflx(:)       = 0.0
+      Statemid%stored_evap(:)       = 0.0
       evbs(:)       = 0.0
       evcw(:)       = 0.0
       trans(:)      = 0.0
       sbsno(:)      = 0.0
-      Tbd%stored_snowc(:)      = 0.0
+      Statemid%stored_snowc(:)      = 0.0
       snohf(:)      = 0.0
-      Tbd%stored_qss(:)        = 0.0
+      Statemid%stored_qss(:)        = 0.0
       gflx(:)       = 0.0
       Diag%zlvl(:)    = Statein%phil(:,1) * onebg
       Diag%smcwlt2(:) = 0.0
@@ -961,12 +961,12 @@ module module_physics_driver
 
         call populate_from_fms_coupler (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &
                     Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),              &
-                    work3, Tbd%phy_f2d(1,Model%num_p2d),                                 &
+                    work3, Statemid%phy_f2d(1,Model%num_p2d),                                 &
                     maxevap, Sfcprop%shflx, Sfcprop%lhflx, sfcprop%qsfc,                 &
                     Diag%zlvl, Sfcprop%snowd, Sfcprop%zorl, Sfcprop%ztrl,                &
-                    Tbd%stored_rb, Tbd%stored_stress, Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,             &
-                    Tbd%stored_wind,  fm10, fh2, tsurf,                                             &
-                    Tbd%stored_qss, Diag%cmm, Diag%chh, gflx, Tbd%stored_evap, Tbd%stored_hflx, ep1d)
+                    Statemid%stored_rb, Statemid%stored_stress, Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,             &
+                    Statemid%stored_wind,  fm10, fh2, tsurf,                                             &
+                    Statemid%stored_qss, Diag%cmm, Diag%chh, gflx, Statemid%stored_evap, Statemid%stored_hflx, ep1d)
 
       else ! For standalone shield and shiemom
 
@@ -1091,7 +1091,7 @@ module module_physics_driver
 !!$               stress(i) = cd1(i,1)*ustar1(i,1)*ustar1(i,1)
 !!$               if (flag_iter1(i,1)) then
 !!$                  wind(i) = max(sqrt(uin(i,1,1)*uin(i,1,1) + vin(i,1,1)*vin(i,1,1)) &
-!!$                     + max(0.0, min(Tbd%phy_f2d(i,Model%num_p2d), 30.0)), 1.0) ! The Tbd%quantity appears to be zero
+!!$                     + max(0.0, min(Statemid%phy_f2d(i,Model%num_p2d), 30.0)), 1.0) ! The Statemid%quantity appears to be zero
 !!$               endif
 !!$               Diag%u10m(i) = u10m1(i,1)
 !!$               Diag%v10m(i) = v10m1(i,1) 
@@ -1114,10 +1114,10 @@ module module_physics_driver
             call sfc_diff_coupled(im, Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
                  Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
-                 cdq, Tbd%stored_rb, Statein%prsl(1,1), work3, Tbd%stored_islmsk, Tbd%stored_stress, &
+                 cdq, Statemid%stored_rb, Statein%prsl(1,1), work3, Statemid%stored_islmsk, Statemid%stored_stress, &
                  Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
-                 Tbd%stored_wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
-                 Tbd%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
+                 Statemid%stored_wind,  Statemid%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
+                 Statemid%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
                  tsurf, flag_iter, Sfcprop%lhflx)
 
             else if (Model%sfc_gfdl) then
@@ -1125,10 +1125,10 @@ module module_physics_driver
             call sfc_diff_gfdl(im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl, Sfcprop%snowd, &
                  Sfcprop%tsfc, Sfcprop%zorl, Sfcprop%ztrl, cd,      &
-                 cdq, Tbd%stored_rb, Statein%prsl(1,1), work3, Tbd%stored_islmsk, Tbd%stored_stress, &
+                 cdq, Statemid%stored_rb, Statein%prsl(1,1), work3, Statemid%stored_islmsk, Statemid%stored_stress, &
                  Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
-                 Tbd%stored_wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
-                 Tbd%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
+                 Statemid%stored_wind,  Statemid%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
+                 Statemid%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
                  tsurf, flag_iter, Model%redrag, Model%z0s_max,     &
                  Model%do_z0_moon, Model%do_z0_hwrf15,              &
                  Model%do_z0_hwrf17, Model%do_z0_hwrf17_hwonly,     &
@@ -1139,10 +1139,10 @@ module module_physics_driver
             call sfc_diff (im,Statein%pgr, Statein%ugrs, Statein%vgrs,&
                  Statein%tgrs, Statein%qgrs, Diag%zlvl,             &
                  Sfcprop%snowd, Sfcprop%tsfc,  Sfcprop%zorl, cd,    &
-                 cdq, Tbd%stored_rb, Statein%prsl(1,1), work3, Tbd%stored_islmsk, Tbd%stored_stress, &
+                 cdq, Statemid%stored_rb, Statein%prsl(1,1), work3, Statemid%stored_islmsk, Statemid%stored_stress, &
                  Sfcprop%ffmm,  Sfcprop%ffhh, Sfcprop%uustar,       &
-                 Tbd%stored_wind,  Tbd%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
-                 Tbd%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
+                 Statemid%stored_wind,  Statemid%phy_f2d(1,Model%num_p2d), fm10, fh2,    &
+                 Statemid%stored_sigmaf, vegtype, Sfcprop%shdmax, Model%ivegsrc,    &
                  tsurf, flag_iter, Model%redrag, Model%czil_sfc,    &
                  Model%z0s_max,     &
                  Model%do_z0_moon, Model%do_z0_hwrf15,              &
@@ -1156,7 +1156,7 @@ module module_physics_driver
 !  --- ...  lu: update flag_guess
 
         do i = 1, im
-          if (iter == 1 .and. Tbd%stored_wind(i) < 2.0) then
+          if (iter == 1 .and. Statemid%stored_wind(i) < 2.0) then
             flag_guess(i) = .true.
           endif
         enddo
@@ -1164,7 +1164,7 @@ module module_physics_driver
         if (Model%nstf_name(1) > 0) then
 
           do i = 1, im
-            if ( Tbd%stored_islmsk(i) == 0 ) then
+            if ( Statemid%stored_islmsk(i) == 0 ) then
               tem      = (Sfcprop%oro(i)-Sfcprop%oro_uf(i)) * rlapse
               tseal(i) = Sfcprop%tsfc(i)  + tem
               tsurf(i) = tsurf(i) + tem
@@ -1174,10 +1174,10 @@ module module_physics_driver
           call sfc_nst (im, Model%lsoil, Statein%pgr, Statein%ugrs,        &
                         Statein%vgrs, Statein%tgrs, Statein%qgrs,          &
                         Sfcprop%tref, cd, cdq, Statein%prsl(1,1), work3,   &
-                        Tbd%stored_islmsk, Grid%xlon, Grid%sinlat, Tbd%stored_stress,            &
+                        Statemid%stored_islmsk, Grid%xlon, Grid%sinlat, Statemid%stored_stress,            &
                         Radtend%semis, gabsbdlw, adjsfcnsw_for_coupling,   &
-                        Sfcprop%tprcp, dtf, kdt, Model%solhr, Tbd%stored_xcosz,       &
-                        Tbd%phy_f2d(1,Model%num_p2d), flag_iter,           &
+                        Sfcprop%tprcp, dtf, kdt, Model%solhr, Statemid%stored_xcosz,       &
+                        Statemid%phy_f2d(1,Model%num_p2d), flag_iter,           &
                         flag_guess, Model%nstf_name, lprnt, ipr, maxevap,  &
 !  --- Input/output
                         tseal, tsurf, Sfcprop%xt, Sfcprop%xs, Sfcprop%xu,  &
@@ -1186,14 +1186,14 @@ module module_physics_driver
                         Sfcprop%c_0, Sfcprop%c_d, Sfcprop%w_0, Sfcprop%w_d,&
                         Sfcprop%d_conv, Sfcprop%ifd, Sfcprop%qrain,        &
 !  ---  outputs:
-                        Tbd%stored_qss, gflx, Diag%cmm, Diag%chh, Tbd%stored_evap, Tbd%stored_hflx, ep1d)
+                        Statemid%stored_qss, gflx, Diag%cmm, Diag%chh, Statemid%stored_evap, Statemid%stored_hflx, ep1d)
 
 !         if (lprnt) print *,' tseaz2=',tseal(ipr),' tref=',tref(ipr),
 !    &     ' dt_cool=',dt_cool(ipr),' dt_warm=',2.0*xt(ipr)/xz(ipr),
 !    &     ' kdt=',kdt
 
           do i = 1, im
-            if ( Tbd%stored_islmsk(i) == 0 ) then
+            if ( Statemid%stored_islmsk(i) == 0 ) then
               tsurf(i) = tsurf(i) - (Sfcprop%oro(i)-Sfcprop%oro_uf(i)) * rlapse
             endif
           enddo
@@ -1207,7 +1207,7 @@ module module_physics_driver
                               Sfcprop%z_c, Sfcprop%slmsk, zsea1, zsea2,  &
                               im, 1, dtzm)
             do i = 1, im
-              if ( Tbd%stored_islmsk(i) == 0 ) then
+              if ( Statemid%stored_islmsk(i) == 0 ) then
               Sfcprop%tsfc(i) = max(271.2,Sfcprop%tref(i) + dtzm(i)) -   &
                                 (Sfcprop%oro(i)-Sfcprop%oro_uf(i))*rlapse
               endif
@@ -1229,22 +1229,22 @@ module module_physics_driver
 !  ---  inputs:
            (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &
             Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),     &
-            work3, Tbd%stored_islmsk, Tbd%phy_f2d(1,Model%num_p2d), flag_iter,     &
+            work3, Statemid%stored_islmsk, Statemid%phy_f2d(1,Model%num_p2d), flag_iter,     &
             maxevap,                                                    &
             ! kgao: shflx and lhflx from coupler 
             Sfcprop%shflx, Sfcprop%lhflx,                               &
 !  ---  outputs:
-             Tbd%stored_qss, Diag%cmm, Diag%chh, gflx, Tbd%stored_evap, Tbd%stored_hflx, ep1d)
+             Statemid%stored_qss, Diag%cmm, Diag%chh, gflx, Statemid%stored_evap, Statemid%stored_hflx, ep1d)
 
           else
           call sfc_ocean                                                &  
 !  ---  inputs:         
            (im, Statein%pgr, Statein%ugrs, Statein%vgrs, Statein%tgrs,  &  
             Statein%qgrs, Sfcprop%tsfc, cd, cdq, Statein%prsl(1,1),     &  
-            work3, Tbd%stored_islmsk, Tbd%phy_f2d(1,Model%num_p2d), flag_iter,     &  
+            work3, Statemid%stored_islmsk, Statemid%phy_f2d(1,Model%num_p2d), flag_iter,     &  
             maxevap,                                                    &
 !  ---  outputs:        
-             Tbd%stored_qss, Diag%cmm, Diag%chh, gflx, Tbd%stored_evap, Tbd%stored_hflx, ep1d)
+             Statemid%stored_qss, Diag%cmm, Diag%chh, gflx, Statemid%stored_evap, Statemid%stored_hflx, ep1d)
           endif
 
         endif       ! if ( nstf_name(1) > 0 ) then
@@ -1264,10 +1264,10 @@ module module_physics_driver
           call sfc_drv                                                 &
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr,                              &
-            Statein%tgrs, Statein%qgrs, soiltyp, vegtype, Tbd%stored_sigmaf,      &
+            Statein%tgrs, Statein%qgrs, soiltyp, vegtype, Statemid%stored_sigmaf,      &
             Radtend%semis, gabsbdlw, adjsfcdsw_for_coupling,           &
             adjsfcnsw_for_coupling, dtf, Sfcprop%tg3, cd, cdq,         &
-            Statein%prsl(:,1), work3, Diag%zlvl, dry, Tbd%stored_wind, slopetyp,  &
+            Statein%prsl(:,1), work3, Diag%zlvl, dry, Statemid%stored_wind, slopetyp,  &
             Sfcprop%shdmin, Sfcprop%shdmax, Sfcprop%snoalb,            &
             Radtend%sfalb, flag_iter, flag_guess,                      &
             Model%lheatstrg, Model%isot, Model%ivegsrc,                &
@@ -1277,8 +1277,8 @@ module module_physics_driver
             Sfcprop%srflag, smsoil, stsoil, slsoil, Sfcprop%canopy,    &
             trans, tsurf, Sfcprop%zorl,                                &
 !  ---  outputs:
-            Sfcprop%sncovr, Tbd%stored_qss, gflx, Tbd%stored_drain, Tbd%stored_evap, Tbd%stored_hflx, ep1d, Tbd%stored_runof, &
-            Diag%cmm, Diag%chh, evbs, evcw, sbsno, Tbd%stored_snowc, Diag%soilm,  &
+            Sfcprop%sncovr, Statemid%stored_qss, gflx, Statemid%stored_drain, Statemid%stored_evap, Statemid%stored_hflx, ep1d, Statemid%stored_runof, &
+            Diag%cmm, Diag%chh, evbs, evcw, sbsno, Statemid%stored_snowc, Diag%soilm,  &
             snohf, Diag%smcwlt2, Diag%smcref2, Diag%wet1)
 
 !     if (lprnt) write(0,*)' tseae=',tsea(ipr),' tsurf=',tsurf(ipr),iter
@@ -1288,18 +1288,18 @@ module module_physics_driver
 !  ---  inputs:
            (im, Model%lsoil, kdt, Statein%pgr,  Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs,  Statein%qgrs, soiltyp, soilcol,             &
-            vegtype, Tbd%stored_sigmaf,                                           &
+            vegtype, Statemid%stored_sigmaf,                                           &
             Radtend%semis, adjsfcdlw_for_coupling,                     &
             adjsfcdsw_for_coupling, adjsfcnsw_for_coupling, dtf,       &
             Sfcprop%tg3, cd, cdq, Statein%prsl(:,1), work3,            &
-            Diag%zlvl, dry,   Tbd%stored_wind, slopetyp,                          &
+            Diag%zlvl, dry,   Statemid%stored_wind, slopetyp,                          &
             Sfcprop%shdmin,   Sfcprop%shdmax,  Sfcprop%snoalb,         &
             Radtend%sfalb,    flag_iter,       flag_guess,             &
             Model%iopt_dveg,  Model%iopt_crs,  Model%iopt_btr,         &
             Model%iopt_run,   Model%iopt_sfc,  Model%iopt_frz,         &
             Model%iopt_inf,   Model%iopt_rad,  Model%iopt_alb,         &
             Model%iopt_snf,   Model%iopt_tbot, Model%iopt_stc, Model%iopt_gla, &
-            grid%xlat, Tbd%stored_xcosz, Model%yearlen,   Model%julian, Model%imn,&
+            grid%xlat, Statemid%stored_xcosz, Model%yearlen,   Model%julian, Model%imn,&
             Sfcprop%drainncprv, Sfcprop%draincprv, Sfcprop%dsnowprv,   &
             Sfcprop%dgraupelprv, Sfcprop%diceprv, maxevap,             &
 !  ---  in/outs:
@@ -1320,8 +1320,8 @@ module module_physics_driver
             Sfcprop%deeprechxy, Sfcprop%rechxy,                                 &
             Sfcprop%albdvis, Sfcprop%albdnir,  Sfcprop%albivis,  Sfcprop%albinir,&
 !  ---  outputs:
-            Sfcprop%sncovr, Tbd%stored_qss, gflx, Tbd%stored_drain, Tbd%stored_evap, Tbd%stored_hflx, ep1d, Tbd%stored_runof,          &
-            Diag%cmm, Diag%chh, evbs, evcw, sbsno, Tbd%stored_snowc, Diag%soilm,           &
+            Sfcprop%sncovr, Statemid%stored_qss, gflx, Statemid%stored_drain, Statemid%stored_evap, Statemid%stored_hflx, ep1d, Statemid%stored_runof,          &
+            Diag%cmm, Diag%chh, evbs, evcw, sbsno, Statemid%stored_snowc, Diag%soilm,           &
             snohf, Diag%smcwlt2, Diag%smcref2, Diag%wet1, t2mmp, q2mp)
 
         endif
@@ -1333,8 +1333,8 @@ module module_physics_driver
 
         if (Model%cplflx) then
           do i = 1, im
-            if (Tbd%stored_flag_cice(i)) then
-               Tbd%stored_islmsk (i) = islmsk_cice(i)
+            if (Statemid%stored_flag_cice(i)) then
+               Statemid%stored_islmsk (i) = islmsk_cice(i)
             endif
           enddo
         endif
@@ -1344,20 +1344,20 @@ module module_physics_driver
            (im, Model%lsoil, Statein%pgr, Statein%ugrs, Statein%vgrs,   &
             Statein%tgrs, Statein%qgrs, dtf, Radtend%semis, gabsbdlw,   &
             adjsfcnsw_for_coupling, adjsfcdsw_for_coupling,             &
-            Sfcprop%srflag, cd, cdq, Statein%prsl(1,1), work3, Tbd%stored_islmsk,  &
-            Tbd%phy_f2d(1,Model%num_p2d), flag_iter, Model%mom4ice,     &
+            Sfcprop%srflag, cd, cdq, Statein%prsl(1,1), work3, Statemid%stored_islmsk,  &
+            Statemid%phy_f2d(1,Model%num_p2d), flag_iter, Model%mom4ice,     &
             Model%lsm, lprnt, ipr, maxevap,                             &
 !  ---  input/outputs:
-            Tbd%stored_zice, Tbd%stored_cice, Tbd%stored_tice, Sfcprop%weasd, Sfcprop%tsfc,              &
+            Statemid%stored_zice, Statemid%stored_cice, Statemid%stored_tice, Sfcprop%weasd, Sfcprop%tsfc,              &
             Sfcprop%tprcp, stsoil, ep1d,                                & 
 !  ---  outputs:
-            Sfcprop%snowd, Tbd%stored_qss, snowmt, gflx, Diag%cmm, Diag%chh, Tbd%stored_evap, &
-            Tbd%stored_hflx)
+            Sfcprop%snowd, Statemid%stored_qss, snowmt, gflx, Diag%cmm, Diag%chh, Statemid%stored_evap, &
+            Statemid%stored_hflx)
 
         if (Model%cplflx) then
           do i = 1, im
-            if (Tbd%stored_flag_cice(i)) then
-               Tbd%stored_islmsk(i) = nint(Sfcprop%slmsk(i))
+            if (Statemid%stored_flag_cice(i)) then
+               Statemid%stored_islmsk(i) = nint(Sfcprop%slmsk(i))
             endif
           enddo
 
@@ -1365,10 +1365,10 @@ module module_physics_driver
 !  ---     inputs:
            (im, Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs, &
             cd, cdq, Statein%prsl(1,1), work3, islmsk_cice,             &
-            Tbd%phy_f2d(1,Model%num_p2d),flag_iter, Tbd%stored_dqsfc_cice,         &
-            Tbd%stored_dtsfc_cice, maxevap,                                        &
+            Statemid%phy_f2d(1,Model%num_p2d),flag_iter, Statemid%stored_dqsfc_cice,         &
+            Statemid%stored_dtsfc_cice, maxevap,                                        &
 !  ---     outputs:
-            Tbd%stored_qss, Diag%cmm, Diag%chh, Tbd%stored_evap, Tbd%stored_hflx)
+            Statemid%stored_qss, Diag%cmm, Diag%chh, Statemid%stored_evap, Statemid%stored_hflx)
         endif
 
 !  --- ...  lu: update flag_iter and flag_guess
@@ -1377,8 +1377,8 @@ module module_physics_driver
           flag_iter(i)  = .false.
           flag_guess(i) = .false.
 
-          if (iter == 1 .and. Tbd%stored_wind(i) < 2.0) then
-            if ((Tbd%stored_islmsk(i) == 1) .or. ((Tbd%stored_islmsk(i) == 0) .and.           &
+          if (iter == 1 .and. Statemid%stored_wind(i) < 2.0) then
+            if ((Statemid%stored_islmsk(i) == 1) .or. ((Statemid%stored_islmsk(i) == 0) .and.           &
                                        (Model%nstf_name(1) > 0))) then
               flag_iter(i) = .true.
             endif
@@ -1402,22 +1402,22 @@ module module_physics_driver
       ! Diag%dlwsfci, Diag%uswsfci, Diag%dswsfci, Diag%uswsfc, and Diag%dswsfc
       ! are always meant to refer to RRTMG fluxes, so we do not use the
       ! adjsfc??w_for_coupling pointers here.
-      Diag%dlwsfci(:) = Tbd%stored_adjsfcdlw(:)
-      Diag%ulwsfci(:) = Tbd%stored_adjsfculw(:)
-      Diag%uswsfci(:) = Tbd%stored_adjsfcdsw(:) - Tbd%stored_adjsfcnsw(:)
-      Diag%dswsfci(:) = Tbd%stored_adjsfcdsw(:)
-      Diag%uswsfc(:) =  Diag%uswsfc(:) + (Tbd%stored_adjsfcdsw(:) - Tbd%stored_adjsfcnsw(:))*dtf
-      Diag%dswsfc(:) =  Diag%dswsfc(:) + Tbd%stored_adjsfcdsw(:)*dtf
+      Diag%dlwsfci(:) = Statemid%stored_adjsfcdlw(:)
+      Diag%ulwsfci(:) = Statemid%stored_adjsfculw(:)
+      Diag%uswsfci(:) = Statemid%stored_adjsfcdsw(:) - Statemid%stored_adjsfcnsw(:)
+      Diag%dswsfci(:) = Statemid%stored_adjsfcdsw(:)
+      Diag%uswsfc(:) =  Diag%uswsfc(:) + (Statemid%stored_adjsfcdsw(:) - Statemid%stored_adjsfcnsw(:))*dtf
+      Diag%dswsfc(:) =  Diag%dswsfc(:) + Statemid%stored_adjsfcdsw(:)*dtf
       Diag%gfluxi(:)  = gflx(:)
       Diag%t1(:)      = Statein%tgrs(:,1)
       Diag%q1(:)      = Statein%qgrs(:,1,1)
       Diag%u1(:)      = Statein%ugrs(:,1)
       Diag%v1(:)      = Statein%vgrs(:,1)
-      Sfcprop%qsfc(:) = Tbd%stored_qss(:)
+      Sfcprop%qsfc(:) = Statemid%stored_qss(:)
         
       ! KGao
-      Diag%hflx(:) = Tbd%stored_hflx(:)
-      Diag%evap(:) = Tbd%stored_evap(:)
+      Diag%hflx(:) = Statemid%stored_hflx(:)
+      Diag%evap(:) = Statemid%stored_evap(:)
 
       if (Model%override_surface_radiative_fluxes) then
         Diag%dlwsfci_override(:) = adjsfcdlw_for_coupling(:)
@@ -1429,13 +1429,13 @@ module module_physics_driver
 
       !if (.not. Model%myj_pbl) then
          call sfc_diag (im, Statein%pgr, Statein%ugrs, Statein%vgrs,     &
-              Statein%tgrs, Statein%qgrs, Sfcprop%tsfc, Tbd%stored_qss,   &
+              Statein%tgrs, Statein%qgrs, Sfcprop%tsfc, Statemid%stored_qss,   &
               Sfcprop%f10m, Diag%u10m, Diag%v10m,        &
-              Sfcprop%t2m, Sfcprop%q2m, work3, Tbd%stored_evap,           &
+              Sfcprop%t2m, Sfcprop%q2m, work3, Statemid%stored_evap,           &
               Sfcprop%ffmm, Sfcprop%ffhh, fm10, fh2)
       !endif
 
-      Tbd%phy_f2d(:,Model%num_p2d) = 0.0
+      Statemid%phy_f2d(:,Model%num_p2d) = 0.0
 
       if (Model%lsm == Model%lsm_noahmp) then
         do i=1,im
@@ -1461,7 +1461,7 @@ module module_physics_driver
         Coupling%dnirdf_cpl  (:) = Coupling%dnirdf_cpl(:) + adjnirdfd(:)*dtf
         Coupling%dvisbm_cpl  (:) = Coupling%dvisbm_cpl(:) + adjvisbmd(:)*dtf
         Coupling%dvisdf_cpl  (:) = Coupling%dvisdf_cpl(:) + adjvisdfd(:)*dtf
-        Coupling%nlwsfci_cpl (:) = adjsfcdlw_for_coupling(:)  - Tbd%stored_adjsfculw(:)
+        Coupling%nlwsfci_cpl (:) = adjsfcdlw_for_coupling(:)  - Statemid%stored_adjsfculw(:)
         Coupling%nlwsfc_cpl  (:) = Coupling%nlwsfc_cpl(:) + Coupling%nlwsfci_cpl(:)*dtf
         Coupling%t2mi_cpl    (:) = Sfcprop%t2m(:)
         Coupling%q2mi_cpl    (:) = Sfcprop%q2m(:)
@@ -1474,9 +1474,9 @@ module module_physics_driver
 !       them to net SW heat fluxes
 
         do i = 1, im
-          if (Tbd%stored_islmsk(i) /= 1) then  ! not a land point
+          if (Statemid%stored_islmsk(i) /= 1) then  ! not a land point
 !  ---  compute open water albedo
-            xcosz_loc = max( 0.0, min( 1.0, Tbd%stored_xcosz(i) ))
+            xcosz_loc = max( 0.0, min( 1.0, Statemid%stored_xcosz(i) ))
             ocalnirdf_cpl(i) = 0.06
             ocalnirbm_cpl(i) = max(albdf, 0.026/(xcosz_loc**1.7+0.065)  &
      &                       + 0.15 * (xcosz_loc-0.1) * (xcosz_loc-0.5) &
@@ -1510,7 +1510,7 @@ module module_physics_driver
         Diag%evcwa(:)   = Diag%evcwa(:)  + evcw(:)  * dtf
         Diag%transa(:)  = Diag%transa(:) + trans(:) * dtf
         Diag%sbsnoa(:)  = Diag%sbsnoa(:) + sbsno(:) * dtf
-        Diag%snowca(:)  = Diag%snowca(:) + Tbd%stored_snowc(:) * dtf
+        Diag%snowca(:)  = Diag%snowca(:) + Statemid%stored_snowc(:) * dtf
         Diag%snohfa(:)  = Diag%snohfa(:) + snohf(:) * dtf
         Diag%ep(:)      = Diag%ep(:)     + ep1d(:)  * dtf
 
@@ -1546,9 +1546,9 @@ module module_physics_driver
           if (Model%isatmedmf == 1) then
 
               do i=1,im
-                   if (Tbd%stored_islmsk(i) == 1) then
+                   if (Statemid%stored_islmsk(i) == 1) then
                       z0fun =  min(max((Sfcprop%zorl(i)*0.01-0.1)/0.9, 0.0), 1.0) ! jih jul2020:  (z0fun=0.~1.0)
-                      zvfun(i) = sqrt( max(Tbd%stored_sigmaf(i), 0.1) * z0fun ) !jih jul2020: over land, zvfun=0 over ocean
+                      zvfun(i) = sqrt( max(Statemid%stored_sigmaf(i), 0.1) * z0fun ) !jih jul2020: over land, zvfun=0 over ocean
                    else
                       zvfun(i) = 0.
                    endif
@@ -1556,23 +1556,23 @@ module module_physics_driver
 
                 call satmedmfvdifq_down(ix, im, levs, nvdiff,                            &
                        Model%ntcw, Model%ntiw, Model%ntke,                          &
-                       Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,                                      &
+                       Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,                                      &
                        Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
-                       Radtend%htrsw, Radtend%htrlw, Tbd%stored_xmu, Tbd%stored_garea, zvfun, Tbd%stored_islmsk,     &
-                       Statein%prsik(1,1), Tbd%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
-                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Tbd%stored_hflx, Tbd%stored_evap,        &
-                       Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del, Statein%prsl,         &
+                       Radtend%htrsw, Radtend%htrlw, Statemid%stored_xmu, Statemid%stored_garea, zvfun, Statemid%stored_islmsk,     &
+                       Statein%prsik(1,1), Statemid%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
+                       Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_hflx, Statemid%stored_evap,        &
+                       Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,         &
                        Statein%prslk, Statein%phii, Statein%phil, dtp,              &
-                       Model%dspheat, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, dqsfc1, Diag%hpbl,    &
-                       Tbd%stored_kinver, Model%xkzm_m, Model%xkzm_h,                          & 
+                       Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, dqsfc1, Diag%hpbl,    &
+                       Statemid%stored_kinver, Model%xkzm_m, Model%xkzm_h,                          & 
                        Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
                        Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
                        Model%cs0, Model%do_dk_hb19, Model%xkgdx,                    &
                        Model%dspfac, Model%bl_upfr, Model%bl_dnfr,                  &
                        Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
                        Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
-                       dkt, Tbd%stored_flux_cg, Tbd%stored_flux_en, Tbd%stored_elm_pbl, & !cg as up and en as down
-                       Tbd%stored_au_out,Tbd%stored_f1_out,Tbd%stored_f2_out, Tbd%stored_diss_out) ! output of the tridiagonal matrix for heat, moisture, tracers !joseph
+                       dkt, Statemid%stored_flux_cg, Statemid%stored_flux_en, Statemid%stored_elm_pbl, & !cg as up and en as down
+                       Statemid%stored_au_out,Statemid%stored_f1_out,Statemid%stored_f2_out, Statemid%stored_diss_out) ! output of the tridiagonal matrix for heat, moisture, tracers !joseph
 
           endif
         endif
@@ -1588,7 +1588,7 @@ module module_physics_driver
 
 
 
-    subroutine GFS_physics_driver_up(Model, Statein, Stateout, Sfcprop, Coupling, Grid, Tbd, Cldprop, Radtend, Diag, Overrides)
+    subroutine GFS_physics_driver_up(Model, Statein, Stateout, Sfcprop, Coupling, Grid, Statemid, Cldprop, Radtend, Diag, Overrides)
 
       implicit none
 !
@@ -1599,7 +1599,7 @@ module module_physics_driver
       type(GFS_sfcprop_type),         intent(inout) :: Sfcprop
       type(GFS_coupling_type),        intent(inout) :: Coupling
       type(GFS_grid_type),            intent(in)    :: Grid
-      type(GFS_tbd_type), target,     intent(inout) :: Tbd
+      type(GFS_statemid_type),target, intent(inout) :: Statemid
       type(GFS_cldprop_type),         intent(inout) :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
@@ -1755,9 +1755,9 @@ module module_physics_driver
         adjsfcdsw_for_coupling => Overrides%adjsfcdsw_override
         adjsfcnsw_for_coupling => Overrides%adjsfcnsw_override
       else
-        adjsfcdlw_for_coupling => Tbd%stored_adjsfcdlw
-        adjsfcdsw_for_coupling => Tbd%stored_adjsfcdsw
-        adjsfcnsw_for_coupling => Tbd%stored_adjsfcnsw
+        adjsfcdlw_for_coupling => Statemid%stored_adjsfcdlw
+        adjsfcdsw_for_coupling => Statemid%stored_adjsfcdsw
+        adjsfcnsw_for_coupling => Statemid%stored_adjsfcnsw
       endif
 
       ! perform aerosol convective transport and PBL diffusion
@@ -1807,10 +1807,10 @@ module module_physics_driver
 !
 !  ---  set initial quantities for stochastic physics deltas
       if (Model%do_sppt) then
-        Tbd%dtdtr = 0.0
+        Statemid%dtdtr = 0.0
         do i=1,im
-          Tbd%drain_cpl(i) = Coupling%rain_cpl (i)
-          Tbd%dsnow_cpl(i) = Coupling%snow_cpl (i)
+          Statemid%drain_cpl(i) = Coupling%rain_cpl (i)
+          Statemid%dsnow_cpl(i) = Coupling%snow_cpl (i)
         enddo
       endif
 
@@ -1875,14 +1875,14 @@ module module_physics_driver
 !      dqsfc1(:) = 0.
 
       if (Model%do_shoc) then
-        call moninshoc(ix, im, levs, ntrac, Model%ntcw, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,  &
+        call moninshoc(ix, im, levs, ntrac, Model%ntcw, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,  &
                        Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,   &
-                       Tbd%phy_f3d(1,1,Model%ntot3d-1), prnum, Model%ntke,       &
-                       Statein%prsik(1,1), Tbd%stored_rb, Sfcprop%zorl, Diag%u10m,          &
-                       Diag%v10m, Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Tbd%stored_hflx,&
-                       Tbd%stored_evap, Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del, Statein%prsl,&
-                       Statein%prslk, Statein%phii, Statein%phil, dtp, Tbd%stored_dusfc1,   &
-                       Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1, dkt, Diag%hpbl, Tbd%stored_kinver,           &
+                       Statemid%phy_f3d(1,1,Model%ntot3d-1), prnum, Model%ntke,       &
+                       Statein%prsik(1,1), Statemid%stored_rb, Sfcprop%zorl, Diag%u10m,          &
+                       Diag%v10m, Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_hflx,&
+                       Statemid%stored_evap, Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,&
+                       Statein%prslk, Statein%phii, Statein%phil, dtp, Statemid%stored_dusfc1,   &
+                       Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, dkt, Diag%hpbl, Statemid%stored_kinver,           &
                        Model%xkzm_m, Model%xkzm_h, Model%xkzm_s, lprnt, ipr, me)
       elseif ( Model%no_pbl ) then
 
@@ -1892,39 +1892,39 @@ module module_physics_driver
          rdt = 1./dtp
          do i=1,im
             Diag%hpbl(i) = ( Statein%phil(i,2) - Statein%phil(i,1) ) * onebg
-            Tbd%stored_kpbl(i) = 1
+            Statemid%stored_kpbl(i) = 1
             tem2 = con_g / ( Statein%phil(i,2) - Statein%phil(i,1) )
             !heat
-            Tbd%stored_dtdt(i,1) = Tbd%stored_dtdt(i,1) + Tbd%stored_hflx(i) * tem2
-            Tbd%stored_dtsfc1(i) = Tbd%stored_dtsfc1(i) + Tbd%stored_hflx(i) * cont * tem2 * Tbd%stored_del(i,1)
+            Statemid%stored_dtdt(i,1) = Statemid%stored_dtdt(i,1) + Statemid%stored_hflx(i) * tem2
+            Statemid%stored_dtsfc1(i) = Statemid%stored_dtsfc1(i) + Statemid%stored_hflx(i) * cont * tem2 * Statemid%stored_del(i,1)
             !moisture
-            Tbd%stored_dqdt(i,1,1) = Tbd%stored_dqdt(i,1,1) + Tbd%stored_evap(i) * tem2
-            Tbd%stored_dqsfc1(i)   = Tbd%stored_dqsfc1(i) + Tbd%stored_evap(i) * conq * tem2 * Tbd%stored_del(i,1)
+            Statemid%stored_dqdt(i,1,1) = Statemid%stored_dqdt(i,1,1) + Statemid%stored_evap(i) * tem2
+            Statemid%stored_dqsfc1(i)   = Statemid%stored_dqsfc1(i) + Statemid%stored_evap(i) * conq * tem2 * Statemid%stored_del(i,1)
             !if (i == 1) then
             !   print*, 'no_pbl: ', hflx(i), cont, del(i,1), Diag%hpbl(i)
             !endif
             !momentum ---- not yet right
-            tem1 = Tbd%stored_stress(i) / max(Tbd%stored_wind(i),1.e-2) 
+            tem1 = Statemid%stored_stress(i) / max(Statemid%stored_wind(i),1.e-2) 
             tem1 = tem1 * dtp * tem2
             tem1 = 1. / ( 1. + tem1) - 1.
             tem1 = tem1 * rdt
-            Tbd%stored_dudt(i,1) = Tbd%stored_dudt(i,1) + Statein%ugrs(i,1) * tem1
-            Tbd%stored_dusfc1(i) = Tbd%stored_dusfc1(i) + Statein%ugrs(i,1) * tem1 * conw * Tbd%stored_del(i,1)
-            Tbd%stored_dvdt(i,1) = Tbd%stored_dvdt(i,1) + Statein%vgrs(i,1) * tem1
-            Tbd%stored_dvsfc1(i) = Tbd%stored_dvsfc1(i) + Statein%vgrs(i,1) * tem1 * conw * Tbd%stored_del(i,1)
+            Statemid%stored_dudt(i,1) = Statemid%stored_dudt(i,1) + Statein%ugrs(i,1) * tem1
+            Statemid%stored_dusfc1(i) = Statemid%stored_dusfc1(i) + Statein%ugrs(i,1) * tem1 * conw * Statemid%stored_del(i,1)
+            Statemid%stored_dvdt(i,1) = Statemid%stored_dvdt(i,1) + Statein%vgrs(i,1) * tem1
+            Statemid%stored_dvsfc1(i) = Statemid%stored_dvsfc1(i) + Statein%vgrs(i,1) * tem1 * conw * Statemid%stored_del(i,1)
          enddo
 
       else
         if (Model%hybedmf) then
-          call moninedmf(ix, im, levs, nvdiff, Model%ntcw, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,&
+          call moninedmf(ix, im, levs, nvdiff, Model%ntcw, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,&
                          Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,  &
-                         Radtend%htrsw, Radtend%htrlw, Tbd%stored_xmu, Statein%prsik(1,1),   &
-                         Tbd%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m, Sfcprop%ffmm,    &
-                         Sfcprop%ffhh, Sfcprop%tsfc, Tbd%stored_qss, Tbd%stored_hflx, Tbd%stored_evap, Tbd%stored_stress,     &
-                         Tbd%stored_wind, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del, Statein%prsl,             &
+                         Radtend%htrsw, Radtend%htrlw, Statemid%stored_xmu, Statein%prsik(1,1),   &
+                         Statemid%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m, Sfcprop%ffmm,    &
+                         Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_qss, Statemid%stored_hflx, Statemid%stored_evap, Statemid%stored_stress,     &
+                         Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,             &
                          Statein%prslk, Statein%phii, Statein%phil, dtp,          &
-                         Model%dspheat, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1, Diag%hpbl,&
-                         gamt, gamq, dkt, Tbd%stored_kinver, Model%xkzm_m, Model%xkzm_h,     &
+                         Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, Diag%hpbl,&
+                         gamt, gamq, dkt, Statemid%stored_kinver, Model%xkzm_m, Model%xkzm_h,     &
                          Model%xkzm_s, lprnt, ipr,                                &
                          Model%xkzminv, Model%moninq_fac)
 !     if (lprnt)  write(0,*)' dtdtm=',(dtdt(ipr,k),k=1,15)
@@ -1936,15 +1936,15 @@ module module_physics_driver
              ! initial version of satmedmfvdif (Nov 2018) modified by kgao
              call satmedmfvdif(ix, im, levs, nvdiff,                            & 
                    Model%ntcw, Model%ntiw, Model%ntke,                          &
-                   Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,                                      &
+                   Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,                                      &
                    Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,      &
-                   Radtend%htrsw, Radtend%htrlw, Tbd%stored_xmu, Tbd%stored_garea, Tbd%stored_islmsk,            &
-                   Statein%prsik(1,1), Tbd%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
-                   Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Tbd%stored_hflx, Tbd%stored_evap,        &
-                   Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del, Statein%prsl,         &
+                   Radtend%htrsw, Radtend%htrlw, Statemid%stored_xmu, Statemid%stored_garea, Statemid%stored_islmsk,            &
+                   Statein%prsik(1,1), Statemid%stored_rb, Sfcprop%zorl, Diag%u10m, Diag%v10m,  &
+                   Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_hflx, Statemid%stored_evap,        &
+                   Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,         &
                    Statein%prslk, Statein%phii, Statein%phil, dtp,              &
-                   Model%dspheat, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1, Diag%hpbl,    &
-                   Tbd%stored_kinver, Model%xkzm_m, Model%xkzm_h,                          &
+                   Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, Diag%hpbl,    &
+                   Statemid%stored_kinver, Model%xkzm_m, Model%xkzm_h,                          &
                    Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  & 
                    Model%xkzm_s,  Model%xkzminv, Model%do_dk_hb19,              &
                    Model%xkzm_lim, Model%xkgdx,                                 &
@@ -1953,9 +1953,9 @@ module module_physics_driver
 
              elseif (Model%isatmedmf == 1) then   
                 do i=1,im
-                   if (Tbd%stored_islmsk(i) == 1) then
+                   if (Statemid%stored_islmsk(i) == 1) then
                       z0fun =  min(max((Sfcprop%zorl(i)*0.01-0.1)/0.9, 0.0), 1.0) ! jih jul2020:  (z0fun=0.~1.0)
-                      zvfun(i) = sqrt( max(Tbd%stored_sigmaf(i), 0.1) * z0fun ) !jih jul2020: over land, zvfun=0 over ocean
+                      zvfun(i) = sqrt( max(Statemid%stored_sigmaf(i), 0.1) * z0fun ) !jih jul2020: over land, zvfun=0 over ocean
                    else
                       zvfun(i) = 0.
                    endif
@@ -2002,29 +2002,29 @@ module module_physics_driver
 !!!                       au_out,f1_out,f2_out, diss_out)
 
                 call satmedmfvdifq_up(ix, im, levs, nvdiff, model%ntke,                  &
-                       Tbd%stored_dtdt, Tbd%stored_dqdt, Statein%qgrs, Statein%tgrs, model%dspheat, model%dspfac,                &
-                       Tbd%stored_del, dtp,                                                           &
-                       Tbd%stored_dtsfc1, Tbd%stored_dqsfc1,                                                     &
-                       Tbd%stored_au_out, Tbd%stored_f1_out, Tbd%stored_f2_out, Tbd%stored_diss_out)
+                       Statemid%stored_dtdt, Statemid%stored_dqdt, Statein%qgrs, Statein%tgrs, model%dspheat, model%dspfac,                &
+                       Statemid%stored_del, dtp,                                                           &
+                       Statemid%stored_dtsfc1, Statemid%stored_dqsfc1,                                                     &
+                       Statemid%stored_au_out, Statemid%stored_f1_out, Statemid%stored_f2_out, Statemid%stored_diss_out)
         endif
 
         elseif (Model%ysupbl) then
           call ysupbl(ix, im, levs, nvdiff, Model%ntcw, Model%ntiw,             &
-                      Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,                                   &
+                      Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,                                   &
                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,   &
                       Statein%prsi, Statein%prsl, Statein%prslk,                &
                       Statein%phii, Statein%pgr,                                &
-                      Radtend%htrsw, Radtend%htrlw, Tbd%stored_xmu,                        &
+                      Radtend%htrsw, Radtend%htrlw, Statemid%stored_xmu,                        &
                       Sfcprop%zorl, Sfcprop%uustar, Diag%hpbl,                  &
                       Diag%hgamt, Diag%hfxpbl,                                  &
                       Sfcprop%ffmm, Sfcprop%ffhh,                               &
-                      Tbd%stored_islmsk, Tbd%stored_hflx, Tbd%stored_evap, Tbd%stored_wind, Tbd%stored_rb,                             &
-                      Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1,                           &
-                      dtp, Tbd%stored_kpbl, Diag%u10m, Diag%v10m,                          &
-                      Tbd%stored_kinver,                                                   &
+                      Statemid%stored_islmsk, Statemid%stored_hflx, Statemid%stored_evap, Statemid%stored_wind, Statemid%stored_rb,                             &
+                      Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1,                           &
+                      dtp, Statemid%stored_kpbl, Diag%u10m, Diag%v10m,                          &
+                      Statemid%stored_kinver,                                                   &
                       Model%xkzm_m, Model%xkzm_h, Model%xkzm_s, Model%xkzminv,  &
                       Model%dspheat, Model%ysu_ent_fac, dkt,                    &
-                      Tbd%stored_flux_cg, Tbd%stored_flux_en,                                         &
+                      Statemid%stored_flux_cg, Statemid%stored_flux_en,                                         &
                       Model%ysu_pfac_q,                                         &
                       Model%ysu_brcr_ub, Model%ysu_rlam, Model%ysu_afac,        &
                       Model%ysu_bfac, Model%ysu_hpbl_cr,                        &
@@ -2045,13 +2045,13 @@ module module_physics_driver
              one(i,1) = 1. 
              akms1(i,1) = ustar1(i,1)*0.4/Sfcprop%ffmm(i)  
              akhs1(i,1) = ustar1(i,1)*0.4/Sfcprop%ffhh(i)  ! 0.4 is Von Karman's constant in NAM
-             hflx1(i,1) = Tbd%stored_hflx(i)  !Not used by myj?!?
+             hflx1(i,1) = Statemid%stored_hflx(i)  !Not used by myj?!?
              !den = phmid(i,1,levs)/(con_rd*pt(i,1,levs)*(1. + con_epsm1 * Statein%qgrs(i,levs,1) ) )
-             evap1(i,1) = Tbd%stored_evap(i) 
-             rb1(i,1) = Tbd%stored_rb(i) 
+             evap1(i,1) = Statemid%stored_evap(i) 
+             rb1(i,1) = Statemid%stored_rb(i) 
 
              cice1(i,1) = Sfcprop%fice(i) ! new
-             csnow1(i,1) = Tbd%stored_snowc(i) ! new
+             csnow1(i,1) = Statemid%stored_snowc(i) ! new
              mixh1(i,1) = 0. ! new; purely diagnostic
 
              thz01(i,1) = Sfcprop%thz0(i)
@@ -2102,7 +2102,7 @@ module module_physics_driver
                ,AKHS=akhs1,AKMS=akms1,ELFLX=evap1,MIXHT=mixh1,HFLX=hflx1 &
                ,RUBLTEN=udt,RVBLTEN=vdt,RTHBLTEN=pt_dt &
                ,RQBLTEN=qv_dt,RQCBLTEN=ql_dt &
-               ,SPD1=Tbd%stored_wind,DSPHEAT=Model%dspheat&
+               ,SPD1=Statemid%stored_wind,DSPHEAT=Model%dspheat&
                ,IDS=1,IDE=im,JDS=1,JDE=1           &
                ,IMS=1,IME=im,JMS=1,JME=1           &
                ,ITS=1,ITE=im,JTS=1,JTE=1,LM=levs,LPRNT=lprnt)
@@ -2111,7 +2111,7 @@ module module_physics_driver
           !add up tendencies
             do i=1,im
                Diag%hpbl(i) = pblh1(i,1)
-               Tbd%stored_kpbl(i) = pblk1(i,1)
+               Statemid%stored_kpbl(i) = pblk1(i,1)
                Sfcprop%ffmm(i) = ustar1(i,1)*0.4/akms1(i,1)
                Sfcprop%ffhh(i) = ustar1(i,1)*0.4/akhs1(i,1)
                Diag%hmix(i) = mixh1(i,1)
@@ -2124,21 +2124,21 @@ module module_physics_driver
             do k=1,levs
                kflip = levs-k+1
                do i=1,im
-                  Tbd%stored_dqdt(i,k,1) = Tbd%stored_dqdt(i,k,1) + qv_dt(i,kflip)/ (1. + qv_dt(i,kflip))
-                  Tbd%stored_dqdt(i,k,Model%ntcw) = Tbd%stored_dqdt(i,k,Model%ntcw) + ql_dt(i,kflip)
-                  Tbd%stored_dtdt(i,k) = Tbd%stored_dtdt(i,k) + pt_dt(i,kflip) * Statein%prslk(i,k) !!! NEED conversion from theta; doing STUPID thing for now
-                  Tbd%stored_dudt(i,k) = Tbd%stored_dudt(i,k) + udt(i,kflip)
-                  Tbd%stored_dvdt(i,k) = Tbd%stored_dvdt(i,k) + vdt(i,kflip)
-                  Tbd%stored_dqdt(i,k,Model%ntke) = Tbd%stored_dqdt(i,k,Model%ntke) + (tke(i,kflip) - Statein%qgrs(i,k,Model%ntke)) / dtp
+                  Statemid%stored_dqdt(i,k,1) = Statemid%stored_dqdt(i,k,1) + qv_dt(i,kflip)/ (1. + qv_dt(i,kflip))
+                  Statemid%stored_dqdt(i,k,Model%ntcw) = Statemid%stored_dqdt(i,k,Model%ntcw) + ql_dt(i,kflip)
+                  Statemid%stored_dtdt(i,k) = Statemid%stored_dtdt(i,k) + pt_dt(i,kflip) * Statein%prslk(i,k) !!! NEED conversion from theta; doing STUPID thing for now
+                  Statemid%stored_dudt(i,k) = Statemid%stored_dudt(i,k) + udt(i,kflip)
+                  Statemid%stored_dvdt(i,k) = Statemid%stored_dvdt(i,k) + vdt(i,kflip)
+                  Statemid%stored_dqdt(i,k,Model%ntke) = Statemid%stored_dqdt(i,k,Model%ntke) + (tke(i,kflip) - Statein%qgrs(i,k,Model%ntke)) / dtp
 
                   !These are the surface tendencies
                   ! which can be computed as the sum of the tendencies
                   ! through the atmosphere
                   ! (only mass/heat/mom source from PBL is the surface)
-                  Tbd%stored_dusfc1(i) = Tbd%stored_dusfc1(i) + onebg*Tbd%stored_del(i,k)*udt(i,kflip)
-                  Tbd%stored_dvsfc1(i) = Tbd%stored_dvsfc1(i) + onebg*Tbd%stored_del(i,k)*vdt(i,kflip)
-                  Tbd%stored_dtsfc1(i) = Tbd%stored_dtsfc1(i) + con_cp*onebg*Tbd%stored_del(i,k)*pt_dt(i,kflip) * Statein%prslk(i,k) !DUMB!
-                  Tbd%stored_dqsfc1(i) = Tbd%stored_dqsfc1(i) + con_hvap*onebg*Tbd%stored_del(i,k)*qv_dt(i,kflip)
+                  Statemid%stored_dusfc1(i) = Statemid%stored_dusfc1(i) + onebg*Statemid%stored_del(i,k)*udt(i,kflip)
+                  Statemid%stored_dvsfc1(i) = Statemid%stored_dvsfc1(i) + onebg*Statemid%stored_del(i,k)*vdt(i,kflip)
+                  Statemid%stored_dtsfc1(i) = Statemid%stored_dtsfc1(i) + con_cp*onebg*Statemid%stored_del(i,k)*pt_dt(i,kflip) * Statein%prslk(i,k) !DUMB!
+                  Statemid%stored_dqsfc1(i) = Statemid%stored_dqsfc1(i) + con_hvap*onebg*Statemid%stored_del(i,k)*qv_dt(i,kflip)
 
 !$%!!$                  Stateout%gq0(i,k,Model%ntrw) = qr1(i,1,kflip) + qr_dt(i,1,kflip) * dtp
 !$%!!$                  Stateout%gq0(i,k,Model%ntiw) = qi1(i,1,kflip) + qi_dt(i,1,kflip) * dtp
@@ -2152,33 +2152,33 @@ module module_physics_driver
             enddo
 #endif fvGFS_2017          
         elseif (.not. Model%old_monin) then
-          call moninq(ix, im, levs, nvdiff, Model%ntcw, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt, &
+          call moninq(ix, im, levs, nvdiff, Model%ntcw, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt, &
                       Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,   &
-                      Radtend%htrsw, Radtend%htrlw, Tbd%stored_xmu, Statein%prsik(1,1), Tbd%stored_rb,&
-                      Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Tbd%stored_qss, Tbd%stored_hflx, Tbd%stored_evap,&
-                      Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del, Statein%prsl,      &
+                      Radtend%htrsw, Radtend%htrlw, Statemid%stored_xmu, Statein%prsik(1,1), Statemid%stored_rb,&
+                      Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_qss, Statemid%stored_hflx, Statemid%stored_evap,&
+                      Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,      &
                       Statein%prslk, Statein%phii, Statein%phil, dtp,           &
-                      Model%dspheat, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1, Diag%hpbl, &
-                      gamt, gamq, dkt, Tbd%stored_kinver, Model%xkzm_m, Model%xkzm_h,      &
+                      Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, Diag%hpbl, &
+                      gamt, gamq, dkt, Statemid%stored_kinver, Model%xkzm_m, Model%xkzm_h,      &
                       Model%xkzm_s, lprnt, ipr,                                 &
                       Model%xkzminv, Model%moninq_fac, Model%rbcr)
         else
           if (Model%mstrat) then
-            call moninp1(ix, im, levs, nvdiff, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,          &
+            call moninp1(ix, im, levs, nvdiff, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,          &
                          Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,&
-                         Statein%prsik(1,1), Tbd%stored_rb, Sfcprop%ffmm, Sfcprop%ffhh,    &
-                         Sfcprop%tsfc, Tbd%stored_qss, Tbd%stored_hflx, Tbd%stored_evap, Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl,     &
-                         Statein%prsi, Tbd%stored_del, Statein%prsl, Statein%prslk,        &
-                         Statein%phii, Statein%phil, dtp, Tbd%stored_dusfc1, Tbd%stored_dvsfc1,       &
-                         Tbd%stored_dtsfc1, Tbd%stored_dqsfc1, Diag%hpbl, gamt, gamq, dkt, Tbd%stored_kinver,    &
+                         Statein%prsik(1,1), Statemid%stored_rb, Sfcprop%ffmm, Sfcprop%ffhh,    &
+                         Sfcprop%tsfc, Statemid%stored_qss, Statemid%stored_hflx, Statemid%stored_evap, Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl,     &
+                         Statein%prsi, Statemid%stored_del, Statein%prsl, Statein%prslk,        &
+                         Statein%phii, Statein%phil, dtp, Statemid%stored_dusfc1, Statemid%stored_dvsfc1,       &
+                         Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, Diag%hpbl, gamt, gamq, dkt, Statemid%stored_kinver,    &
                          Model%xkzm_m, Model%xkzm_h)
           else
-            call moninp(ix, im, levs, nvdiff, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt, Tbd%stored_dqdt,            &
+            call moninp(ix, im, levs, nvdiff, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,            &
                          Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs, &
-                         Statein%prsik(1,1), Tbd%stored_rb, Sfcprop%ffmm, Sfcprop%ffhh,     &
-                         Sfcprop%tsfc, Tbd%stored_qss, Tbd%stored_hflx, Tbd%stored_evap, Tbd%stored_stress, Tbd%stored_wind, Tbd%stored_kpbl,      &
-                         Statein%prsi, Tbd%stored_del, Statein%prsl, Statein%phii,          &
-                         Statein%phil, dtp, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dtsfc1, Tbd%stored_dqsfc1,      &
+                         Statein%prsik(1,1), Statemid%stored_rb, Sfcprop%ffmm, Sfcprop%ffhh,     &
+                         Sfcprop%tsfc, Statemid%stored_qss, Statemid%stored_hflx, Statemid%stored_evap, Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl,      &
+                         Statein%prsi, Statemid%stored_del, Statein%prsl, Statein%phii,          &
+                         Statein%phil, dtp, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1,      &
                          Diag%hpbl, gamt, gamq, dkt, Model%xkzm_m, Model%xkzm_h)
           endif
 
@@ -2203,9 +2203,9 @@ module module_physics_driver
          !enddo
          do k=1,levs
          do i=1,im
-            Diag%flux_cg(i,k) = Tbd%stored_flux_cg(i,k)
-            Diag%flux_en(i,k) = Tbd%stored_flux_en(i,k)
-            Diag%elm_pbl(i,k) = Tbd%stored_elm_pbl(i,k)
+            Diag%flux_cg(i,k) = Statemid%stored_flux_cg(i,k)
+            Diag%flux_en(i,k) = Statemid%stored_flux_en(i,k)
+            Diag%elm_pbl(i,k) = Statemid%stored_elm_pbl(i,k)
          enddo
          enddo
 
@@ -2213,13 +2213,13 @@ module module_physics_driver
 
       if (Model%cplflx) then
         do i = 1, im
-          if (Tbd%stored_flag_cice(i)) then
-                  Tbd%stored_cice(i)   = Tbd%stored_fice_cice(i)
-            Sfcprop%tsfc(i)   = Tbd%stored_tsea_cice(i)
-                  Tbd%stored_dusfc1(i) = Tbd%stored_dusfc_cice(i)
-                  Tbd%stored_dvsfc1(i) = Tbd%stored_dvsfc_cice(i)
-                  Tbd%stored_dqsfc1(i) = Tbd%stored_dqsfc_cice(i)
-                  Tbd%stored_dtsfc1(i) = Tbd%stored_dtsfc_cice(i)
+          if (Statemid%stored_flag_cice(i)) then
+                  Statemid%stored_cice(i)   = Statemid%stored_fice_cice(i)
+            Sfcprop%tsfc(i)   = Statemid%stored_tsea_cice(i)
+                  Statemid%stored_dusfc1(i) = Statemid%stored_dusfc_cice(i)
+                  Statemid%stored_dvsfc1(i) = Statemid%stored_dvsfc_cice(i)
+                  Statemid%stored_dqsfc1(i) = Statemid%stored_dqsfc_cice(i)
+                  Statemid%stored_dtsfc1(i) = Statemid%stored_dtsfc_cice(i)
           endif
         enddo
       endif
@@ -2236,14 +2236,14 @@ module module_physics_driver
 !  --- ...  coupling insertion
 
       if (Model%cplflx) then
-        Coupling%dusfc_cpl (:) = Coupling%dusfc_cpl(:) + Tbd%stored_dusfc1(:)*dtf
-        Coupling%dvsfc_cpl (:) = Coupling%dvsfc_cpl(:) + Tbd%stored_dvsfc1(:)*dtf
-        Coupling%dtsfc_cpl (:) = Coupling%dtsfc_cpl(:) + Tbd%stored_dtsfc1(:)*dtf
-        Coupling%dqsfc_cpl (:) = Coupling%dqsfc_cpl(:) + Tbd%stored_dqsfc1(:)*dtf
-        Coupling%dusfci_cpl(:) = Tbd%stored_dusfc1(:)
-        Coupling%dvsfci_cpl(:) = Tbd%stored_dvsfc1(:)
-        Coupling%dtsfci_cpl(:) = Tbd%stored_dtsfc1(:)
-        Coupling%dqsfci_cpl(:) = Tbd%stored_dqsfc1(:)
+        Coupling%dusfc_cpl (:) = Coupling%dusfc_cpl(:) + Statemid%stored_dusfc1(:)*dtf
+        Coupling%dvsfc_cpl (:) = Coupling%dvsfc_cpl(:) + Statemid%stored_dvsfc1(:)*dtf
+        Coupling%dtsfc_cpl (:) = Coupling%dtsfc_cpl(:) + Statemid%stored_dtsfc1(:)*dtf
+        Coupling%dqsfc_cpl (:) = Coupling%dqsfc_cpl(:) + Statemid%stored_dqsfc1(:)*dtf
+        Coupling%dusfci_cpl(:) = Statemid%stored_dusfc1(:)
+        Coupling%dvsfci_cpl(:) = Statemid%stored_dvsfc1(:)
+        Coupling%dtsfci_cpl(:) = Statemid%stored_dtsfc1(:)
+        Coupling%dqsfci_cpl(:) = Statemid%stored_dqsfc1(:)
       endif
 
 !  use for slab/mixed layer ocean model 
@@ -2251,9 +2251,9 @@ module module_physics_driver
         netflxsfc = 0.
         qflux_restore = 0.
         do i = 1, im
-         if (Tbd%stored_islmsk(i) == 0 ) then
+         if (Statemid%stored_islmsk(i) == 0 ) then
 !  ---  compute open water albedo
-          xcosz_loc = max( 0.0, min( 1.0, Tbd%stored_xcosz(i) ))
+          xcosz_loc = max( 0.0, min( 1.0, Statemid%stored_xcosz(i) ))
           ocalnirdf_cpl(i) = 0.06
           ocalnirbm_cpl(i) = max(albdf, 0.026/(xcosz_loc**1.7+0.065)  &
                             + 0.15 * (xcosz_loc-0.1) * (xcosz_loc-0.5) &
@@ -2267,13 +2267,13 @@ module module_physics_driver
 !                         adjvisdfd(i)-adjvisdfd(i)*ocalvisdf_cpl(i)
           netswsfc  (i) = adjsfcnsw_for_coupling(i)
           netflxsfc (i) = netswsfc(i)                                +   & !net shortwave
-                          adjsfcdlw_for_coupling(i)-Tbd%stored_adjsfculw(i)     +   & !net longwave
-                          Tbd%stored_dtsfc1(i) * (-1.)                          +   & !sensible heat flux
-                          Tbd%stored_dqsfc1(i) * (-1.)                                !latent heat flux
+                          adjsfcdlw_for_coupling(i)-Statemid%stored_adjsfculw(i)     +   & !net longwave
+                          Statemid%stored_dtsfc1(i) * (-1.)                          +   & !sensible heat flux
+                          Statemid%stored_dqsfc1(i) * (-1.)                                !latent heat flux
          endif
         enddo
         if (Model%do_ocean) then
-           call update_ocean (im, dtp, Grid, Tbd%stored_islmsk, kdt, Model%kdt_prev, netflxsfc, Tbd%stored_dusfc1*(-1.), Tbd%stored_dvsfc1*(-1.),  &
+           call update_ocean (im, dtp, Grid, Statemid%stored_islmsk, kdt, Model%kdt_prev, netflxsfc, Statemid%stored_dusfc1*(-1.), Statemid%stored_dvsfc1*(-1.),  &
                            Sfcprop%tprcp, Statein%tgrs(:,1), qflux_restore, Sfcprop%qfluxadj,                     &
                            Sfcprop%mldclim,Sfcprop%tsclim,Sfcprop%ts_clim_iano, Statein%sst + Model%sst_perturbation,&
                            Sfcprop%ts_som, &
@@ -2287,19 +2287,19 @@ module module_physics_driver
 !
         if (Model%use_ext_sst .and. .not. Model%do_ocean) then
            do i = 1, im 
-              if (Tbd%stored_islmsk(i) == 0 ) Sfcprop%tsfc(i) = Statein%sst(i) + Model%sst_perturbation
+              if (Statemid%stored_islmsk(i) == 0 ) Sfcprop%tsfc(i) = Statein%sst(i) + Model%sst_perturbation
            enddo
         endif
 !-------------------------------------------------------lssav if loop ----------
       if (Model%lssav) then
-        Diag%dusfc (:) = Diag%dusfc(:) + Tbd%stored_dusfc1(:)*dtf
-        Diag%dvsfc (:) = Diag%dvsfc(:) + Tbd%stored_dvsfc1(:)*dtf
-        Diag%dtsfc (:) = Diag%dtsfc(:) + Tbd%stored_dtsfc1(:)*dtf
-        Diag%dqsfc (:) = Diag%dqsfc(:) + Tbd%stored_dqsfc1(:)*dtf
-        Diag%dusfci(:) = Tbd%stored_dusfc1(:)
-        Diag%dvsfci(:) = Tbd%stored_dvsfc1(:)
-        Diag%dtsfci(:) = Tbd%stored_dtsfc1(:)
-        Diag%dqsfci(:) = Tbd%stored_dqsfc1(:)
+        Diag%dusfc (:) = Diag%dusfc(:) + Statemid%stored_dusfc1(:)*dtf
+        Diag%dvsfc (:) = Diag%dvsfc(:) + Statemid%stored_dvsfc1(:)*dtf
+        Diag%dtsfc (:) = Diag%dtsfc(:) + Statemid%stored_dtsfc1(:)*dtf
+        Diag%dqsfc (:) = Diag%dqsfc(:) + Statemid%stored_dqsfc1(:)*dtf
+        Diag%dusfci(:) = Statemid%stored_dusfc1(:)
+        Diag%dvsfci(:) = Statemid%stored_dvsfc1(:)
+        Diag%dtsfci(:) = Statemid%stored_dtsfc1(:)
+        Diag%dqsfci(:) = Statemid%stored_dqsfc1(:)
 !       if (lprnt) then
 !         write(0,*)' dusfc=',dusfc(ipr),' dusfc1=',dusfc1(ipr),' dtf=',
 !    &     dtf,' kdt=',kdt,' lat=',lat
@@ -2307,20 +2307,20 @@ module module_physics_driver
 
         if (Model%ldiag3d) then
           if (Model%lsidea) then
-            Diag%dt3dt(:,:,3) = Diag%dt3dt(:,:,3) + Tbd%stored_dtdt(:,:)*dtf
+            Diag%dt3dt(:,:,3) = Diag%dt3dt(:,:,3) + Statemid%stored_dtdt(:,:)*dtf
           else
             do k = 1, levs
               do i = 1, im
-                tem          = Tbd%stored_dtdt(i,k) - (Radtend%htrlw(i,k)+Radtend%htrsw(i,k)*Tbd%stored_xmu(i))
+                tem          = Statemid%stored_dtdt(i,k) - (Radtend%htrlw(i,k)+Radtend%htrsw(i,k)*Statemid%stored_xmu(i))
                 Diag%dt3dt(i,k,3) = Diag%dt3dt(i,k,3) + tem*dtf
               enddo
             enddo
           endif
-          Diag%du3dt(:,:,1) = Diag%du3dt(:,:,1) + Tbd%stored_dudt(:,:) * dtf
-          Diag%dv3dt(:,:,1) = Diag%dv3dt(:,:,1) + Tbd%stored_dvdt(:,:) * dtf
+          Diag%du3dt(:,:,1) = Diag%du3dt(:,:,1) + Statemid%stored_dudt(:,:) * dtf
+          Diag%dv3dt(:,:,1) = Diag%dv3dt(:,:,1) + Statemid%stored_dvdt(:,:) * dtf
           if (Model%orogwd) then         !        call orographic gravity wave drag
-            Diag%du3dt(:,:,2) = Diag%du3dt(:,:,2) - Tbd%stored_dudt(:,:) * dtf
-            Diag%dv3dt(:,:,2) = Diag%dv3dt(:,:,2) - Tbd%stored_dvdt(:,:) * dtf
+            Diag%du3dt(:,:,2) = Diag%du3dt(:,:,2) - Statemid%stored_dudt(:,:) * dtf
+            Diag%dv3dt(:,:,2) = Diag%dv3dt(:,:,2) - Statemid%stored_dvdt(:,:) * dtf
           endif
 ! update dqdt_v to include moisture tendency due to vertical diffusion
 !         if (lgocart) then
@@ -2332,14 +2332,14 @@ module module_physics_driver
 !         endif
           do k = 1, levs
             do i = 1, im
-              tem  = Tbd%stored_dqdt(i,k,1) * dtf
+              tem  = Statemid%stored_dqdt(i,k,1) * dtf
               Diag%dq3dt(i,k,1) = Diag%dq3dt(i,k,1) + tem
             enddo
           enddo
           if (Model%ntoz > 0) then
              do k=1,levs
              do i=1,im
-                Diag%dq3dt(i,k,5) = Diag%dq3dt(i,k,5) + Tbd%stored_dqdt(i,k,Model%ntoz) * dtf
+                Diag%dq3dt(i,k,5) = Diag%dq3dt(i,k,5) + Statemid%stored_dqdt(i,k,Model%ntoz) * dtf
              enddo
              enddo
           endif
@@ -2392,13 +2392,13 @@ module module_physics_driver
 
       endif   ! end if_nmtvr
 
-      dtdt_gwdps = Tbd%stored_dtdt(:,:)  ! gwdps updates dtdt (need the initial value)
+      dtdt_gwdps = Statemid%stored_dtdt(:,:)  ! gwdps updates dtdt (need the initial value)
       
 !     write(0,*)' before gwd clstp=',clstp,' kdt=',kdt,' lat=',lat
       if (ANY(Model%cdmbgwd > 0.)) then 
-         call gwdps(im, ix, im, levs, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt,     &
+         call gwdps(im, ix, im, levs, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt,     &
                  Statein%ugrs, Statein%vgrs, Statein%tgrs,  &
-                 Statein%qgrs, Tbd%stored_kpbl, Statein%prsi, Tbd%stored_del,     &
+                 Statein%qgrs, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del,     &
                  Statein%prsl, Statein%prslk, Statein%phii, &
                  Statein%phil, dtp, kdt,                    &
                  Sfcprop%hprime(1,1), oc, oa4, clx, theta,  &
@@ -2418,10 +2418,10 @@ module module_physics_driver
 !       if (lprnt) print *,' dvgwd=',dvgwd(ipr),' dvsfcg=',dvsfcg(ipr)
 
         if (Model%ldiag3d) then
-          Diag%du3dt(:,:,2) = Diag%du3dt(:,:,2) + Tbd%stored_dudt(:,:) * dtf
-          Diag%dv3dt(:,:,2) = Diag%dv3dt(:,:,2) + Tbd%stored_dvdt(:,:) * dtf
+          Diag%du3dt(:,:,2) = Diag%du3dt(:,:,2) + Statemid%stored_dudt(:,:) * dtf
+          Diag%dv3dt(:,:,2) = Diag%dv3dt(:,:,2) + Statemid%stored_dvdt(:,:) * dtf
           !Diag%dt3dt(:,:,2) = Diag%dt3dt(:,:,2) + dtdt(:,:) * dtf
-          Diag%dt3dt(:,:,7) = Diag%dt3dt(:,:,7) + (Tbd%stored_dtdt(:,:) - dtdt_gwdps(:,:)) * dtf
+          Diag%dt3dt(:,:,7) = Diag%dt3dt(:,:,7) + (Statemid%stored_dtdt(:,:) - dtdt_gwdps(:,:)) * dtf
         endif
       endif
       
@@ -2429,7 +2429,7 @@ module module_physics_driver
 
 !    Rayleigh damping  near the model top
       if( .not. Model%lsidea .and. Model%ral_ts > 0.0) then
-        call rayleigh_damp(im, ix, im, levs, Tbd%stored_dvdt, Tbd%stored_dudt, Tbd%stored_dtdt,      &
+        call rayleigh_damp(im, ix, im, levs, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt,      &
                            Statein%ugrs, Statein%vgrs, dtp, con_cp, &
                            Model%levr, Statein%pgr, Statein%prsl,   &
                            Model%prslrd0, Model%ral_ts)
@@ -2440,20 +2440,20 @@ module module_physics_driver
 !       write(0,*)' dtdt=',(dtdt(ipr,ik),k=1,10)
 !     endif
 
-      Stateout%gt0(:,:)   = Statein%tgrs(:,:) + Tbd%stored_dtdt(:,:) * dtp
-      Stateout%gu0(:,:)   = Statein%ugrs(:,:) + Tbd%stored_dudt(:,:) * dtp
-      Stateout%gv0(:,:)   = Statein%vgrs(:,:) + Tbd%stored_dvdt(:,:) * dtp
+      Stateout%gt0(:,:)   = Statein%tgrs(:,:) + Statemid%stored_dtdt(:,:) * dtp
+      Stateout%gu0(:,:)   = Statein%ugrs(:,:) + Statemid%stored_dudt(:,:) * dtp
+      Stateout%gv0(:,:)   = Statein%vgrs(:,:) + Statemid%stored_dvdt(:,:) * dtp
 ! Linjiong, 09/18/2017, turn off vertical mixing of rain, snow, and graupel
       if ((Model%ncld == 5) .and. (.not. Model%mix_precip)) then       ! GFDL Cloud microphysics
 !      if (Model%ncld == 5 ) then       ! GFDL Cloud microphysics
         ! water vapor
-        Stateout%gq0(:,:,         1) = Statein%qgrs(:,:,         1) + Tbd%stored_dqdt(:,:,         1) * dtp
+        Stateout%gq0(:,:,         1) = Statein%qgrs(:,:,         1) + Statemid%stored_dqdt(:,:,         1) * dtp
         ! cloud water
-        Stateout%gq0(:,:,Model%ntcw) = Statein%qgrs(:,:,Model%ntcw) + Tbd%stored_dqdt(:,:,Model%ntcw) * dtp
+        Stateout%gq0(:,:,Model%ntcw) = Statein%qgrs(:,:,Model%ntcw) + Statemid%stored_dqdt(:,:,Model%ntcw) * dtp
         ! cloud ice
-        Stateout%gq0(:,:,Model%ntiw) = Statein%qgrs(:,:,Model%ntiw) + Tbd%stored_dqdt(:,:,Model%ntiw) * dtp
+        Stateout%gq0(:,:,Model%ntiw) = Statein%qgrs(:,:,Model%ntiw) + Statemid%stored_dqdt(:,:,Model%ntiw) * dtp
       else
-         Stateout%gq0(:,:,:) = Statein%qgrs(:,:,:) + Tbd%stored_dqdt(:,:,:) * dtp
+         Stateout%gq0(:,:,:) = Statein%qgrs(:,:,:) + Statemid%stored_dqdt(:,:,:) * dtp
       endif
 ! Linjiong, 09/18/2017, turn off vertical mixing of rain, snow, and graupel
 
@@ -2480,7 +2480,7 @@ module module_physics_driver
                             Stateout%gq0(1,1,Model%ntoz),            &
                             Stateout%gq0(1,1,Model%ntoz),            &
                             Stateout%gt0, oz_pres, Statein%prsl,     &
-                            Tbd%ozpl, oz_coeff, Tbd%stored_del, Model%ldiag3d,  &
+                            Statemid%ozpl, oz_coeff, Statemid%stored_del, Model%ldiag3d,  &
                             dq3dt_loc, me)
           if (Model%ldiag3d) then
             Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,1)
@@ -2493,7 +2493,7 @@ module module_physics_driver
                        Stateout%gq0(1,1,Model%ntoz),              &
                        Stateout%gq0(1,1,Model%ntoz),              &
                        Stateout%gt0, oz_pres, Statein%prsl,       &
-                       Tbd%ozpl, oz_coeff, Tbd%stored_del, Model%ldiag3d,    &
+                       Statemid%ozpl, oz_coeff, Statemid%stored_del, Model%ldiag3d,    &
                        dq3dt_loc, me)
           if (Model%ldiag3d) then
             Diag%dq3dt(:,:,6) = dq3dt_loc(:,:,1)
@@ -2507,7 +2507,7 @@ module module_physics_driver
       if (Model%h2o_phys) then
         call h2ophys (ix, im, levs, levh2o, dtp, Stateout%gq0(1,1,1),  &
                       Stateout%gq0(1,1,1), h2o_pres, Statein%prsl,     &
-                      Tbd%h2opl, h2o_coeff, Model%ldiag3d,             &
+                      Statemid%h2opl, h2o_coeff, Model%ldiag3d,             &
                       dq3dt_loc(1,1,1), me)
       endif
 
@@ -2544,15 +2544,15 @@ module module_physics_driver
 !     if (lprnt) write(7000,*)' bef convection gv0=',gv0(ipr,:)
 
       if (Model%ldiag3d) then
-        Tbd%stored_dtdt(:,:) = Stateout%gt0(:,:)
-        Tbd%stored_dudt(:,:) = Stateout%gu0(:,:)
-        Tbd%stored_dvdt(:,:) = Stateout%gv0(:,:)
+        Statemid%stored_dtdt(:,:) = Stateout%gt0(:,:)
+        Statemid%stored_dudt(:,:) = Stateout%gu0(:,:)
+        Statemid%stored_dvdt(:,:) = Stateout%gv0(:,:)
       elseif (Model%cnvgwd) then
-        Tbd%stored_dtdt(:,:) = Stateout%gt0(:,:)
+        Statemid%stored_dtdt(:,:) = Stateout%gt0(:,:)
       endif   ! end if_ldiag3d/cnvgwd
 
       if (Model%ldiag3d .or. Model%lgocart) then
-        Tbd%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
+        Statemid%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
       endif   ! end if_ldiag3d/lgocart
 
 #ifdef GFS_HYDRO
@@ -2563,7 +2563,7 @@ module module_physics_driver
 #else
 !GFDL   Adjust the height hydrostatically in a way consistent with FV3 discretization
       call get_phi_fv3 (ix, levs, ntrac, Stateout%gt0, Stateout%gq0, &
-                        Tbd%stored_del_gz, Statein%phii, Statein%phil)
+                        Statemid%stored_del_gz, Statein%phii, Statein%phil)
 #endif
 
 !     if (lprnt) then
@@ -2623,7 +2623,7 @@ module module_physics_driver
         do k=1,levs
           do i=1,im
             tem      = rhbbot - (rhbbot-rhbtop) * (1.0-Statein%prslk(i,k))
-            tem      = rhc_max * Tbd%stored_work1(i) + tem * Tbd%stored_work2(i)
+            tem      = rhc_max * Statemid%stored_work1(i) + tem * Statemid%stored_work2(i)
             rhc(i,k) = max(0.0, min(1.0,tem))
           enddo
         enddo
@@ -2632,14 +2632,14 @@ module module_physics_driver
           clw(:,:,2) = Stateout%gq0(:,:,Model%ntcw)                    ! water
         else
           if (Model%num_p3d == 4) then   ! zhao-carr microphysics
-            psautco_l(:) = Model%psautco(1)*Tbd%stored_work1(:) + Model%psautco(2)*Tbd%stored_work2(:)
-            prautco_l(:) = Model%prautco(1)*Tbd%stored_work1(:) + Model%prautco(2)*Tbd%stored_work2(:)
+            psautco_l(:) = Model%psautco(1)*Statemid%stored_work1(:) + Model%psautco(2)*Statemid%stored_work2(:)
+            prautco_l(:) = Model%prautco(1)*Statemid%stored_work1(:) + Model%prautco(2)*Statemid%stored_work2(:)
             clw(:,:,1) = Stateout%gq0(:,:,Model%ntcw)
           endif  ! end if_num_p3d
         endif    ! end if (ncld == 2)
       else    ! if_ntcw
-        psautco_l(:) = Model%psautco(1)*Tbd%stored_work1(:) + Model%psautco(2)*Tbd%stored_work2(:)
-        prautco_l(:) = Model%prautco(1)*Tbd%stored_work1(:) + Model%prautco(2)*Tbd%stored_work2(:)
+        psautco_l(:) = Model%psautco(1)*Statemid%stored_work1(:) + Model%psautco(2)*Statemid%stored_work2(:)
+        prautco_l(:) = Model%prautco(1)*Statemid%stored_work1(:) + Model%prautco(2)*Statemid%stored_work2(:)
         rhc(:,:) = 1.0
       endif   ! end if_ntcw
 !
@@ -2690,10 +2690,10 @@ module module_physics_driver
                      Statein%phii(1,1), Statein%phil(1,1), Stateout%gu0(1,1), &
                      Stateout%gv0(1,1), Statein%vvl(1,1), Stateout%gt0(1,1),  &
                      Stateout%gq0(1,1,1), clw(1,1,1), clw(1,1,2), qpi, qpl,   &
-                     rhc, Model%sup, Tbd%phy_f3d(1,1,Model%ntot3d-2),         &
-                     clw(1,1,ntk), Tbd%stored_hflx, Tbd%stored_evap, prnum,                         &
-                     Tbd%phy_f3d(1,1,Model%ntot3d-1),                         &
-                     Tbd%phy_f3d(1,1,Model%ntot3d), lprnt, ipr, ncpl, ncpi, kdt)
+                     rhc, Model%sup, Statemid%phy_f3d(1,1,Model%ntot3d-2),         &
+                     clw(1,1,ntk), Statemid%stored_hflx, Statemid%stored_evap, prnum,                         &
+                     Statemid%phy_f3d(1,1,Model%ntot3d-1),                         &
+                     Statemid%phy_f3d(1,1,Model%ntot3d), lprnt, ipr, ncpl, ncpi, kdt)
 
 !     if (lprnt) write(0,*)' aftshoccld=',phy_f3d(ipr,:,ntot3d-2)*100
 !     if (lprnt) write(0,*)' aftshocice=',clw(ipr,:,1)
@@ -2748,11 +2748,11 @@ module module_physics_driver
 
 
           if (Model%imfdeepcnv == 1) then             ! no random cloud top
-            call sascnvn (im, ix, levs, Model%jcap, dtp, Tbd%stored_del,             &
+            call sascnvn (im, ix, levs, Model%jcap, dtp, Statemid%stored_del,             &
                           Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:2),   &
                           Stateout%gq0(:,:,1), Stateout%gt0, Stateout%gu0,       &
-                          Stateout%gv0, cld1d, rain1, kbot, ktop, Tbd%stored_kcnv,   &
-                          Tbd%stored_islmsk, Statein%vvl, Model%ncld, ud_mf, dd_mf,  &
+                          Stateout%gv0, cld1d, rain1, kbot, ktop, Statemid%stored_kcnv,   &
+                          Statemid%stored_islmsk, Statein%vvl, Model%ncld, ud_mf, dd_mf,  &
                           dt_mf, cnvw, cnvc,                              &
                           Model%clam_deep, Model%c0s_deep,                       &
                           Model%c1_deep, Model%betal_deep, Model%betas_deep,     &
@@ -2762,13 +2762,13 @@ module module_physics_driver
             if (Model%ncld == 5 .and. Model%ext_rain_deep) then
                 qrn(:,:) = Stateout%gq0(:,:,Model%ntrw)
             endif
-            call mfdeepcnv (im, ix, levs, dtp, Tbd%stored_del, Statein%prsl,         &
+            call mfdeepcnv (im, ix, levs, dtp, Statemid%stored_del, Statein%prsl,         &
                             Statein%pgr, Statein%phil, clw(:,:,1:2),      &
                             Stateout%gq0(:,:,1),                        &
                             Stateout%gt0, Stateout%gu0, Stateout%gv0,     &
                             Model%ext_rain_deep, qrn,                     &
-                            cld1d, rain1, kbot, ktop, Tbd%stored_kcnv, Tbd%stored_islmsk,       &
-                            Tbd%stored_garea, Statein%vvl, Model%ncld, ud_mf, dd_mf, &
+                            cld1d, rain1, kbot, ktop, Statemid%stored_kcnv, Statemid%stored_islmsk,       &
+                            Statemid%stored_garea, Statein%vvl, Model%ncld, ud_mf, dd_mf, &
                             dt_mf, cnvw, cnvc,                            &
                             Model%clam_deep, Model%c0s_deep,                       &
                             Model%c1_deep, Model%betal_deep, Model%betas_deep,     &
@@ -2785,11 +2785,11 @@ module module_physics_driver
                nsamftrac = tottracer
             endif
             call samfdeepcnv(im, ix, levs, dtp, itc, Model%ntchm, ntk, nsamftrac,  &
-                             Tbd%stored_del, Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:nsamftrac+2),    &
+                             Statemid%stored_del, Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:nsamftrac+2),    &
                              Stateout%gq0(:,:,1), Stateout%gt0,                    &
                              Stateout%gu0, Stateout%gv0, Model%fscav, Model%do_ca, &
-                             Coupling%ca_deep, cld1d, rain1, kbot, ktop, Tbd%stored_kcnv,     &
-                             Tbd%stored_islmsk, Tbd%stored_garea,                                        &
+                             Coupling%ca_deep, cld1d, rain1, kbot, ktop, Statemid%stored_kcnv,     &
+                             Statemid%stored_islmsk, Statemid%stored_garea,                                        &
                              Statein%vvl, Model%ncld, ud_mf, dd_mf, dt_mf, cnvw, cnvc,   &
                              QLCN, QICN, w_upi,cf_upi, CNV_MFD,                    &
                              CNV_DQLDT,CLCN,CNV_FICE,CNV_NDROP,CNV_NICE,           &
@@ -2803,11 +2803,11 @@ module module_physics_driver
                              Model%use_tke_conv, Model%use_shear_conv)
 
           elseif (Model%imfdeepcnv == 0) then         ! random cloud top
-            call sascnv (im, ix, levs, Model%jcap, dtp, Tbd%stored_del,              &
+            call sascnv (im, ix, levs, Model%jcap, dtp, Statemid%stored_del,              &
                          Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:2),    &
                          Stateout%gq0(:,:,1), Stateout%gt0, Stateout%gu0,        &
-                         Stateout%gv0, cld1d, rain1, kbot, ktop, Tbd%stored_kcnv,    &
-                         Tbd%stored_islmsk, Statein%vvl, Tbd%rann, Model%ncld,       &
+                         Stateout%gv0, cld1d, rain1, kbot, ktop, Statemid%stored_kcnv,    &
+                         Statemid%stored_islmsk, Statein%vvl, Statemid%rann, Model%ncld,       &
                          ud_mf, dd_mf, dt_mf, cnvw, cnvc)
 !           if (lprnt) print *,' rain1=',rain1(ipr),' rann=',rann(ipr,1)
           endif
@@ -2826,8 +2826,8 @@ module module_physics_driver
         if (Model%npdf3d == 3 .and. Model%num_p3d == 4) then
           do k=1,levs
             do i=1,im
-              Tbd%phy_f3d(i,k,num2) = cnvw(i,k)
-              Tbd%phy_f3d(i,k,num3) = cnvc(i,k)
+              Statemid%phy_f3d(i,k,num2) = cnvw(i,k)
+              Statemid%phy_f3d(i,k,num3) = cnvc(i,k)
               cnvw(i,k)             = 0.
               cnvc(i,k)             = 0.
             enddo
@@ -2835,7 +2835,7 @@ module module_physics_driver
         elseif (Model%npdf3d == 0 .and. Model%ncnvcld3d == 1) then
           do k=1,levs
             do i=1,im
-              Tbd%phy_f3d(i,k,num2) = cnvw(i,k)
+              Statemid%phy_f3d(i,k,num2) = cnvw(i,k)
               cnvw(i,k)             = 0.
             enddo
           enddo
@@ -2854,9 +2854,9 @@ module module_physics_driver
 !     write(0,*)' bef cs_cconv phii=',phii(ipr,:)
 !    &,' sizefsc=',size(fscav)
 !     write(0,*)' bef cs_cconv otspt=',otspt,' kdt=',kdt,' me=',me
-          Tbd%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
-          Tbd%stored_dqdt(:,:,2) = max(0.0,clw(:,:,2))
-          Tbd%stored_dqdt(:,:,3) = max(0.0,clw(:,:,1))
+          Statemid%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
+          Statemid%stored_dqdt(:,:,2) = max(0.0,clw(:,:,2))
+          Statemid%stored_dqdt(:,:,3) = max(0.0,clw(:,:,1))
 !     if (lprnt) write(0,*)' gq0bfcs=',gq0(ipr,1:35,1)
 !     if (lprnt) write(0,*)' gq0bfcs3=',gq0(ipr,1:35,3)
 !     if (lprnt) write(0,*)' gq0bfcs4=',gq0(ipr,1:35,4)
@@ -2872,7 +2872,7 @@ module module_physics_driver
                          clw, Statein%phil, Statein%phii, Statein%prsl,   &
                          Statein%prsi, dtp, dtf, ud_mf, dd_mf, dt_mf,     &
                          Stateout%gu0, Stateout%gv0, fscav, fswtr,        &
-                         Tbd%phy_fctd, me, Tbd%stored_wcbmax, Model%cs_parm(3),      &
+                         Statemid%phy_fctd, me, Statemid%stored_wcbmax, Model%cs_parm(3),      &
                          Model%cs_parm(4), sigmai, sigmatot, vverti,      &
                          Model%do_aw, do_awdd, lprnt, ipr, QLCN, QICN,    &
                          w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,     &
@@ -2908,8 +2908,8 @@ module module_physics_driver
         else      ! ras version 2
 
           if ((Model%ccwf(1) >= 0.0) .or. (Model%ccwf(2) >= 0)) then
-            ccwfac(:) = Model%ccwf(1)*Tbd%stored_work1(:) + Model%ccwf(2)*Tbd%stored_work2(:)
-            dlqfac(:) = Model%dlqf(1)*Tbd%stored_work1(:) + Model%dlqf(2)*Tbd%stored_work2(:)
+            ccwfac(:) = Model%ccwf(1)*Statemid%stored_work1(:) + Model%ccwf(2)*Statemid%stored_work2(:)
+            dlqfac(:) = Model%dlqf(1)*Statemid%stored_work1(:) + Model%dlqf(2)*Statemid%stored_work2(:)
             lmh   (:) = levs
           else
             ccwfac(:) = -999.0
@@ -2931,13 +2931,13 @@ module module_physics_driver
 
           revap = .true.
 !         if (ncld ==2) revap = .false.
-          call rascnv (im, ix, levs, dtp, dtf, Tbd%rann, Stateout%gt0,     &
+          call rascnv (im, ix, levs, dtp, dtf, Statemid%rann, Stateout%gt0,     &
                        Stateout%gq0, Stateout%gu0, Stateout%gv0, clw,      &
                        tottracer, fscav, Statein%prsi, Statein%prsl,       &
                        Statein%prsik, Statein%prslk, Statein%phil,         &
-                       Statein%phii, Tbd%stored_kpbl, cd, rain1, kbot, ktop, Tbd%stored_kcnv,    &
-                       Tbd%phy_f2d(1,Model%num_p2d), Model%flipv, pa2mb,   &
-                       me, Tbd%stored_garea, lmh, ccwfac, Model%nrcm, rhc, ud_mf,     &
+                       Statein%phii, Statemid%stored_kpbl, cd, rain1, kbot, ktop, Statemid%stored_kcnv,    &
+                       Statemid%phy_f2d(1,Model%num_p2d), Model%flipv, pa2mb,   &
+                       me, Statemid%stored_garea, lmh, ccwfac, Model%nrcm, rhc, ud_mf,     &
                        dd_mf, dt_mf, dlqfac, lprnt, ipr, kdt, revap, QLCN, &
                        QICN, w_upi, cf_upi, CNV_MFD, CNV_PRC3, CNV_DQLDT,  &
                        CLCN, CNV_FICE, CNV_NDROP, CNV_NICE, Model%ncld )
@@ -2966,11 +2966,11 @@ module module_physics_driver
         endif
 
         if (Model%lgocart) then
-          Coupling%upd_mfi(:,:)  = Coupling%upd_mfi(:,:)  + ud_mf(:,:) * Tbd%stored_frain
-          Coupling%dwn_mfi(:,:)  = Coupling%dwn_mfi(:,:)  + dd_mf(:,:) * Tbd%stored_frain
-          Coupling%det_mfi(:,:)  = Coupling%det_mfi(:,:)  + dt_mf(:,:) * Tbd%stored_frain
+          Coupling%upd_mfi(:,:)  = Coupling%upd_mfi(:,:)  + ud_mf(:,:) * Statemid%stored_frain
+          Coupling%dwn_mfi(:,:)  = Coupling%dwn_mfi(:,:)  + dd_mf(:,:) * Statemid%stored_frain
+          Coupling%det_mfi(:,:)  = Coupling%det_mfi(:,:)  + dt_mf(:,:) * Statemid%stored_frain
           Coupling%cnvqci (:,:)  = Coupling%cnvqci (:,:)  + (clw(:,:,1)+clw(:,:,2) - &
-                                      Stateout%gq0(:,:,Model%ntcw)) * Tbd%stored_frain
+                                      Stateout%gq0(:,:,Model%ntcw)) * Statemid%stored_frain
         endif ! if (lgocart)
 
       endif   ! end if_not_ras
@@ -2982,31 +2982,31 @@ module module_physics_driver
 !       write(0,*)' aftcnvgq1=',(gq0(ipr,k,ntcw),k=1,levs)
 !     endif
 !
-      Diag%rainc(:) = Tbd%stored_frain * rain1(:)
+      Diag%rainc(:) = Statemid%stored_frain * rain1(:)
 !
       if (Model%lssav) then
         Diag%cldwrk (:) = Diag%cldwrk (:) + cld1d(:) * dtf
 
         if (Model%ldiag3d) then
-          Diag%dt3dt(:,:,4) = Diag%dt3dt(:,:,4) + (Stateout%gt0(:,:)-Tbd%stored_dtdt(:,:)) * Tbd%stored_frain
-          Diag%dq3dt(:,:,2) = Diag%dq3dt(:,:,2) + (Stateout%gq0(:,:,1)-Tbd%stored_dqdt(:,:,1)) * Tbd%stored_frain
-          Diag%du3dt(:,:,3) = Diag%du3dt(:,:,3) + (Stateout%gu0(:,:)-Tbd%stored_dudt(:,:)) * Tbd%stored_frain
-          Diag%dv3dt(:,:,3) = Diag%dv3dt(:,:,3) + (Stateout%gv0(:,:)-Tbd%stored_dvdt(:,:)) * Tbd%stored_frain
+          Diag%dt3dt(:,:,4) = Diag%dt3dt(:,:,4) + (Stateout%gt0(:,:)-Statemid%stored_dtdt(:,:)) * Statemid%stored_frain
+          Diag%dq3dt(:,:,2) = Diag%dq3dt(:,:,2) + (Stateout%gq0(:,:,1)-Statemid%stored_dqdt(:,:,1)) * Statemid%stored_frain
+          Diag%du3dt(:,:,3) = Diag%du3dt(:,:,3) + (Stateout%gu0(:,:)-Statemid%stored_dudt(:,:)) * Statemid%stored_frain
+          Diag%dv3dt(:,:,3) = Diag%dv3dt(:,:,3) + (Stateout%gv0(:,:)-Statemid%stored_dvdt(:,:)) * Statemid%stored_frain
 
-          Diag%upd_mf(:,:)  = Diag%upd_mf(:,:)  + ud_mf(:,:) * (con_g*Tbd%stored_frain)
-          Diag%dwn_mf(:,:)  = Diag%dwn_mf(:,:)  + dd_mf(:,:) * (con_g*Tbd%stored_frain)
-          Diag%det_mf(:,:)  = Diag%det_mf(:,:)  + dt_mf(:,:) * (con_g*Tbd%stored_frain)
+          Diag%upd_mf(:,:)  = Diag%upd_mf(:,:)  + ud_mf(:,:) * (con_g*Statemid%stored_frain)
+          Diag%dwn_mf(:,:)  = Diag%dwn_mf(:,:)  + dd_mf(:,:) * (con_g*Statemid%stored_frain)
+          Diag%det_mf(:,:)  = Diag%det_mf(:,:)  + dt_mf(:,:) * (con_g*Statemid%stored_frain)
         endif ! if (ldiag3d)
 
       endif   ! end if_lssav
 !
 !       update dqdt_v to include moisture tendency due to deep convection
       if (Model%lgocart) then
-        Coupling%dqdti  (:,:)  = (Stateout%gq0(:,:,1) - Tbd%stored_dqdt(:,:,1))  * Tbd%stored_frain
-        Coupling%upd_mfi(:,:)  = Coupling%upd_mfi(:,:) + ud_mf(:,:) * Tbd%stored_frain
-        Coupling%dwn_mfi(:,:)  = Coupling%dwn_mfi(:,:) + dd_mf(:,:) * Tbd%stored_frain
-        Coupling%det_mfi(:,:)  = Coupling%det_mfi(:,:) + dt_mf(:,:) * Tbd%stored_frain
-        Coupling%cnvqci (:,:)  = Coupling%cnvqci (:,:) + (clw(:,:,1)+clw(:,:,2))*Tbd%stored_frain
+        Coupling%dqdti  (:,:)  = (Stateout%gq0(:,:,1) - Statemid%stored_dqdt(:,:,1))  * Statemid%stored_frain
+        Coupling%upd_mfi(:,:)  = Coupling%upd_mfi(:,:) + ud_mf(:,:) * Statemid%stored_frain
+        Coupling%dwn_mfi(:,:)  = Coupling%dwn_mfi(:,:) + dd_mf(:,:) * Statemid%stored_frain
+        Coupling%det_mfi(:,:)  = Coupling%det_mfi(:,:) + dt_mf(:,:) * Statemid%stored_frain
+        Coupling%cnvqci (:,:)  = Coupling%cnvqci (:,:) + (clw(:,:,1)+clw(:,:,2))*Statemid%stored_frain
       endif ! if (lgocart)
 !
 
@@ -3026,8 +3026,8 @@ module module_physics_driver
         do k = 1, levs
           do i = 1, im
             if (k >= kbot(i) .and. k <= ktop(i)) then
-              cumabs(i) = cumabs(i) + (Stateout%gt0(i,k)-Tbd%stored_dtdt(i,k)) * Tbd%stored_del(i,k)
-              work3(i)  = work3(i)  + Tbd%stored_del(i,k)
+              cumabs(i) = cumabs(i) + (Stateout%gt0(i,k)-Statemid%stored_dtdt(i,k)) * Statemid%stored_del(i,k)
+              work3(i)  = work3(i)  + Statemid%stored_del(i,k)
             endif
           enddo
         enddo
@@ -3104,8 +3104,8 @@ module module_physics_driver
 !       call gwdc(im, ix, im, levs, lat, gu0, gv0, gt0, gq0, dtp,       &
         call gwdc (im, ix, im, levs, 1, Statein%ugrs, Statein%vgrs,     &
                    Statein%tgrs, Statein%qgrs, dtp, Statein%prsl,       &
-                   Statein%prsi, Tbd%stored_del, cumabs, ktop, kbot, Tbd%stored_kcnv, Tbd%stored_cldf,   &
-                   con_g, con_cp, con_rd, con_fvirt, con_pi, Tbd%stored_dlength,   &
+                   Statein%prsi, Statemid%stored_del, cumabs, ktop, kbot, Statemid%stored_kcnv, Statemid%stored_cldf,   &
+                   con_g, con_cp, con_rd, con_fvirt, con_pi, Statemid%stored_dlength,   &
                    lprnt, ipr, Model%fhour, gwdcu, gwdcv, dusfcg, dvsfcg)
 
 !       if (lprnt) then
@@ -3184,10 +3184,10 @@ module module_physics_driver
 !----------------Convective gravity wave drag parameterization over --------
 
       if (Model%ldiag3d) then
-        Tbd%stored_dtdt(:,:)   = Stateout%gt0(:,:)
+        Statemid%stored_dtdt(:,:)   = Stateout%gt0(:,:)
       endif
       if (Model%ldiag3d .or. Model%lgocart) then
-        Tbd%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
+        Statemid%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
       endif
 
 !     write(0,*)' before do_shoc shal clstp=',clstp,' kdt=',kdt,
@@ -3207,22 +3207,22 @@ module module_physics_driver
 !                                               --------------------------------------
           if (Model%imfshalcnv == 1) then      ! opr option now at 2014
                                                !-----------------------
-           call shalcnv (im, ix, levs, Model%jcap, dtp, Tbd%stored_del, Statein%prsl, &
+           call shalcnv (im, ix, levs, Model%jcap, dtp, Statemid%stored_del, Statein%prsl, &
                          Statein%pgr, Statein%phil, clw, Stateout%gq0,     &
                          Stateout%gt0, Stateout%gu0, Stateout%gv0, rain1,  &
-                         kbot, ktop, Tbd%stored_kcnv, Tbd%stored_islmsk, Statein%vvl, Model%ncld,&
-                         Diag%hpbl, Tbd%stored_hflx, Tbd%stored_evap, ud_mf, dt_mf, cnvw, cnvc,  &
+                         kbot, ktop, Statemid%stored_kcnv, Statemid%stored_islmsk, Statein%vvl, Model%ncld,&
+                         Diag%hpbl, Statemid%stored_hflx, Statemid%stored_evap, ud_mf, dt_mf, cnvw, cnvc,  &
                          Model%clam_shal, Model%c0s_shal, Model%c1_shal,   &
                          Model%pgcon_shal)
 
-            raincs(:)     = Tbd%stored_frain * rain1(:)
+            raincs(:)     = Statemid%stored_frain * rain1(:)
             Diag%rainc(:) = Diag%rainc(:) + raincs(:)
 ! in shalcnv,  'cnvw' and 'cnvc' are not set to zero:
             if ((Model%shcnvcw) .and. (Model%num_p3d == 4) .and. (Model%npdf3d == 3)) then
-              Tbd%phy_f3d(:,:,num2) = cnvw(:,:)
-              Tbd%phy_f3d(:,:,num3) = cnvc(:,:)
+              Statemid%phy_f3d(:,:,num2) = cnvw(:,:)
+              Statemid%phy_f3d(:,:,num3) = cnvc(:,:)
             elseif ((Model%npdf3d == 0) .and. (Model%ncnvcld3d == 1)) then
-              Tbd%phy_f3d(:,:,num2) = cnvw(:,:)
+              Statemid%phy_f3d(:,:,num2) = cnvw(:,:)
             endif
 
           elseif (Model%imfshalcnv == 2 .or. Model%imfshalcnv == 4) then
@@ -3230,12 +3230,12 @@ module module_physics_driver
                 qrn(:,:) = Stateout%gq0(:,:,Model%ntrw)
             endif
             if (Model%imfshalcnv == 2) then 
-               call mfshalcnv (im, ix, levs, dtp, Tbd%stored_del, Statein%prsl,     &
+               call mfshalcnv (im, ix, levs, dtp, Statemid%stored_del, Statein%prsl,     &
                             Statein%pgr, Statein%phil, clw(:,:,1:2),      &
                             Stateout%gq0(:,:,1:1),                        &
                             Stateout%gt0, Stateout%gu0, Stateout%gv0,     &
                             Model%ext_rain_shal, qrn,                     &
-                            rain1, kbot, ktop, Tbd%stored_kcnv, Tbd%stored_islmsk, Tbd%stored_garea,       &
+                            rain1, kbot, ktop, Statemid%stored_kcnv, Statemid%stored_islmsk, Statemid%stored_garea,       &
                             Statein%vvl, Model%ncld, DIag%hpbl, ud_mf,    &
                             dt_mf, cnvw, cnvc,                            &
                             Model%clam_shal, Model%c0s_shal, Model%c1_shal, &
@@ -3243,12 +3243,12 @@ module module_physics_driver
                             Model%evfact_shal, Model%evfactl_shal)
 
             elseif (Model%imfshalcnv == 4) then ! a modified version by KGao
-               call mfshalcnv_gfdl (im, ix, levs, dtp, Tbd%stored_del, Statein%prsl, &
+               call mfshalcnv_gfdl (im, ix, levs, dtp, Statemid%stored_del, Statein%prsl, &
                             Statein%pgr, Statein%phil, clw(:,:,1:2),      &
                             Stateout%gq0(:,:,1:1),                        &
                             Stateout%gt0, Stateout%gu0, Stateout%gv0,     &
                             Model%ext_rain_shal, qrn,                     &
-                            rain1, kbot, ktop, Tbd%stored_kcnv, Tbd%stored_islmsk, Tbd%stored_garea,       &
+                            rain1, kbot, ktop, Statemid%stored_kcnv, Statemid%stored_islmsk, Statemid%stored_garea,       &
                             Statein%vvl, Model%ncld, DIag%hpbl, ud_mf,    &
                             dt_mf, cnvw, cnvc,                            &
                             Model%clam_shal, Model%c0s_shal, Model%c1_shal, &
@@ -3259,17 +3259,17 @@ module module_physics_driver
                             wu2_shal, eta_shal,                             &
                             Diag%xmb_shal, Diag%tfac_shal, Diag%sigma_shal)
             endif
-            raincs(:)     = Tbd%stored_frain * rain1(:)
+            raincs(:)     = Statemid%stored_frain * rain1(:)
             Diag%rainc(:) = Diag%rainc(:) + raincs(:)
 ! in  mfshalcnv,  'cnvw' and 'cnvc' are set to zero before computation starts:
             if ((Model%shcnvcw) .and. (Model%num_p3d == 4) .and. (Model%npdf3d == 3)) then
               num2 = Model%num_p3d + 2
               num3 = num2 + 1
-              Tbd%phy_f3d(:,:,num2) = Tbd%phy_f3d(:,:,num2) + cnvw(:,:)
-              Tbd%phy_f3d(:,:,num3) = Tbd%phy_f3d(:,:,num3) + cnvc(:,:)
+              Statemid%phy_f3d(:,:,num2) = Statemid%phy_f3d(:,:,num2) + cnvw(:,:)
+              Statemid%phy_f3d(:,:,num3) = Statemid%phy_f3d(:,:,num3) + cnvc(:,:)
             elseif ((Model%npdf3d == 0) .and. (Model%ncnvcld3d == 1)) then
               num2 = Model%num_p3d + 1
-              Tbd%phy_f3d(:,:,num2) = Tbd%phy_f3d(:,:,num2) + cnvw(:,:)
+              Statemid%phy_f3d(:,:,num2) = Statemid%phy_f3d(:,:,num2) + cnvw(:,:)
             endif
             if (Model%ncld == 5 .and. Model%ext_rain_shal) then
                 Stateout%gq0(:,:,Model%ntrw) = qrn(:,:)
@@ -3282,10 +3282,10 @@ module module_physics_driver
                nsamftrac = tottracer
             endif
             call samfshalcnv (im, ix, levs, dtp, itc, Model%ntchm, ntk, nsamftrac, &
-                              Tbd%stored_del, Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:nsamftrac+2),   &
+                              Statemid%stored_del, Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:nsamftrac+2),   &
                               Stateout%gq0(:,:,1), Stateout%gt0,                   &
                               Stateout%gu0, Stateout%gv0, Model%fscav,             &
-                              rain1, kbot, ktop, Tbd%stored_kcnv, Tbd%stored_islmsk, Tbd%stored_garea,              &
+                              rain1, kbot, ktop, Statemid%stored_kcnv, Statemid%stored_islmsk, Statemid%stored_garea,              &
                               Statein%vvl, Model%ncld, Diag%hpbl, ud_mf,           &
                               dt_mf, cnvw, cnvc,                                   &
                               Model%clam_shal,  Model%c0s_shal, Model%c1_shal,     &
@@ -3295,17 +3295,17 @@ module module_physics_driver
                               Model%use_tke_conv, Model%use_shear_conv)
 
 
-            raincs(:)     = Tbd%stored_frain * rain1(:)
+            raincs(:)     = Statemid%stored_frain * rain1(:)
             Diag%rainc(:) = Diag%rainc(:) + raincs(:)
 ! in  mfshalcnv,  'cnvw' and 'cnvc' are set to zero before computation starts:
             if ((Model%shcnvcw) .and. (Model%num_p3d == 4) .and. (Model%npdf3d == 3)) then
               num2 = Model%num_p3d + 2
               num3 = num2 + 1
-              Tbd%phy_f3d(:,:,num2) = Tbd%phy_f3d(:,:,num2) + cnvw(:,:)
-              Tbd%phy_f3d(:,:,num3) = Tbd%phy_f3d(:,:,num3) + cnvc(:,:)
+              Statemid%phy_f3d(:,:,num2) = Statemid%phy_f3d(:,:,num2) + cnvw(:,:)
+              Statemid%phy_f3d(:,:,num3) = Statemid%phy_f3d(:,:,num3) + cnvc(:,:)
             elseif ((Model%npdf3d == 0) .and. (Model%ncnvcld3d == 1)) then
               num2 = Model%num_p3d + 1
-              Tbd%phy_f3d(:,:,num2) = Tbd%phy_f3d(:,:,num2) + cnvw(:,:)
+              Statemid%phy_f3d(:,:,num2) = Statemid%phy_f3d(:,:,num2) + cnvw(:,:)
             endif
 
           elseif (Model%imfshalcnv == 0) then    ! modified Tiedtke Shallow convecton
@@ -3326,13 +3326,13 @@ module module_physics_driver
 !    &,    ' lat=',lat
 
             if (Model%mstrat) then             !  As in CFSv2
-              call shalcv (im, ix, levshcm, dtp, Tbd%stored_del, Statein%prsi,        &
-                           Statein%prsl, Statein%prslk,Tbd%stored_kcnv, Stateout%gq0, &
-                           Stateout%gt0, levshc, Statein%phil, Tbd%stored_kinver,     &
-                           Tbd%stored_ctei_r, Tbd%stored_ctei_rml, lprnt, ipr)
+              call shalcv (im, ix, levshcm, dtp, Statemid%stored_del, Statein%prsi,        &
+                           Statein%prsl, Statein%prslk,Statemid%stored_kcnv, Stateout%gq0, &
+                           Stateout%gt0, levshc, Statein%phil, Statemid%stored_kinver,     &
+                           Statemid%stored_ctei_r, Statemid%stored_ctei_rml, lprnt, ipr)
             else
-              call shalcvt3 (im, ix, levshcm, dtp, Tbd%stored_del, Statein%prsi, &
-                             Statein%prsl, Statein%prslk, Tbd%stored_kcnv,       &
+              call shalcvt3 (im, ix, levshcm, dtp, Statemid%stored_del, Statein%prsi, &
+                             Statein%prsl, Statein%prslk, Statemid%stored_kcnv,       &
                              Stateout%gq0, Stateout%gt0)
             endif
 !           if (lprnt) print *,' levshcm=',levshcm,' gt0sha=',gt0(ipr,:)
@@ -3345,15 +3345,15 @@ module module_physics_driver
           if (Model%lgocart) then
             do k = 1, levs
               do i = 1, im
-                tem  = (Stateout%gq0(i,k,1)-Tbd%stored_dqdt(i,k,1)) * Tbd%stored_frain
+                tem  = (Stateout%gq0(i,k,1)-Statemid%stored_dqdt(i,k,1)) * Statemid%stored_frain
                 Coupling%dqdti(i,k) = Coupling%dqdti(i,k)  + tem
               enddo
             enddo
           endif
 
           if (Model%ldiag3d) then
-            Diag%dt3dt(:,:,5) = Diag%dt3dt(:,:,5) + (Stateout%gt0(:,:)-Tbd%stored_dtdt(:,:)) * Tbd%stored_frain
-            Diag%dq3dt(:,:,3) = Diag%dq3dt(:,:,3) + (Stateout%gq0(:,:,1)-Tbd%stored_dqdt(:,:,1)) * Tbd%stored_frain
+            Diag%dt3dt(:,:,5) = Diag%dt3dt(:,:,5) + (Stateout%gt0(:,:)-Statemid%stored_dtdt(:,:)) * Statemid%stored_frain
+            Diag%dq3dt(:,:,3) = Diag%dq3dt(:,:,3) + (Stateout%gq0(:,:,1)-Statemid%stored_dqdt(:,:,1)) * Statemid%stored_frain
             if (Model%imfshalcnv == 4) then ! added by KGao 
                Diag%wu2_shal = wu2_shal
                Diag%eta_shal = eta_shal
@@ -3417,9 +3417,9 @@ module module_physics_driver
                    Statein%phii(1,1), Statein%phil(1,1), Stateout%gu0(1,1),       &
                    Stateout%gv0(1,1), Statein%vvl(1,1), Stateout%gt0(1,1),        &
                    Stateout%gq0(1,1,1), clw(1,1,1), clw(1,1,2), qpi, qpl,rhc,     &
-                   Model%sup, Tbd%phy_f3d(1,1,Model%ntot3d-2),                    &
-                   Stateout%gq0(1,1,Model%ntke), Tbd%stored_hflx, Tbd%stored_evap, prnum,               &
-                   Tbd%phy_f3d(1,1,Model%ntot3d-1), Tbd%phy_f3d(1,1,Model%ntot3d),&  
+                   Model%sup, Statemid%phy_f3d(1,1,Model%ntot3d-2),                    &
+                   Stateout%gq0(1,1,Model%ntke), Statemid%stored_hflx, Statemid%stored_evap, prnum,               &
+                   Statemid%phy_f3d(1,1,Model%ntot3d-1), Statemid%phy_f3d(1,1,Model%ntot3d),&  
                    lprnt, ipr, ncpl, ncpi, kdt)
 
         if ((Model%ntlnc > 0) .and. (Model%ntinc > 0) .and. (Model%ncld >= 2)) then
@@ -3481,7 +3481,7 @@ module module_physics_driver
 !  Legacy routine which determines convectve clouds - should be removed at some point
 
       call cnvc90 (Model%clstp, im, ix, Diag%rainc, kbot, ktop, levs, Statein%prsi,  &
-                   Tbd%acv, Tbd%acvb, Tbd%acvt, Cldprop%cv, Cldprop%cvb, Cldprop%cvt)
+                   Statemid%acv, Statemid%acvb, Statemid%acvt, Cldprop%cv, Cldprop%cvb, Cldprop%cvt)
 
       if (Model%moist_adj) then       ! moist convective adjustment
 !                                     ---------------------------
@@ -3496,7 +3496,7 @@ module module_physics_driver
 !       endif
 
         call mstcnv (im, ix, levs, dtp, Stateout%gt0, Stateout%gq0, &
-                     Statein%prsl,Tbd%stored_del, Statein%prslk, rain1,        &
+                     Statein%prsl,Statemid%stored_del, Statein%prslk, rain1,        &
                      Stateout%gq0(1,1,Model%ntcw), rhc, lprnt, ipr)
 
 !       if (lprnt) then
@@ -3504,7 +3504,7 @@ module module_physics_driver
 !         print *,' gt0a=',gt0(ipr,:)
 !         print *,' gq0a=',gq0(ipr,:,1)
 !       endif
-        Diag%rainc(:) = Diag%rainc(:) + Tbd%stored_frain * rain1(:)
+        Diag%rainc(:) = Diag%rainc(:) + Statemid%stored_frain * rain1(:)
 
         if(Model%lssav) then
 ! update dqdt_v to include moisture tendency due to surface processes
@@ -3519,17 +3519,17 @@ module module_physics_driver
 !            enddo
 !          endif
           if (Model%ldiag3d) then
-            Diag%dt3dt(:,:,4) = Diag%dt3dt(:,:,4) + (Stateout%gt0(:,:)  -Tbd%stored_dtdt(:,:)  ) * Tbd%stored_frain
-            Diag%dq3dt(:,:,2) = Diag%dq3dt(:,:,2) + (Stateout%gq0(:,:,1)-Tbd%stored_dqdt(:,:,1)) * Tbd%stored_frain
+            Diag%dt3dt(:,:,4) = Diag%dt3dt(:,:,4) + (Stateout%gt0(:,:)  -Statemid%stored_dtdt(:,:)  ) * Statemid%stored_frain
+            Diag%dq3dt(:,:,2) = Diag%dq3dt(:,:,2) + (Stateout%gq0(:,:,1)-Statemid%stored_dqdt(:,:,1)) * Statemid%stored_frain
           endif
          endif
       endif               !       moist convective adjustment over
 !
       if (Model%ldiag3d .or. Model%do_aw) then
-        Tbd%stored_dtdt(:,:)   = Stateout%gt0(:,:)
-        Tbd%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
+        Statemid%stored_dtdt(:,:)   = Stateout%gt0(:,:)
+        Statemid%stored_dqdt(:,:,1) = Stateout%gq0(:,:,1)
         do n=Model%ntcw,Model%ntcw+Model%ncld-1
-          Tbd%stored_dqdt(:,:,n) = Stateout%gq0(:,:,n)
+          Statemid%stored_dqdt(:,:,n) = Stateout%gq0(:,:,n)
         enddo
       endif
 
@@ -3544,7 +3544,7 @@ module module_physics_driver
       if (Model%ncld == 0) then           ! no cloud microphysics
 
         call lrgscl (ix, im, levs, dtp, Stateout%gt0, Stateout%gq0, &
-                     Statein%prsl, Tbd%stored_del, Statein%prslk, rain1, clw)
+                     Statein%prsl, Statemid%stored_del, Statein%prslk, rain1, clw)
 
       elseif (Model%ncld == 1) then       ! microphysics with single cloud condensate
 
@@ -3561,19 +3561,19 @@ module module_physics_driver
 !           endif
                                               ! ------------------
             if (Model%do_shoc) then
-              call precpd_shoc (im, ix, levs, dtp, Tbd%stored_del, Statein%prsl,              &
+              call precpd_shoc (im, ix, levs, dtp, Statemid%stored_del, Statein%prsl,              &
                                 Stateout%gq0(1,1,1), Stateout%gq0(1,1,Model%ntcw), &
                                 Stateout%gt0, rain1, Diag%sr, rainp, rhc,          &
                                 psautco_l, prautco_l, Model%evpco, Model%wminco,   &
-                                Tbd%phy_f3d(1,1,Model%ntot3d-2), lprnt, ipr)
+                                Statemid%phy_f3d(1,1,Model%ntot3d-2), lprnt, ipr)
             else
               call gscond (im, ix, levs, dtp, dtf, Statein%prsl, Statein%pgr,    &
                            Stateout%gq0(1,1,1), Stateout%gq0(1,1,Model%ntcw),    &
-                           Stateout%gt0, Tbd%phy_f3d(1,1,1), Tbd%phy_f3d(1,1,2), &
-                           Tbd%phy_f2d(1,1), Tbd%phy_f3d(1,1,3),                 &
-                           Tbd%phy_f3d(1,1,4), Tbd%phy_f2d(1,2), rhc,lprnt, ipr)
+                           Stateout%gt0, Statemid%phy_f3d(1,1,1), Statemid%phy_f3d(1,1,2), &
+                           Statemid%phy_f2d(1,1), Statemid%phy_f3d(1,1,3),                 &
+                           Statemid%phy_f3d(1,1,4), Statemid%phy_f2d(1,2), rhc,lprnt, ipr)
 
-              call precpd (im, ix, levs, dtp, Tbd%stored_del, Statein%prsl,               &
+              call precpd (im, ix, levs, dtp, Statemid%stored_del, Statein%prsl,               &
                           Stateout%gq0(1,1,1), Stateout%gq0(1,1,Model%ntcw),   &
                           Stateout%gt0, rain1, Diag%sr, rainp, rhc, psautco_l, &
                           prautco_l, Model%evpco, Model%wminco, lprnt, ipr)
@@ -3591,17 +3591,17 @@ module module_physics_driver
             call gscondp (im, ix, levs, dtp, dtf, Statein%prsl,        &
                           Statein%pgr, Stateout%gq0(1,1,1),            &
                           Stateout%gq0(1,1,Model%ntcw), Stateout%gt0,  &
-                          Tbd%phy_f3d(1,1,1), Tbd%phy_f3d(1,1,2),      &
-                          Tbd%phy_f2d(1,1), Tbd%phy_f3d(1,1,3),        &
-                          Tbd%phy_f3d(1,1,4), Tbd%phy_f2d(1,2), rhc,   &
-                          Tbd%phy_f3d(1,1,Model%num_p3d+1), Model%sup, &
+                          Statemid%phy_f3d(1,1,1), Statemid%phy_f3d(1,1,2),      &
+                          Statemid%phy_f2d(1,1), Statemid%phy_f3d(1,1,3),        &
+                          Statemid%phy_f3d(1,1,4), Statemid%phy_f2d(1,2), rhc,   &
+                          Statemid%phy_f3d(1,1,Model%num_p3d+1), Model%sup, &
                           lprnt, ipr, kdt)
 
-            call precpdp (im, ix, levs,  dtp, Tbd%stored_del, Statein%prsl,       &
+            call precpdp (im, ix, levs,  dtp, Statemid%stored_del, Statein%prsl,       &
                           Statein%pgr, Stateout%gq0(1,1,1),            &
                           Stateout%gq0(1,1,Model%ntcw), Stateout%gt0,  &
                           rain1, Diag%sr, rainp, rhc,                  &
-                          Tbd%phy_f3d(1,1,Model%num_p3d+1), psautco_l, &
+                          Statemid%phy_f3d(1,1,Model%num_p3d+1), psautco_l, &
                           prautco_l, Model%evpco, Model%wminco, lprnt, ipr)
           endif   ! end of grid-scale precip/microphysics options
         endif     ! end if_num_p3d
@@ -3622,7 +3622,7 @@ module module_physics_driver
             qsnw(:,:)  = 0.
             ncpr(:,:)  = 0.
             ncps(:,:)  = 0.
-            Tbd%phy_f3d(:,:,1) = Tbd%phy_f3d(:,:,Model%ntot3d-2) ! clouds from shoc
+            Statemid%phy_f3d(:,:,1) = Statemid%phy_f3d(:,:,Model%ntot3d-2) ! clouds from shoc
           else 
             clw(:,:,1) = Stateout%gq0(:,:,Model%ntiw)             ! ice
             clw(:,:,2) = Stateout%gq0(:,:,Model%ntcw)             ! water
@@ -3630,13 +3630,13 @@ module module_physics_driver
             qsnw(:,:)  = Stateout%gq0(:,:,Model%ntsw)       
             ncpr(:,:)  = Stateout%gq0(:,:,Model%ntrnc)        
             ncps(:,:)  = Stateout%gq0(:,:,Model%ntsnc)         
-            Tbd%phy_f3d(:,:,1) = Tbd%phy_f3d(:,:,Model%ntot3d-2) ! clouds from shoc
+            Statemid%phy_f3d(:,:,1) = Statemid%phy_f3d(:,:,Model%ntot3d-2) ! clouds from shoc
           end if
         elseif ((Model%imfdeepcnv >= 0) .or. (Model%imfshalcnv > 0)) then
           if (Model%fprcp == 0) then
             clw(:,:,1) = Stateout%gq0(:,:,Model%ntiw)             ! ice
             clw(:,:,2) = Stateout%gq0(:,:,Model%ntcw)             ! water
-            Tbd%phy_f3d(:,:,1) = max(0.0, min(1.0,Tbd%phy_f3d(:,:,1)+cnvc(:,:)))
+            Statemid%phy_f3d(:,:,1) = max(0.0, min(1.0,Statemid%phy_f3d(:,:,1)+cnvc(:,:)))
                                                        ! clouds from t-dt and cnvc
             qrn(:,:)   = 0.
             qsnw(:,:)  = 0.
@@ -3645,7 +3645,7 @@ module module_physics_driver
           else
             clw(:,:,1) = Stateout%gq0(:,:,Model%ntiw)             ! ice
             clw(:,:,2) = Stateout%gq0(:,:,Model%ntcw)             ! water
-            Tbd%phy_f3d(:,:,1) = max(0.0, min(1.0,Tbd%phy_f3d(:,:,1)+cnvc(:,:)))
+            Statemid%phy_f3d(:,:,1) = max(0.0, min(1.0,Statemid%phy_f3d(:,:,1)+cnvc(:,:)))
                                                        ! clouds from t-dt and cnvc
             qrn(:,:)   = Stateout%gq0(:,:,Model%ntrw)
             qsnw(:,:)  = Stateout%gq0(:,:,Model%ntsw)
@@ -3661,7 +3661,7 @@ module module_physics_driver
             qsnw(:,:)  = 0.
             ncpr(:,:)  = 0.
             ncps(:,:)  = 0.
-            Tbd%phy_f3d(:,:,1) = min(1.0, Tbd%phy_f3d(:,:,1)+cnvc(:,:))
+            Statemid%phy_f3d(:,:,1) = min(1.0, Statemid%phy_f3d(:,:,1)+cnvc(:,:))
           else
             clw(:,:,1) = Stateout%gq0(:,:,Model%ntiw)             ! ice
             clw(:,:,2) = Stateout%gq0(:,:,Model%ntcw)             ! water
@@ -3669,7 +3669,7 @@ module module_physics_driver
             qsnw(:,:)  = Stateout%gq0(:,:,Model%ntsw)       
             ncpr(:,:)  = Stateout%gq0(:,:,Model%ntrnc)       
             ncps(:,:)  = Stateout%gq0(:,:,Model%ntsnc)       
-            Tbd%phy_f3d(:,:,1) = min(1.0, Tbd%phy_f3d(:,:,1)+cnvc(:,:))
+            Statemid%phy_f3d(:,:,1) = min(1.0, Statemid%phy_f3d(:,:,1)+cnvc(:,:))
           endif
         endif
 !       notice clw ix instead of im
@@ -3687,13 +3687,13 @@ module module_physics_driver
                              Radtend%htrlw, Radtend%htrsw, w_upi, cf_upi,        &
                              FRLAND, Diag%HPBL, CNV_MFD, CNV_PRC3, CNV_DQLDT,    &
                              CLCN, Stateout%gu0, Stateout%gv0, Diag%dusfc,       &
-                             Diag%dvsfc, Tbd%stored_dusfc1, Tbd%stored_dvsfc1, Tbd%stored_dusfc1, Tbd%stored_dvsfc1,         &
+                             Diag%dvsfc, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dusfc1, Statemid%stored_dvsfc1,         &
                              CNV_FICE, CNV_NDROP, CNV_NICE, Stateout%gq0(1,1,1), &
                              Stateout%gq0(1,1,Model%ntcw),                       &
                              Stateout%gq0(1,1,Model%ntiw), Stateout%gt0, rain1,  &
                              Diag%sr, Stateout%gq0(1,1,Model%ntlnc),             &
                              Stateout%gq0(1,1,Model%ntinc), Model%fprcp, qrn,    &
-                             qsnw, ncpr, ncps, Tbd%phy_f3d(1,1,1), kbot,         &
+                             qsnw, ncpr, ncps, Statemid%phy_f3d(1,1,1), kbot,         &
                              Model%aero_in, skip_macro, cn_prc, cn_snr, lprnt,   &
                              ipr, kdt, Grid%xlat, Grid%xlon)
 
@@ -3762,7 +3762,7 @@ module module_physics_driver
         do k = 1, levs
           w    (:,k) = -Statein%vvl(:,levs-k+1)*con_rd*Stateout%gt0(:,levs-k+1)     &
      &                   /Statein%prsl(:,levs-k+1)/con_g
-          delp (:,k) = Tbd%stored_del(:,levs-k+1)
+          delp (:,k) = Statemid%stored_del(:,levs-k+1)
           dz   (:,k) = (Statein%phii(:,levs-k+1)-Statein%phii(:,levs-k+2))/con_g
         enddo
 
@@ -3848,7 +3848,7 @@ module module_physics_driver
      &                   /Statein%prsl(:,levs-k+1)/con_g
           uin  (:,1,k) = Stateout%gu0(:,levs-k+1)
           vin  (:,1,k) = Stateout%gv0(:,levs-k+1)
-          delp (:,1,k) = Tbd%stored_del(:,levs-k+1)
+          delp (:,1,k) = Statemid%stored_del(:,levs-k+1)
           dz   (:,1,k) = (Statein%phii(:,levs-k+1)-Statein%phii(:,levs-k+2))/con_g
         enddo
 
@@ -3920,7 +3920,7 @@ module module_physics_driver
         do k = 1, levs
           w    (:,k) = -Statein%vvl(:,levs-k+1)*con_rd*Stateout%gt0(:,levs-k+1)     &
      &                   /Statein%prsl(:,levs-k+1)/con_g
-          delp (:,k) = Tbd%stored_del(:,levs-k+1)
+          delp (:,k) = Statemid%stored_del(:,levs-k+1)
           dz   (:,k) = (Statein%phii(:,levs-k+1)-Statein%phii(:,levs-k+2))/con_g
         enddo
 
@@ -4000,8 +4000,8 @@ module module_physics_driver
         do k = 1,levs
           do i = 1,im
             tem1        = sigmafrac(i,k)
-            Stateout%gt0(i,k)    = Stateout%gt0(i,k) - tem1 * (Stateout%gt0(i,k)-Tbd%stored_dtdt(i,k))
-            tem2        = tem1 * (Stateout%gq0(i,k,1)-Tbd%stored_dqdt(i,k,1))
+            Stateout%gt0(i,k)    = Stateout%gt0(i,k) - tem1 * (Stateout%gt0(i,k)-Statemid%stored_dtdt(i,k))
+            tem2        = tem1 * (Stateout%gq0(i,k,1)-Statemid%stored_dqdt(i,k,1))
             Stateout%gq0(i,k,1)  = Stateout%gq0(i,k,1) - tem2
             temrain1(i) = temrain1(i) - (Statein%prsi(i,k)-Statein%prsi(i,k+1)) &
                                       * tem2 * onebg
@@ -4010,7 +4010,7 @@ module module_physics_driver
         do n=Model%ntcw,Model%ntcw+Model%ncld-1
           do k = 1,levs
             do i = 1,im
-              tem1        = sigmafrac(i,k) * (Stateout%gq0(i,k,n)-Tbd%stored_dqdt(i,k,n))
+              tem1        = sigmafrac(i,k) * (Stateout%gq0(i,k,n)-Statemid%stored_dqdt(i,k,n))
               Stateout%gq0(i,k,n)  = Stateout%gq0(i,k,n) - tem1
               temrain1(i) = temrain1(i) - (Statein%prsi(i,k)-Statein%prsi(i,k+1)) &
                                         * tem1 * onebg
@@ -4021,7 +4021,7 @@ module module_physics_driver
         rain1(:) = max(rain1(:) - temrain1(:)*0.001, 0.0_kind_phys)
       endif
 
-      Diag%rain(:)  = Diag%rainc(:) + Tbd%stored_frain * rain1(:)
+      Diag%rain(:)  = Diag%rainc(:) + Statemid%stored_frain * rain1(:)
 
 
       if (Model%lsm == Model%lsm_noahmp) then
@@ -4032,7 +4032,7 @@ module module_physics_driver
           ! matter as long as dtp=dtf (frain=1).
           tem = 1.0 / (dtp*con_p001)
           Sfcprop%draincprv(:)   = tem * Diag%rainc(:)
-          Sfcprop%drainncprv(:)  = tem * (Tbd%stored_frain * rain1(:))
+          Sfcprop%drainncprv(:)  = tem * (Statemid%stored_frain * rain1(:))
           Sfcprop%dsnowprv(:)    = tem * Diag%snow(:)
           Sfcprop%dgraupelprv(:) = tem * Diag%graupel(:)
           Sfcprop%diceprv(:)     = 0.0
@@ -4049,10 +4049,10 @@ module module_physics_driver
       if (Model%cal_pre) then       ! hchuang: add dominant precipitation type algorithm
         i = min(3,Model%num_p3d)
         call calpreciptype (kdt, Model%nrcm, im, ix, levs, levs+1,        &
-                            Tbd%rann, Grid%xlat, Grid%xlon, Stateout%gt0, &
+                            Statemid%rann, Grid%xlat, Grid%xlon, Stateout%gt0, &
                             Stateout%gq0, Statein%prsl, Statein%prsi,     &
                             Diag%rain, Statein%phii, Model%num_p3d,       &
-                            Sfcprop%tsfc, Diag%sr, Tbd%phy_f3d(1,1,i),    &     ! input
+                            Sfcprop%tsfc, Diag%sr, Statemid%phy_f3d(1,1,i),    &     ! input
                             domr, domzr, domip, doms)                           ! output
 !
 !        if (lprnt) print*,'debug calpreciptype: DOMR,DOMZR,DOMIP,DOMS '
@@ -4091,8 +4091,8 @@ module module_physics_driver
         Diag%totgrpb (:) = Diag%totgrpb (:) + Diag%graupel(:)
 
         if (Model%ldiag3d) then
-          Diag%dt3dt(:,:,6) = Diag%dt3dt(:,:,6) + (Stateout%gt0(:,:)-Tbd%stored_dtdt(:,:)) * Tbd%stored_frain
-          Diag%dq3dt(:,:,4) = Diag%dq3dt(:,:,4) + (Stateout%gq0(:,:,1)-Tbd%stored_dqdt(:,:,1)) * Tbd%stored_frain
+          Diag%dt3dt(:,:,6) = Diag%dt3dt(:,:,6) + (Stateout%gt0(:,:)-Statemid%stored_dtdt(:,:)) * Statemid%stored_frain
+          Diag%dq3dt(:,:,4) = Diag%dq3dt(:,:,4) + (Stateout%gq0(:,:,1)-Statemid%stored_dqdt(:,:,1)) * Statemid%stored_frain
         endif
       endif
 
@@ -4168,9 +4168,9 @@ module module_physics_driver
 !!!
       if (Model%lgocart) then
         call sfc_diag (im, Statein%pgr, Stateout%gu0, Stateout%gv0,     &
-                       Stateout%gt0, Stateout%gq0, Sfcprop%tsfc, Tbd%stored_qss,   &
+                       Stateout%gt0, Stateout%gq0, Sfcprop%tsfc, Statemid%stored_qss,   &
                        Sfcprop%f10m, Diag%u10m, Diag%v10m, Sfcprop%t2m, &
-                       Sfcprop%q2m, work3, Tbd%stored_evap, Sfcprop%ffmm,          &
+                       Sfcprop%q2m, work3, Statemid%stored_evap, Sfcprop%ffmm,          &
                        Sfcprop%ffhh, fm10, fh2)
 
         if (Model%lssav) then
@@ -4197,16 +4197,16 @@ module module_physics_driver
 !           runoff at the surface and is accumulated in unit of meters
       if (Model%lssav) then
         tem = dtf
-        Diag%runoff(:)  = Diag%runoff(:)  + (Tbd%stored_drain(:)+Tbd%stored_runof(:)) * tem
-        Diag%srunoff(:) = Diag%srunoff(:) + Tbd%stored_runof(:) * tem
+        Diag%runoff(:)  = Diag%runoff(:)  + (Statemid%stored_drain(:)+Statemid%stored_runof(:)) * tem
+        Diag%srunoff(:) = Diag%srunoff(:) + Statemid%stored_runof(:) * tem
       endif
 
 !  --- ...  xw: return updated ice thickness & concentration to global array
       do i = 1, im
-        if (Tbd%stored_islmsk(i) == 2) then
-          Sfcprop%hice(i)  = Tbd%stored_zice(i)
-          Sfcprop%fice(i)  = Tbd%stored_cice(i)
-          Sfcprop%tisfc(i) = Tbd%stored_tice(i)
+        if (Statemid%stored_islmsk(i) == 2) then
+          Sfcprop%hice(i)  = Statemid%stored_zice(i)
+          Sfcprop%fice(i)  = Statemid%stored_cice(i)
+          Sfcprop%tisfc(i) = Statemid%stored_tice(i)
         else
           Sfcprop%hice(i)  = 0.0
           Sfcprop%fice(i)  = 0.0
@@ -4224,13 +4224,13 @@ module module_physics_driver
       Diag%pwat(:) = 0.0
       tem = dtf * 0.03456 / 86400.0
       do k = 1, levs
-        Tbd%stored_work1(:) = 0.0
+        Statemid%stored_work1(:) = 0.0
         if (Model%ncld > 0) then
           do ic = Model%ntcw, Model%ntcw+Model%ncld-1
-            Tbd%stored_work1(:) = Tbd%stored_work1(:) +  Stateout%gq0(:,k,ic)
+            Statemid%stored_work1(:) = Statemid%stored_work1(:) +  Stateout%gq0(:,k,ic)
           enddo
         endif
-        Diag%pwat(:) = Diag%pwat(:) + Tbd%stored_del(:,k)*(Stateout%gq0(:,k,1)+Tbd%stored_work1(:))
+        Diag%pwat(:) = Diag%pwat(:) + Statemid%stored_del(:,k)*(Stateout%gq0(:,k,1)+Statemid%stored_work1(:))
 !     if (lprnt .and. i == ipr) write(0,*)' gq0=',
 !    &gq0(i,k,1),' qgrs=',qgrs(i,k,1),' work2=',work2(i),' k=',k
       enddo
@@ -4256,14 +4256,14 @@ module module_physics_driver
 
       if (Model%do_sppt) then
         !--- radiation heating rate
-        Tbd%dtdtr(1:im,:) = Tbd%dtdtr(1:im,:) + Tbd%stored_dtdtc(1:im,:)*dtf
+        Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdtc(1:im,:)*dtf
         do i = 1, im
           if (t850(i) > 273.16) then
              !--- change in change in rain precip
-             Tbd%drain_cpl(i) = Diag%rain(i) - Tbd%drain_cpl(i)
+             Statemid%drain_cpl(i) = Diag%rain(i) - Statemid%drain_cpl(i)
           else
              !--- change in change in snow precip
-             Tbd%dsnow_cpl(i) = Diag%rain(i) - Tbd%dsnow_cpl(i)
+             Statemid%dsnow_cpl(i) = Diag%rain(i) - Statemid%dsnow_cpl(i)
           endif
         enddo
       endif
