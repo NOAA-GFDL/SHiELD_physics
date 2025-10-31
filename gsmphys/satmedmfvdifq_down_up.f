@@ -1619,36 +1619,7 @@ c     Save upper diag and RHS for upward sweep
       f1_out(:,:)=f1(:,:)
       f2_out(:,:)=f2(:,:)
       diss_out(:,:)=diss(:,:)
-c
-c     recover tendencies of heat and moisture
-c     for the lowest level
-c     Notice the k-loops below, only the lowest level tendencies
-c     are updated, the rest is done in the _up call after 
-c     performing the upward sweep
 
-      do  k = km,km
-         do i = 1,im
-            ttend      = (f1(i,k)-t1(i,k))*rdt
-            qtend      = (f2(i,k)-q1(i,k,1))*rdt
-            tdt(i,k)   = tdt(i,k)+ttend
-            rtg(i,k,1) = rtg(i,k,1)+qtend
-            dtsfc(i)   = dtsfc(i)+cont*del(i,k)*ttend
-            dqsfc(i)   = dqsfc(i)+conq*del(i,k)*qtend
-         enddo
-      enddo
-!
-      if(ntrac1 >= 2) then
-        do kk = 2, ntrac1
-          is = (kk-1) * km
-          do k = km, km
-            do i = 1, im
-              qtend = (f2(i,k+is)-q1(i,k,kk))*rdt
-              rtg(i,k,kk) = rtg(i,k,kk)+qtend
-            enddo
-          enddo
-        enddo
-      endif
-      
       ! to be rearranged in the upward sweep
       rtg_in(:,:,:)=rtg(:,:,:)
 
@@ -1819,7 +1790,7 @@ c
       call tridin_up(im,km,ntrac1,au_in,f1_in,f2_in)
 
       ! Apply tendencies for heat and moisture
-      do k = 1,km-1
+      do k = 1,km
          do i = 1,im
             ttend      = (f1_in(i,k)-t1(i,k))*rdt
             qtend      = (f2_in(i,k)-q1(i,k,1))*rdt
@@ -1834,7 +1805,7 @@ c
       if(ntrac1 >= 2) then
         do kk = 2, ntrac1
           is = (kk-1) * km
-          do k = 1, km-1
+          do k = 1, km
             do i = 1, im
               qtend = (f2_in(i,k+is)-q1(i,k,kk))*rdt
               rtg(i,k,kk) = rtg(i,k,kk)+qtend
