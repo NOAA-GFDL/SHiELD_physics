@@ -1032,7 +1032,7 @@ module GFS_typedefs
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     real(kind=kind_phys), allocatable :: stored_au_out(:,:), stored_f1_out(:,:), stored_f2_out(:,:), stored_diss_out(:,:)
-    real(kind=kind_phys), allocatable :: stored_kpbl(:)
+    integer, allocatable :: stored_kpbl(:)
     real(kind=kind_phys), allocatable :: stored_flux_cg(:,:), stored_flux_en(:,:), stored_elm_pbl(:,:)
     real(kind=kind_phys), allocatable :: stored_dudt(:,:), stored_dvdt(:,:), stored_dqdt(:,:,:)
     real(kind=kind_phys), allocatable :: stored_dusfc1(:), stored_dvsfc1(:), stored_dtsfc1(:), stored_dqsfc1(:)
@@ -4059,6 +4059,7 @@ end subroutine overrides_create
      Statemid%stored_runof = clear_val
      !Statemid%stored_ep1d = clear_val
      !Statemid%stored_gflx = clear_val
+     Statemid%stored_kpbl = 1
 
      ! Radiation variables
      allocate (Statemid%stored_xmu(IM), Statemid%stored_xcosz(IM), Statemid%stored_adjsfculw(IM))

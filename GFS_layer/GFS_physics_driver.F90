@@ -1563,7 +1563,7 @@ module module_physics_driver
                        Sfcprop%ffmm, Sfcprop%ffhh, Sfcprop%tsfc, Statemid%stored_hflx, Statemid%stored_evap,        &
                        Statemid%stored_stress, Statemid%stored_wind, Statemid%stored_kpbl, Statein%prsi, Statemid%stored_del, Statein%prsl,         &
                        Statein%prslk, Statein%phii, Statein%phil, dtp,              &
-                       Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, dqsfc1, Diag%hpbl,    &
+                       Model%dspheat, Statemid%stored_dusfc1, Statemid%stored_dvsfc1, Statemid%stored_dtsfc1, Statemid%stored_dqsfc1, Diag%hpbl,    &
                        Statemid%stored_kinver, Model%xkzm_m, Model%xkzm_h,                          & 
                        Model%xkzm_ml, Model%xkzm_hl, Model%xkzm_mi, Model%xkzm_hi,  &
                        Model%xkzm_s, Model%xkzminv, Model%rlmx, Model%zolcru,       &
