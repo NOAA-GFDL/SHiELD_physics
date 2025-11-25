@@ -342,7 +342,7 @@
                                            GFS_coupling_type,            &
                                            GFS_control_type,             &
                                            GFS_grid_type,                &
-                                           GFS_tbd_type,                 &
+                                           GFS_statemid_type,            &
                                            GFS_cldprop_type,             &
                                            GFS_radtend_type,             &
                                            GFS_diag_type
@@ -1025,7 +1025,7 @@
 !> @{
 !-----------------------------------
       subroutine GFS_radiation_driver                       &
-         (Model, Statein, Stateout, Sfcprop, Coupling, Grid, Tbd, &
+         (Model, Statein, Stateout, Sfcprop, Coupling, Grid, Statemid, &
           Cldprop, Radtend, Diag)
 
       implicit none
@@ -1036,7 +1036,7 @@
       type(GFS_sfcprop_type),         intent(in)    :: Sfcprop
       type(GFS_coupling_type),        intent(inout) :: Coupling
       type(GFS_grid_type),            intent(in)    :: Grid
-      type(GFS_tbd_type),             intent(in)    :: Tbd
+      type(GFS_statemid_type),        intent(in)    :: Statemid
       type(GFS_cldprop_type),         intent(in)    :: Cldprop
       type(GFS_radtend_type),         intent(inout) :: Radtend
       type(GFS_diag_type),            intent(inout) :: Diag
@@ -1067,7 +1067,7 @@
 !       type(GFS_statein_type),         intent(in)    :: Statein        !
 !       type(GFS_sfcprop_type),         intent(in)    :: Sfcprop        !
 !       type(GFS_grid_type),            intent(in)    :: Grid           !
-!       type(GFS_tbd_type),             intent(in)    :: Tbd            !
+!       type(GFS_statemid_type),        intent(in)    :: Statemid            !
 !       type(GFS_cldprop_type),         intent(in)    :: Cldprop        !
 !                                                                       !
 !    input/output variables:                                            !
@@ -1541,20 +1541,20 @@
 !          ferrier's (icmphys=2) microphysics schemes
 !
         if (Model%shoc_cld) then                                       ! all but MG microphys
-          cldcov(:,1:LM) = Tbd%phy_f3d(:,1:LM,Model%ntot3d-2)
+          cldcov(:,1:LM) = Statemid%phy_f3d(:,1:LM,Model%ntot3d-2)
         elseif (Model%ncld == 2) then                                  ! MG microphys (icmphys = 1)
-          cldcov(:,1:LM) = Tbd%phy_f3d(:,1:LM,1)
+          cldcov(:,1:LM) = Statemid%phy_f3d(:,1:LM,1)
         else                                                           ! neither of the other two cases
           cldcov = 0
         endif
 
         if ((Model%num_p3d == 4) .and. (Model%npdf3d == 3)) then       ! icmphys = 3
-          deltaq(:,1:LM) = Tbd%phy_f3d(:,1:LM,5)
-          cnvw  (:,1:LM) = Tbd%phy_f3d(:,1:LM,6)
-          cnvc  (:,1:LM) = Tbd%phy_f3d(:,1:LM,7)
+          deltaq(:,1:LM) = Statemid%phy_f3d(:,1:LM,5)
+          cnvw  (:,1:LM) = Statemid%phy_f3d(:,1:LM,6)
+          cnvc  (:,1:LM) = Statemid%phy_f3d(:,1:LM,7)
         elseif ((Model%npdf3d == 0) .and. (Model%ncnvcld3d == 1)) then  ! icmphys = 1
           deltaq(:,1:LM) = 0.
-          cnvw  (:,1:LM) = Tbd%phy_f3d(:,1:LM,Model%num_p3d+1)
+          cnvw  (:,1:LM) = Statemid%phy_f3d(:,1:LM,Model%num_p3d+1)
           cnvc  (:,1:LM) = 0.
         else                                                           ! icmphys = 1 (ncld=2)
           deltaq = 0.0
@@ -1700,14 +1700,14 @@
 
           if (Model%swhtr) then
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs
-                        gasvmr, clouds, Tbd%icsdsw, faersw,     &
+                        gasvmr, clouds, Statemid%icsdsw, faersw,     &
                         sfcalb, Radtend%coszen, Model%solcon,   &
                         nday, idxday, im, lmk, lmp, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs
                         hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)      ! ---  optional
           else
             call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,     &      !  ---  inputs 
-                        gasvmr, clouds, Tbd%icsdsw, faersw,     &
+                        gasvmr, clouds, Statemid%icsdsw, faersw,     &
                         sfcalb, Radtend%coszen, Model%solcon,   &
                         nday, idxday, IM, LMK, LMP, Model%lprnt,&
                         htswc, Diag%topfsw, Radtend%sfcfsw,     &      !  ---  outputs 
@@ -1716,7 +1716,7 @@
 
         if (Model%do_diagnostic_radiation_with_scaled_co2) then
            call diagnostic_shortwave_radiation_with_scaled_co2(               &
-              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              Model, Statemid, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
               faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd,        &  ! in
               nf_aesw, nf_vgas, nf_clds,                                      &  ! in
               Coupling, Radtend, Diag                                         &  ! inout
@@ -1813,13 +1813,13 @@
 
         if (Model%lwhtr) then
           call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr,  &        !  ---  inputs
-                      clouds, Tbd%icsdlw, faerlw, Radtend%semis,   &
+                      clouds, Statemid%icsdlw, faerlw, Radtend%semis,   &
                       tsfg, im, lmk, lmp, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &        !  ---  outputs
                       hlw0=htlw0, tau110=tau110)                            !  ---  optional
         else
           call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr,  &        !  ---  inputs
-                      clouds, Tbd%icsdlw, faerlw, Radtend%semis,   &
+                      clouds, Statemid%icsdlw, faerlw, Radtend%semis,   &
                       tsfg, IM, LMK, LMP, Model%lprnt,             &
                       htlwc, Diag%topflw, Radtend%sfcflw,          &
                       tau110=tau110)                                        !  ---  outputs
@@ -1827,7 +1827,7 @@
 
         if (Model%do_diagnostic_radiation_with_scaled_co2) then
            call diagnostic_longwave_radiation_with_scaled_co2(                &
-              Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
+              Model, Statemid, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
               tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,      &  ! in
               Coupling, Radtend, Diag                                         &  ! inout
            )
@@ -1989,13 +1989,13 @@
       end subroutine compute_column_integrated_moles_of_dry_air_and_co2
 
       subroutine diagnostic_shortwave_radiation_with_scaled_co2(              &
-         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         Model, Statemid, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
          faersw, sfcalb, nday, idxday, im, lm, lmk, lmp, nf_albd, nf_aesw,    &  ! in
          nf_vgas, nf_clds,                                                    &  ! in
          Coupling, Radtend, Diag                                              &  ! inout
       )
          type(GFS_control_type),  intent(in)                        :: Model
-         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         type(GFS_statemid_type), intent(in)                        :: Statemid
          real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
          real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
          real(kind=kind_phys),    intent(in)                        :: faersw(im,lmk,nf_aesw)
@@ -2023,14 +2023,14 @@
 
               if (Model%swhtr) then
                 call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
-                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            gasvmr_with_scaled_co2, clouds, Statemid%icsdsw, faersw,                                                &
                             sfcalb, Radtend%coszen, Model%solcon,                                                              &
                             nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
                             htswc, Diag%topfsw_with_scaled_co2(n,:), Radtend%sfcfsw_with_scaled_co2(n,:),                      &    ! ---  outputs
                             hsw0=htsw0, fdncmp=scmpsw, tau067=tau067)                                                               ! ---  optional
               else
                 call swrad (plyr, plvl, tlyr, tlvl, qlyr, olyr,                                                                &    !  ---  inputs
-                            gasvmr_with_scaled_co2, clouds, Tbd%icsdsw, faersw,                                                &
+                            gasvmr_with_scaled_co2, clouds, Statemid%icsdsw, faersw,                                                &
                             sfcalb, Radtend%coszen, Model%solcon,                                                              &
                             nday, idxday, im, lmk, lmp, Model%lprnt,                                                           &
                             htswc, Diag%topfsw_with_scaled_co2(n,:), Radtend%sfcfsw_with_scaled_co2(n,:),                      &    ! ---  outputs
@@ -2115,12 +2115,12 @@
       end subroutine diagnostic_shortwave_radiation_with_scaled_co2
 
       subroutine diagnostic_longwave_radiation_with_scaled_co2(               &
-         Model, Tbd, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds,      &  ! in
+         Model, Statemid, gasvmr, plyr, plvl, tlyr, tlvl, qlyr, olyr, clouds, &  ! in
          tsfg, faerlw, im, lm, lmk, lmp, nf_aelw, nf_vgas, nf_clds,           &  ! in
          Coupling, Radtend, Diag                                              &  ! inout
       )
          type(GFS_control_type),  intent(in)                        :: Model
-         type(GFS_tbd_type),      intent(in)                        :: Tbd
+         type(GFS_statemid_type), intent(in)                        :: Statemid
          real(kind=kind_phys),    intent(in)                        :: gasvmr(im,lmk,nf_vgas)
          real(kind=kind_phys),    intent(in)                        :: clouds(im,lmk,nf_clds)
          real(kind=kind_phys),    intent(in)                        :: faerlw(im,lmk,nf_aelw)
@@ -2142,13 +2142,13 @@
 
             if (Model%lwhtr) then
                call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
-                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           clouds, Statemid%icsdlw, faerlw, Radtend%semis,                                                 &
                            tsfg, im, lmk, lmp, Model%lprnt,                                                           &
                            htlwc, Diag%topflw_with_scaled_co2(n,:), Radtend%sfcflw_with_scaled_co2(n,:),              &     !  ---  outputs
                            hlw0=htlw0, tau110=tau110)                                                                       !  ---  optional
              else
                call lwrad (plyr, plvl, tlyr, tlvl, qlyr, olyr, gasvmr_with_scaled_co2,                                &     !  ---  inputs
-                           clouds, Tbd%icsdlw, faerlw, Radtend%semis,                                                 &
+                           clouds, Statemid%icsdlw, faerlw, Radtend%semis,                                                 &
                            tsfg, im, lmk, lmp, Model%lprnt,                                                           &
                            htlwc, Diag%topflw_with_scaled_co2(n,:), Radtend%sfcflw_with_scaled_co2(n,:),              &     !  ---  outputs
                            tau110=tau110)                                                                                   !  ---  optional

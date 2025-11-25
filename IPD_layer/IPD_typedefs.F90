@@ -5,7 +5,7 @@ module IPD_typedefs
                                        IPD_init_type    => init_type,    &
                                        statein_type,  stateout_type,     &
                                        sfcprop_type,  coupling_type,     &
-                                       grid_type,     tbd_type,          &
+                                       grid_type,     statemid_type,     &
                                        cldprop_type,  radtend_type,      &
                                        intdiag_type,                     &
                                        overrides_type
@@ -19,7 +19,7 @@ module IPD_typedefs
     type(sfcprop_type)  :: Sfcprop
     type(coupling_type) :: Coupling
     type(grid_type)     :: Grid
-    type(tbd_type)      :: Tbd
+    type(statemid_type) :: Statemid
     type(cldprop_type)  :: Cldprop
     type(radtend_type)  :: Radtend
     type(intdiag_type)  :: Intdiag

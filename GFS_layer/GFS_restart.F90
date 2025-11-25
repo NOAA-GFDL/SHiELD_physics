@@ -5,7 +5,7 @@ module physics_restart_layer
   use physics_abstraction_layer, only: control_type,  statein_type,  &
                                        stateout_type, sfcprop_type,  &
                                        coupling_type, grid_type,     &
-                                       tbd_type,      cldprop_type,  &
+                                       statemid_type, cldprop_type,  &
                                        radtend_type,  intdiag_type,  &
                                        init_type   
 
@@ -18,7 +18,7 @@ module physics_restart_layer
 ! GFS_restart_populate
 !---------------------
   subroutine restart_populate (IPD_Restart, Model, Statein, Stateout, Sfcprop, &
-                               Coupling, Grid, Tbd, Cldprop, Radtend, Diag, Init_parm)
+                               Coupling, Grid, Statemid, Cldprop, Radtend, Diag, Init_parm)
 !----------------------------------------------------------------------------------------!
 !   IPD_METADATA                                                                         !
 !     IPD_Restart%num2d          [int*4  ]  number of 2D variables to output             !
@@ -35,7 +35,7 @@ module physics_restart_layer
     type(sfcprop_type),         intent(in)    :: Sfcprop(:)
     type(coupling_type),        intent(in)    :: Coupling(:)
     type(grid_type),            intent(in)    :: Grid(:)
-    type(tbd_type),             intent(in)    :: Tbd(:)
+    type(statemid_type),        intent(in)    :: Statemid(:)
     type(cldprop_type),         intent(in)    :: Cldprop(:)
     type(radtend_type),         intent(in)    :: Radtend(:)
     type(intdiag_type),         intent(in)    :: Diag(:)
@@ -154,7 +154,7 @@ module physics_restart_layer
       write(c2,'(i2.2)') num
       IPD_Restart%name2d(num+offset) = 'phy_f2d_'//c2
       do nb = 1,nblks
-        IPD_Restart%data(nb,num+offset)%var2p => Tbd(nb)%phy_f2d(:,num)
+        IPD_Restart%data(nb,num+offset)%var2p => Statemid(nb)%phy_f2d(:,num)
       enddo
     enddo
 
@@ -165,7 +165,7 @@ module physics_restart_layer
       write(c2,'(i2.2)') num
       IPD_Restart%name2d(num+offset) = 'phy_fctd_'//c2
       do nb = 1,nblks
-        IPD_Restart%data(nb,num+offset)%var2p => Tbd(nb)%phy_fctd(:,num)
+        IPD_Restart%data(nb,num+offset)%var2p => Statemid(nb)%phy_fctd(:,num)
       enddo
     enddo
 
@@ -175,7 +175,7 @@ module physics_restart_layer
       write(c2,'(i2.2)') num
       IPD_Restart%name3d(num) = 'phy_f3d_'//c2
       do nb = 1,nblks
-        IPD_Restart%data(nb,num)%var3p => Tbd(nb)%phy_f3d(:,:,num)
+        IPD_Restart%data(nb,num)%var3p => Statemid(nb)%phy_f3d(:,:,num)
       enddo
     enddo
 
