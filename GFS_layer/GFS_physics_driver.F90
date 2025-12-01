@@ -718,11 +718,8 @@ module module_physics_driver
       smsoil(:,:) = Sfcprop%smc(:,:)
       stsoil(:,:) = Sfcprop%stc(:,:)
       slsoil(:,:) = Sfcprop%slc(:,:)          !! clu: slc -> slsoil
-      Statemid%stored_dudt(:,:)  = 0.
-      Statemid%stored_dvdt(:,:)  = 0.
-      Statemid%stored_dtdt(:,:)  = 0.
-      Statemid%stored_dtdtc(:,:) = 0.
-      Statemid%stored_dqdt(:,:,:) = 0.
+
+      call Statemid%statemid_zero () ! zero out tendencies, check GFS_typedefs.F90
 
 !  --- ...  initialize dtdt with heating rate from dcyc2
 

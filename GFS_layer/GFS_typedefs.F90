@@ -1077,6 +1077,7 @@ module GFS_typedefs
 
     contains
       procedure :: create  => statemid_create  !<   allocate array data
+      procedure :: statemid_zero => statemid_var_zero
   end type GFS_statemid_type
 
 
@@ -4136,6 +4137,17 @@ end subroutine overrides_create
 
   end subroutine statemid_create
 
+  subroutine statemid_var_zero (Statemid)
+    class(GFS_statemid_type)    :: Statemid
+
+      Statemid%stored_dudt  = zero
+      Statemid%stored_dvdt  = zero
+      Statemid%stored_dtdt  = zero
+      Statemid%stored_dtdtc = zero
+      Statemid%stored_dqdt  = zero
+
+  end subroutine statemid_var_zero
+
 
 !------------------------
 ! GFS_cldprop_type%create
@@ -4756,5 +4768,4 @@ end subroutine overrides_create
     endif
 
   end subroutine diag_phys_zero
-
 end module GFS_typedefs
