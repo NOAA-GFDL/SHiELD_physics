@@ -13,7 +13,7 @@ module physics_diag_layer
   use physics_abstraction_layer, only: control_type,  statein_type,  &
                                        stateout_type, sfcprop_type,  &
                                        coupling_type, grid_type,     &
-                                       tbd_type,      cldprop_type,  &
+                                       statemid_type, cldprop_type,  &
                                        radtend_type,  intdiag_type,  &
                                        init_type 
 
@@ -26,7 +26,7 @@ module physics_diag_layer
 ! GFS_populate_IPD_Diag
 !----------------------
   subroutine diag_populate (IPD_Diag, Model, Statein, Stateout, Sfcprop, Coupling,  &
-                            Grid, Tbd, Cldprop, Radtend, Diag, Init_parm)
+                            Grid, Statemid, Cldprop, Radtend, Diag, Init_parm)
 !------------------------------------------------------------------------------------------!
 !   IPD_METADATA                                                                           !
 !     IPD_Diag%name           [char*32 ]   variable name in source  [char*32]              !
@@ -56,7 +56,7 @@ module physics_diag_layer
     type(sfcprop_type),         intent(in)    :: Sfcprop(:)
     type(coupling_type),        intent(in)    :: Coupling(:)
     type(grid_type),            intent(in)    :: Grid(:)
-    type(tbd_type),             intent(in)    :: Tbd(:)
+    type(statemid_type),        intent(in)    :: Statemid(:)
     type(cldprop_type),         intent(in)    :: Cldprop(:)
     type(radtend_type),         intent(in)    :: Radtend(:)
     type(intdiag_type),         intent(in)    :: Diag(:)
