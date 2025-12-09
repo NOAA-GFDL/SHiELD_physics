@@ -4063,8 +4063,13 @@ end subroutine overrides_create
      Statemid%stored_kpbl = 1
 
      ! Radiation variables
-     allocate (Statemid%stored_xmu(IM), Statemid%stored_xcosz(IM), Statemid%stored_adjsfculw(IM))
+     ! deallocating beforing allocating to avoid memory leaks.
+     if (allocated (Statemid%stored_adjsfcdlw)) deallocate (Statemid%stored_adjsfcdlw)
+     if (allocated (Statemid%stored_adjsfcdsw)) deallocate (Statemid%stored_adjsfcdsw)
+     if (allocated (Statemid%stored_adjsfcnsw)) deallocate (Statemid%stored_adjsfcnsw)
      allocate (Statemid%stored_adjsfcdlw(IM), Statemid%stored_adjsfcdsw(IM), Statemid%stored_adjsfcnsw(IM))
+     allocate (Statemid%stored_xmu(IM), Statemid%stored_xcosz(IM), Statemid%stored_adjsfculw(IM))
+
      Statemid%stored_xmu = clear_val
      Statemid%stored_xcosz = clear_val
      Statemid%stored_adjsfculw = clear_val
