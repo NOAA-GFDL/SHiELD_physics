@@ -7,7 +7,7 @@ module physics_abstraction_layer
                              sfcprop_type     =>  GFS_sfcprop_type,  &
                              coupling_type    =>  GFS_coupling_type, &
                              grid_type        =>  GFS_grid_type,     &
-                             tbd_type         =>  GFS_tbd_type,      &
+                             statemid_type    =>  GFS_statemid_type, &
                              cldprop_type     =>  GFS_cldprop_type,  &
                              radtend_type     =>  GFS_radtend_type,  &
                              intdiag_type     =>  GFS_diag_type,     &
@@ -31,7 +31,7 @@ module physics_abstraction_layer
   public  sfcprop_type
   public  coupling_type
   public  grid_type
-  public  tbd_type
+  public  statemid_type
   public  cldprop_type
   public  radtend_type
   public  intdiag_type
