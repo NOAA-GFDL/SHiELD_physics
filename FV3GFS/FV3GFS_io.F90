@@ -444,11 +444,11 @@ module FV3GFS_io_mod
        endif
 
        do l = 1,Model%ntot2d
-         temp2d(i,j,nsfcprop2d+l) = IPD_Data(nb)%Tbd%phy_f2d(ix,l)
+         temp2d(i,j,nsfcprop2d+l) = IPD_Data(nb)%Statemid%phy_f2d(ix,l)
        enddo
 
        do l = 1,Model%nctp
-         temp2d(i,j,nsfcprop2d+Model%ntot2d+l) = IPD_Data(nb)%Tbd%phy_fctd(ix,l)
+         temp2d(i,j,nsfcprop2d+Model%ntot2d+l) = IPD_Data(nb)%Statemid%phy_fctd(ix,l)
        enddo
 
        temp3d(i,j,:, 1) = IPD_Data(nb)%Statein%phii(ix,1:lev)
@@ -469,7 +469,7 @@ module FV3GFS_io_mod
        temp3d(i,j,:,16) = IPD_Data(nb)%Radtend%swhc(ix,:)
        temp3d(i,j,:,17) = IPD_Data(nb)%Radtend%lwhc(ix,:)
        do l = 1,Model%ntot3d
-         temp3d(i,j,:,17+l) = IPD_Data(nb)%Tbd%phy_f3d(ix,:,l)
+         temp3d(i,j,:,17+l) = IPD_Data(nb)%Statemid%phy_f3d(ix,:,l)
        enddo
        do l = 1,ntr
          temp3d(i,j,:,17+Model%ntot3d+l)     = IPD_Data(nb)%Statein%qgrs(ix,:,l)
@@ -7020,7 +7020,7 @@ module FV3GFS_io_mod
 !    allocate (Diag(idx)%data(nblks))
 !    if( Model%ncnvw > 0 ) then
 !      do nb = 1,nblks
-!        Diag(idx)%data(nb)%var3 => Tbd(nb)%phy_f3d(:,:,Model%ncnvw)
+!        Diag(idx)%data(nb)%var3 => Statemid(nb)%phy_f3d(:,:,Model%ncnvw)
 !      enddo
 !    endif
 
