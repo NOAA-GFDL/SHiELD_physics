@@ -7,7 +7,7 @@ module physics_abstraction_layer
                              sfcprop_type     =>  GFS_sfcprop_type,  &
                              coupling_type    =>  GFS_coupling_type, &
                              grid_type        =>  GFS_grid_type,     &
-                             tbd_type         =>  GFS_tbd_type,      &
+                             statemid_type    =>  GFS_statemid_type, &
                              cldprop_type     =>  GFS_cldprop_type,  &
                              radtend_type     =>  GFS_radtend_type,  &
                              intdiag_type     =>  GFS_diag_type,     &
@@ -16,7 +16,8 @@ module physics_abstraction_layer
   use GFS_driver,      only: initialize       =>  GFS_initialize,       &
                              time_vary_step   =>  GFS_time_vary_step,   &
                              radiation_step1  =>  GFS_radiation_driver, &
-                             physics_step1    =>  GFS_physics_driver,   &
+                             physics_step1_down    =>  GFS_physics_driver_down,   &
+                             physics_step1_up      =>  GFS_physics_driver_up,   &
                              physics_step2    =>  GFS_stochastic_driver,&
                              physics_end      =>  GFS_physics_end
 
@@ -30,7 +31,7 @@ module physics_abstraction_layer
   public  sfcprop_type
   public  coupling_type
   public  grid_type
-  public  tbd_type
+  public  statemid_type
   public  cldprop_type
   public  radtend_type
   public  intdiag_type

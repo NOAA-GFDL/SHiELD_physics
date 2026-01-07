@@ -39,7 +39,7 @@ module GFS_typedefs
 !    !---GFS specific containers
 !    GFS_control_type        !< model control parameters
 !    GFS_grid_type           !< grid and interpolation related data
-!    GFS_tbd_type            !< to be determined data that doesn't fit in any one container
+!    GFS_statemid_type            !< to be determined data that doesn't fit in any one container
 !    GFS_clprop_type         !< cloud fields needed by radiation from physics
 !    GFS_radtend_type        !< radiation tendencies needed in physics
 !    GFS_diag_type           !< fields targetted for diagnostic output
@@ -673,7 +673,7 @@ module GFS_typedefs
     logical              :: shcnvcw         !< flag for shallow convective cloud
     logical              :: redrag          !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl        !< flag for using updated sfc layer scheme
-    logical              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupled SHiELD 
+    integer              :: sfc_coupled     !< flag for using sfc layer scheme designed for coupled SHiELD 
                                             !< will set to true by atmos_driver; this is not a namelist parameter
     real(kind=kind_phys) :: z0s_max         !< a limiting value for z0 under high winds
     logical              :: do_z0_moon      !< flag for using z0 scheme in Moon et al. 2007 (kgao)
@@ -992,10 +992,10 @@ module GFS_typedefs
 
 
 !-----------------------------------------------
-! GFS_tbd_type
+! GFS_statemid_type
 !   data not yet assigned to a defined container
 !-----------------------------------------------
-  type GFS_tbd_type
+  type GFS_statemid_type
 
     !--- radiation random seeds
     integer,               pointer :: icsdsw   (:)     => null()  !< (rad. only) auxiliary cloud control arrays passed to main
@@ -1027,9 +1027,58 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: phy_f2d  (:,:)   => null()  !< 2d arrays saved for restart
     real (kind=kind_phys), pointer :: phy_f3d  (:,:,:) => null()  !< 3d arrays saved for restart
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! --- Declarations for variables stored between physics driver _down and _up parts ---
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    real(kind=kind_phys), allocatable :: stored_au_out(:,:), stored_f1_out(:,:), stored_f2_out(:,:), stored_diss_out(:,:)
+    integer, allocatable :: stored_kpbl(:)
+    real(kind=kind_phys), allocatable :: stored_flux_cg(:,:), stored_flux_en(:,:), stored_elm_pbl(:,:)
+    real(kind=kind_phys), allocatable :: stored_dudt(:,:), stored_dvdt(:,:), stored_dqdt(:,:,:)
+    real(kind=kind_phys), allocatable :: stored_dusfc1(:), stored_dvsfc1(:), stored_dtsfc1(:), stored_dqsfc1(:)
+
+    ! Surface fluxes and state
+    real(kind=kind_phys), allocatable :: stored_hflx(:), stored_evap(:), stored_stress(:), stored_wind(:)
+    real(kind=kind_phys), allocatable :: stored_rb(:), stored_qss(:), stored_zice(:), stored_cice(:), stored_tice(:)
+    real(kind=kind_phys), allocatable :: stored_snowc(:), stored_drain(:), stored_runof(:)
+
+    ! Radiation variables
+    real(kind=kind_phys), allocatable :: stored_xmu(:), stored_xcosz(:), stored_adjsfculw(:)
+    !real(kind=kind_phys), allocatable :: stored_adjnirbmd(:), stored_adjnirdfd(:), stored_adjvisbmd(:), stored_adjvisdfd(:)
+    !real(kind=kind_phys), allocatable :: stored_adjnirbmu(:), stored_adjnirdfu(:), stored_adjvisbmu(:), stored_adjvisdfu(:)
+    !real(kind=kind_phys), pointer :: stored_adjsfcdlw_ptr(:), stored_adjsfcnsw_ptr(:)
+    real(kind=kind_phys), pointer ::  stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
+
+    ! State tendencies
+    real(kind=kind_phys), allocatable, dimension(:,:) :: stored_dtdt, stored_dtdtc
+
+    ! Grid and state-related variables
+    integer, allocatable :: stored_islmsk(:)
+    real(kind=kind_phys), allocatable, dimension(:,:) :: stored_del, stored_del_gz
+    real(kind=kind_phys) :: stored_frain, stored_dtp
+    integer :: stored_kdt
+
+    real(kind=kind_phys), allocatable :: stored_sigmaf(:)
+
+    ! Physics scheme inputs
+    integer, allocatable :: stored_kinver(:), stored_kcnv(:)
+    real(kind=kind_phys), allocatable :: stored_ctei_rml(:), stored_ctei_r(:)
+    real(kind=kind_phys), allocatable :: stored_work1(:), stored_work2(:), stored_garea(:), stored_dlength(:)
+    real(kind=kind_phys), allocatable :: stored_cldf(:), stored_wcbmax(:)
+
+
+    ! Tracer transport variables
+    integer, allocatable :: stored_clw_trac_idx(:)
+
+    ! CICE coupling variables
+    logical, allocatable :: stored_flag_cice(:)
+    real(kind=kind_phys), allocatable :: stored_tsea_cice(:), stored_fice_cice(:)
+    real(kind=kind_phys), allocatable :: stored_dusfc_cice(:), stored_dvsfc_cice(:), stored_dqsfc_cice(:), stored_dtsfc_cice(:)
+
     contains
-      procedure :: create  => tbd_create  !<   allocate array data
-  end type GFS_tbd_type
+      procedure :: create  => statemid_create  !<   allocate array data
+      procedure :: statemid_zero => statemid_var_zero
+  end type GFS_statemid_type
 
 
 !------------------------------------------------------------------
@@ -1489,7 +1538,7 @@ module GFS_typedefs
   public GFS_init_type
   public GFS_statein_type,  GFS_stateout_type, GFS_sfcprop_type, &
          GFS_coupling_type
-  public GFS_control_type,  GFS_grid_type,     GFS_tbd_type, &
+  public GFS_control_type,  GFS_grid_type, GFS_statemid_type, &
          GFS_cldprop_type,  GFS_radtend_type,  GFS_diag_type
 #if defined (USE_COSP) || defined (COSP_OFFLINE)
   public cosp_type
@@ -2436,7 +2485,7 @@ end subroutine overrides_create
     logical              :: shcnvcw        = .false.                  !< flag for shallow convective cloud
     logical              :: redrag         = .false.                  !< flag for reduced drag coeff. over sea
     logical              :: sfc_gfdl       = .false.                  !< flag for using new sfc layer scheme by kgao at GFDL
-    logical              :: sfc_coupled    = .false.                  !< flag for using sfc layer scheme designed for coupled SHiELD 
+    integer              :: sfc_coupled    = 0                  !< flag for using sfc layer scheme designed for coupled SHiELD 
     real(kind=kind_phys) :: z0s_max        = .317e-2                  !< a limiting value for z0 under high winds
     logical              :: do_z0_moon     = .false.                  !< flag for using z0 scheme in Moon et al. 2007
     logical              :: do_z0_hwrf15   = .false.                  !< flag for using z0 scheme in 2015 HWRF
@@ -3911,64 +3960,198 @@ end subroutine overrides_create
 
 
 !--------------------
-! GFS_tbd_type%create
+! GFS_statemid_type%create
 !--------------------
-  subroutine tbd_create (Tbd, IM, Model)
+  subroutine statemid_create (Statemid, IM, Model)
 
     implicit none
 
-    class(GFS_tbd_type)                :: Tbd
+    class(GFS_statemid_type)           :: Statemid
     integer,                intent(in) :: IM
     type(GFS_control_type), intent(in) :: Model
 
     !--- In
     !--- sub-grid cloud radiation
     if ( Model%isubc_lw == 2 .or. Model%isubc_sw == 2 ) then
-      allocate (Tbd%icsdsw (IM))
-      allocate (Tbd%icsdlw (IM))
+      allocate (Statemid%icsdsw (IM))
+      allocate (Statemid%icsdlw (IM))
     endif
 
     !--- ozone and stratosphere h2o needs
-    allocate (Tbd%ozpl  (IM,levozp,oz_coeff))
-    allocate (Tbd%h2opl (IM,levh2o,h2o_coeff))
-    Tbd%ozpl  = clear_val
-    Tbd%h2opl = clear_val
+    allocate (Statemid%ozpl  (IM,levozp,oz_coeff))
+    allocate (Statemid%h2opl (IM,levh2o,h2o_coeff))
+    Statemid%ozpl  = clear_val
+    Statemid%h2opl = clear_val
 
-    allocate (Tbd%rann (IM,Model%nrcm))
-    Tbd%rann = rann_init
+    allocate (Statemid%rann (IM,Model%nrcm))
+    Statemid%rann = rann_init
 
     !--- In/Out
-    allocate (Tbd%acv  (IM))
-    allocate (Tbd%acvb (IM))
-    allocate (Tbd%acvt (IM))
+    allocate (Statemid%acv  (IM))
+    allocate (Statemid%acvb (IM))
+    allocate (Statemid%acvt (IM))
 
-    Tbd%acv  = clear_val
-    Tbd%acvb = clear_val
-    Tbd%acvt = clear_val
+    Statemid%acv  = clear_val
+    Statemid%acvb = clear_val
+    Statemid%acvt = clear_val
 
     if (Model%do_sppt) then
-      allocate (Tbd%dtdtr     (IM,Model%levs))
-      allocate (Tbd%dtotprcp  (IM))
-      allocate (Tbd%dcnvprcp  (IM))
-      allocate (Tbd%drain_cpl (IM))
-      allocate (Tbd%dsnow_cpl (IM))
+      allocate (Statemid%dtdtr     (IM,Model%levs))
+      allocate (Statemid%dtotprcp  (IM))
+      allocate (Statemid%dcnvprcp  (IM))
+      allocate (Statemid%drain_cpl (IM))
+      allocate (Statemid%dsnow_cpl (IM))
 
-      Tbd%dtdtr     = clear_val
-      Tbd%dtotprcp  = clear_val
-      Tbd%dcnvprcp  = clear_val
-      Tbd%drain_cpl = clear_val
-      Tbd%dsnow_cpl = clear_val
+      Statemid%dtdtr     = clear_val
+      Statemid%dtotprcp  = clear_val
+      Statemid%dcnvprcp  = clear_val
+      Statemid%drain_cpl = clear_val
+      Statemid%dsnow_cpl = clear_val
     endif
 
-    allocate (Tbd%phy_fctd (IM,Model%nctp))
-    allocate (Tbd%phy_f2d  (IM,Model%ntot2d))
-    allocate (Tbd%phy_f3d  (IM,Model%levs,Model%ntot3d))
+    allocate (Statemid%phy_fctd (IM,Model%nctp))
+    allocate (Statemid%phy_f2d  (IM,Model%ntot2d))
+    allocate (Statemid%phy_f3d  (IM,Model%levs,Model%ntot3d))
 
-    Tbd%phy_fctd = clear_val
-    Tbd%phy_f2d  = clear_val
-    Tbd%phy_f3d  = clear_val
+    Statemid%phy_fctd = clear_val
+    Statemid%phy_f2d  = clear_val
+    Statemid%phy_f3d  = clear_val
 
-  end subroutine tbd_create
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! --- For variables stored between physics driver _down and _up parts ---
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     allocate (Statemid%stored_au_out(IM,model%levs-1))
+     allocate (Statemid%stored_f1_out(IM,model%levs))
+     allocate (Statemid%stored_f2_out(IM,model%levs*(model%ntrac-1)))
+     allocate (Statemid%stored_diss_out(IM,model%levs-1))
+
+     allocate (Statemid%stored_kpbl(IM))
+     allocate (Statemid%stored_flux_cg(IM,model%levs))
+     allocate (Statemid%stored_flux_en(IM,model%levs))
+     allocate (Statemid%stored_elm_pbl(IM,model%levs))
+
+     allocate (Statemid%stored_dudt(IM,model%levs))
+     allocate (Statemid%stored_dvdt(IM,model%levs))
+     allocate (Statemid%stored_dqdt(IM,model%levs,model%ntrac))
+
+     allocate (Statemid%stored_dusfc1(IM))
+     allocate (Statemid%stored_dvsfc1(IM))
+     allocate (Statemid%stored_dtsfc1(IM))
+     allocate (Statemid%stored_dqsfc1(IM))
+
+     ! Surface fluxes and state
+     allocate (Statemid%stored_hflx(IM), Statemid%stored_evap(IM), Statemid%stored_stress(IM), Statemid%stored_wind(IM))
+     allocate (Statemid%stored_rb(IM), Statemid%stored_qss(IM), Statemid%stored_zice(IM), Statemid%stored_cice(IM), Statemid%stored_tice(IM))
+     allocate (Statemid%stored_snowc(IM), Statemid%stored_drain(IM), Statemid%stored_runof(IM) )!, Statemid%stored_ep1d(IM), Statemid%stored_gflx(IM))
+     Statemid%stored_hflx = clear_val
+     Statemid%stored_evap = clear_val
+     Statemid%stored_stress = clear_val
+     Statemid%stored_wind = clear_val
+     Statemid%stored_rb = clear_val
+     Statemid%stored_qss = clear_val
+     Statemid%stored_zice = clear_val
+     Statemid%stored_cice = clear_val
+     Statemid%stored_tice = clear_val
+     Statemid%stored_snowc = clear_val
+     Statemid%stored_drain = clear_val
+     Statemid%stored_runof = clear_val
+     !Statemid%stored_ep1d = clear_val
+     !Statemid%stored_gflx = clear_val
+     Statemid%stored_kpbl = 1
+
+     ! Radiation variables
+     ! deallocating beforing allocating to avoid memory leaks.
+     if (allocated (Statemid%stored_adjsfcdlw)) deallocate (Statemid%stored_adjsfcdlw)
+     if (allocated (Statemid%stored_adjsfcdsw)) deallocate (Statemid%stored_adjsfcdsw)
+     if (allocated (Statemid%stored_adjsfcnsw)) deallocate (Statemid%stored_adjsfcnsw)
+     allocate (Statemid%stored_adjsfcdlw(IM), Statemid%stored_adjsfcdsw(IM), Statemid%stored_adjsfcnsw(IM))
+     allocate (Statemid%stored_xmu(IM), Statemid%stored_xcosz(IM), Statemid%stored_adjsfculw(IM))
+
+     Statemid%stored_xmu = clear_val
+     Statemid%stored_xcosz = clear_val
+     Statemid%stored_adjsfculw = clear_val
+     Statemid%stored_adjsfcdlw=clear_val
+     Statemid%stored_adjsfcdsw=clear_val
+     Statemid%stored_adjsfcnsw=clear_val
+
+     !allocate (Statemid%stored_adjnirbmd(IM), Statemid%stored_adjnirdfd(IM), Statemid%stored_adjvisbmd(IM), Statemid%stored_adjvisdfd(IM))
+     !allocate (Statemid%stored_adjnirbmu(IM), Statemid%stored_adjnirdfu(IM), Statemid%stored_adjvisbmu(IM), Statemid%stored_adjvisdfu(IM))
+     !Statemid%stored_adjnirbmd = clear_val
+     !Statemid%stored_adjnirdfd = clear_val
+     !Statemid%stored_adjvisbmd = clear_val
+     !Statemid%stored_adjvisdfd = clear_val
+     !Statemid%stored_adjnirbmu = clear_val
+     !Statemid%stored_adjnirdfu = clear_val
+     !Statemid%stored_adjvisbmu = clear_val
+     !Statemid%stored_adjvisdfu = clear_val
+
+     ! State tendencies
+     allocate (Statemid%stored_dtdt(IM,model%LEVS), Statemid%stored_dtdtc(IM,model%LEVS))
+     Statemid%stored_dtdt = clear_val
+     Statemid%stored_dtdtc = clear_val
+
+     ! Grid and state-related variables
+     allocate (Statemid%stored_islmsk(IM))
+     allocate (Statemid%stored_del(IM,model%LEVS), Statemid%stored_del_gz(IM,model%LEVS+1))
+     !allocate (Statemid%stored_frland(IM))
+     !allocate (Statemid%stored_dry(IM))
+     allocate (Statemid%stored_sigmaf(IM))
+     Statemid%stored_islmsk = 0
+     Statemid%stored_del = clear_val
+     Statemid%stored_del_gz = clear_val
+     Statemid%stored_frain = clear_val
+     Statemid%stored_dtp = clear_val
+     Statemid%stored_kdt = 0
+     !Statemid%stored_nvdiff = 0
+     !Statemid%stored_frland = clear_val
+     !Statemid%stored_dry = .false.
+     Statemid%stored_sigmaf = clear_val
+
+     ! Physics scheme inputs
+     allocate (Statemid%stored_kinver(IM), Statemid%stored_kcnv(IM))
+     allocate (Statemid%stored_ctei_rml(IM), Statemid%stored_ctei_r(IM))!, Statemid%stored_tx1(IM), Statemid%stored_tx2(IM))
+     allocate (Statemid%stored_work1(IM), Statemid%stored_work2(IM), Statemid%stored_garea(IM), Statemid%stored_dlength(IM))
+     allocate (Statemid%stored_cldf(IM), Statemid%stored_wcbmax(IM))
+     Statemid%stored_kinver = 0
+     Statemid%stored_kcnv = 0
+     Statemid%stored_ctei_rml = clear_val
+     Statemid%stored_ctei_r = clear_val
+     !Statemid%stored_tx1 = clear_val
+     !Statemid%stored_tx2 = clear_val
+     Statemid%stored_work1 = clear_val
+     Statemid%stored_work2 = clear_val
+     Statemid%stored_garea = clear_val
+     Statemid%stored_dlength = clear_val
+     Statemid%stored_cldf = clear_val
+     Statemid%stored_wcbmax = clear_val
+
+     ! CICE Statemid variables
+     allocate (Statemid%stored_flag_cice(IM))
+     allocate (Statemid%stored_tsea_cice(IM), Statemid%stored_fice_cice(IM))
+     allocate (Statemid%stored_dusfc_cice(IM), Statemid%stored_dvsfc_cice(IM), Statemid%stored_dqsfc_cice(IM), Statemid%stored_dtsfc_cice(IM))
+     Statemid%stored_flag_cice = .false.
+     Statemid%stored_tsea_cice = clear_val
+     Statemid%stored_fice_cice = clear_val
+     Statemid%stored_dusfc_cice = clear_val
+     Statemid%stored_dvsfc_cice = clear_val
+     Statemid%stored_dqsfc_cice = clear_val
+     Statemid%stored_dtsfc_cice = clear_val
+
+  end subroutine statemid_create
+
+  subroutine statemid_var_zero (Statemid)
+    class(GFS_statemid_type)    :: Statemid
+
+      Statemid%stored_dudt  = zero
+      Statemid%stored_dvdt  = zero
+      Statemid%stored_dtdt  = zero
+      Statemid%stored_dtdtc = zero
+      Statemid%stored_dqdt  = zero
+
+  end subroutine statemid_var_zero
 
 
 !------------------------
@@ -4590,5 +4773,4 @@ end subroutine overrides_create
     endif
 
   end subroutine diag_phys_zero
-
 end module GFS_typedefs
