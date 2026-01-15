@@ -90,6 +90,9 @@ module GFS_typedefs
                                                                         !< for use with internal file reads
     logical :: hydro                             !< whether the dynamical core is hydrostatic
     logical :: do_inline_mp                      !< flag for GFDL cloud microphysics
+    logical :: do_inline_pbl                     !< flag for inline planetary boundary layer
+    logical :: do_inline_cnv                     !< flag for inline convection
+    logical :: do_inline_gwd                     !< flag for inline gravity wave drag
     logical :: do_cosp                           !< flag for COSP
 
   end type GFS_init_type
@@ -128,11 +131,18 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: exch_h (:,:)   => null()  !< 3D heat exchange coefficient
 
     !--- precipitation
+    real (kind=kind_phys), pointer :: prec (:)     => null()  !< convective precipitation
     real (kind=kind_phys), pointer :: prew (:)     => null()  !< water
     real (kind=kind_phys), pointer :: prer (:)     => null()  !< rain
     real (kind=kind_phys), pointer :: prei (:)     => null()  !< ice
     real (kind=kind_phys), pointer :: pres (:)     => null()  !< snow
     real (kind=kind_phys), pointer :: preg (:)     => null()  !< graupel
+
+    !--- convection
+    integer              , pointer :: ktop (:)     => null()  !< upper boundary of convection
+    integer              , pointer :: kbot (:)     => null()  !< lower boundary of convection
+    integer              , pointer :: kcnv (:)     => null()  !< whether convection is active (0: no, 1: deep, 2: shallow)
+    real (kind=kind_phys), pointer :: cumabs (:)   => null()  !< maximum convective heating rate
 
     !--- precipitation flux
     real (kind=kind_phys), pointer :: prefluxw (:,:)     => null()  !< water
@@ -140,6 +150,40 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: prefluxi (:,:)     => null()  !< ice
     real (kind=kind_phys), pointer :: prefluxs (:,:)     => null()  !< snow
     real (kind=kind_phys), pointer :: prefluxg (:,:)     => null()  !< graupel
+
+    !-- variables from inline PBL scheme
+    real (kind=kind_phys), pointer :: hpbl (:)      => null()  !< pbl height (m)
+    integer, pointer               :: kpbl (:)      => null()  !< index of pbl
+    real (kind=kind_phys), pointer :: dtsfc (:)     => null()  !< sensible heat flux (w/m2)
+    real (kind=kind_phys), pointer :: dqsfc (:)     => null()  !< latent heat flux (w/m2)
+    real (kind=kind_phys), pointer :: dusfc (:)     => null()  !< u component of surface stress
+    real (kind=kind_phys), pointer :: dvsfc (:)     => null()  !< v component of surface stress
+
+    integer              , pointer :: lsm (:)       => null()  !< sea/land mask array (sea:0,land:1,sea-ice:2)
+    real (kind=kind_phys), pointer :: hflx (:)      => null()  !< surface sensible heat flux
+    real (kind=kind_phys), pointer :: evap (:)      => null()  !< surface evaporation from latent heat flux
+    real (kind=kind_phys), pointer :: tsfc (:)      => null()  !< surface temperature in k
+    real (kind=kind_phys), pointer :: vfrac (:)     => null()  !< vegetation fraction
+    real (kind=kind_phys), pointer :: vtype (:)     => null()  !< vegetation type
+    real (kind=kind_phys), pointer :: ffmm (:)      => null()  !< fm parameter from PBL scheme
+    real (kind=kind_phys), pointer :: ffhh (:)      => null()  !< fh parameter from PBL scheme
+    real (kind=kind_phys), pointer :: snowd (:)     => null()  !< snow depth water equivalent in mm ; same as snwdph
+    real (kind=kind_phys), pointer :: zorl (:)      => null()  !< composite surface roughness in cm
+    real (kind=kind_phys), pointer :: ztrl (:)      => null()  !< surface roughness for t and q in cm
+    real (kind=kind_phys), pointer :: uustar (:)    => null()  !< boundary layer parameter
+    real (kind=kind_phys), pointer :: shdmax (:)    => null()  !< max fractnl cover of green veg (not used)
+    real (kind=kind_phys), pointer :: srflag (:)    => null()  !< sfc_fld%srflag - snow/rain flag for precipitation
+    real (kind=kind_phys), pointer :: hice (:)      => null()  !< sea ice thickness
+    real (kind=kind_phys), pointer :: fice (:)      => null()  !< ice fraction over open water grid
+    real (kind=kind_phys), pointer :: tice (:)      => null()  !< surface temperature over ice fraction
+    real (kind=kind_phys), pointer :: weasd (:)     => null()  !< water equiv of accumulated snow depth (kg/m**2) over land and sea ice
+    real (kind=kind_phys), pointer :: tprcp (:)     => null()  !< sfc_fld%tprcp - total precipitation
+    !real (kind=kind_phys), pointer :: stc (:,:)     => null()  !< soil temperature
+    real (kind=kind_phys), pointer :: qsurf (:)     => null()  !< surface specific humidity
+    real (kind=kind_phys), pointer :: cmm (:)       => null()  !< momentum exchange coefficient
+    real (kind=kind_phys), pointer :: chh (:)       => null()  !< thermal exchange coefficient
+    real (kind=kind_phys), pointer :: gflux (:)     => null()  !< groud conductive heat flux
+    real (kind=kind_phys), pointer :: ep (:)        => null()  !< potential evaporation
 
     !--- sea surface temperature
     real (kind=kind_phys), pointer :: sst (:)     => null()   !< sea surface temperature
@@ -162,6 +206,37 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: gv0 (:,:)   => null()  !< updated meridional wind
     real (kind=kind_phys), pointer :: gt0 (:,:)   => null()  !< updated temperature
     real (kind=kind_phys), pointer :: gq0 (:,:,:) => null()  !< updated tracers
+
+    integer              , pointer :: lsm (:)     => null()  !< sea/land mask array (sea:0,land:1,sea-ice:2)
+    real (kind=kind_phys), pointer :: radh (:,:)  => null()  !< radiation heating
+    real (kind=kind_phys), pointer :: hflx (:)    => null()  !< surface sensible heat flux
+    real (kind=kind_phys), pointer :: evap (:)    => null()  !< surface evaporation from latent heat flux
+    real (kind=kind_phys), pointer :: tsfc (:)    => null()  !< surface temperature in k
+    real (kind=kind_phys), pointer :: vfrac (:)   => null()  !< vegetation fraction
+    real (kind=kind_phys), pointer :: vtype (:)   => null()  !< vegetation type
+    real (kind=kind_phys), pointer :: ffmm (:)    => null()  !< fm parameter from PBL scheme
+    real (kind=kind_phys), pointer :: ffhh (:)    => null()  !< fh parameter from PBL scheme
+    real (kind=kind_phys), pointer :: snowd (:)   => null()  !< snow depth water equivalent in mm ; same as snwdph
+    real (kind=kind_phys), pointer :: zorl (:)    => null()  !< composite surface roughness in cm
+    real (kind=kind_phys), pointer :: ztrl (:)    => null()  !< surface roughness for t and q in cm
+    real (kind=kind_phys), pointer :: uustar (:)  => null()  !< boundary layer parameter
+    real (kind=kind_phys), pointer :: shdmax (:)  => null()  !< max fractnl cover of green veg (not used)
+    real (kind=kind_phys), pointer :: sfcemis (:) => null()  !< surface lw emissivity in fraction
+    real (kind=kind_phys), pointer :: dlwflx (:)  => null()  !< 
+    real (kind=kind_phys), pointer :: sfcnsw (:)  => null()  !< 
+    real (kind=kind_phys), pointer :: sfcdsw (:)  => null()  !< 
+    real (kind=kind_phys), pointer :: srflag (:)  => null()  !< sfc_fld%srflag - snow/rain flag for precipitation
+    real (kind=kind_phys), pointer :: hice (:)    => null()  !< sea ice thickness
+    real (kind=kind_phys), pointer :: fice (:)    => null()  !< ice fraction over open water grid
+    real (kind=kind_phys), pointer :: tice (:)    => null()  !< surface temperature over ice fraction
+    real (kind=kind_phys), pointer :: weasd (:)   => null()  !< water equiv of accumulated snow depth (kg/m**2) over land and sea ice
+    real (kind=kind_phys), pointer :: tprcp (:)   => null()  !< sfc_fld%tprcp - total precipitation
+    real (kind=kind_phys), pointer :: stc (:,:)   => null()  !< soil temperature
+    real (kind=kind_phys), pointer :: qsurf (:)   => null()  !< surface specific humidity
+    real (kind=kind_phys), pointer :: cmm (:)     => null()  !< momentum exchange coefficient
+    real (kind=kind_phys), pointer :: chh (:)     => null()  !< thermal exchange coefficient
+    real (kind=kind_phys), pointer :: gflux (:)   => null()  !< groud conductive heat flux
+    real (kind=kind_phys), pointer :: ep (:)      => null()  !< potential evaporation
 
     contains
       procedure :: create  => stateout_create  !<   allocate array data
@@ -602,7 +677,18 @@ module GFS_typedefs
 
     !--- GFDL microphysical parameters
     logical              :: do_sat_adj      !< flag for fast saturation adjustment
-    logical              :: do_inline_mp    !< flag for GFDL cloud microphysics
+
+    !--- inline microphysical parameters
+    logical              :: do_inline_mp    !< flag for inline microphysics
+
+    !--- inline planetary boundary layer parameters
+    logical              :: do_inline_pbl   !< flag for inline planetary boundary layer
+
+    !--- inline convection parameters
+    logical              :: do_inline_cnv   !< flag for inline convection
+
+    !--- inline gravity wave drag parameters
+    logical              :: do_inline_gwd   !< flag for inline gravity wave drag
 
     !--- The CFMIP Observation Simulator Package (COSP)
     logical              :: do_cosp         !< flag for COSP
@@ -1601,17 +1687,29 @@ module GFS_typedefs
     endif
 
 
+    allocate (Statein%prec(IM))
     allocate (Statein%prew(IM))
     allocate (Statein%prer(IM))
     allocate (Statein%prei(IM))
     allocate (Statein%pres(IM))
     allocate (Statein%preg(IM))
 
+    Statein%prec = clear_val
     Statein%prew = clear_val
     Statein%prer = clear_val
     Statein%prei = clear_val
     Statein%pres = clear_val
     Statein%preg = clear_val
+
+    allocate (Statein%ktop(IM))
+    allocate (Statein%kbot(IM))
+    allocate (Statein%kcnv(IM))
+    allocate (Statein%cumabs(IM))
+
+    Statein%ktop = clear_val
+    Statein%kbot = clear_val
+    Statein%kcnv = clear_val
+    Statein%cumabs = clear_val
 
     if (Model%do_cosp) then
 
@@ -1628,6 +1726,70 @@ module GFS_typedefs
        Statein%prefluxg = clear_val
 
     endif
+
+    allocate (Statein%hpbl(IM))
+    allocate (Statein%kpbl(IM))
+    allocate (Statein%dtsfc(IM))
+    allocate (Statein%dqsfc(IM))
+    allocate (Statein%dusfc(IM))
+    allocate (Statein%dvsfc(IM))
+    allocate (Statein%lsm(IM))
+    allocate (Statein%hflx(IM))
+    allocate (Statein%evap(IM))
+    allocate (Statein%tsfc(IM))
+    allocate (Statein%vfrac(IM))
+    allocate (Statein%vtype(IM))
+    allocate (Statein%ffmm(IM))
+    allocate (Statein%ffhh(IM))
+    allocate (Statein%snowd(IM))
+    allocate (Statein%zorl(IM))
+    allocate (Statein%ztrl(IM))
+    allocate (Statein%uustar(IM))
+    allocate (Statein%shdmax(IM))
+    allocate (Statein%srflag(IM))
+    allocate (Statein%hice(IM))
+    allocate (Statein%fice(IM))
+    allocate (Statein%tice(IM))
+    allocate (Statein%weasd(IM))
+    allocate (Statein%tprcp(IM))
+    !allocate (Statein%stc(IM,Model%lsoil))
+    allocate (Statein%qsurf(IM))
+    allocate (Statein%cmm(IM))
+    allocate (Statein%chh(IM))
+    allocate (Statein%gflux(IM))
+    allocate (Statein%ep(IM))
+
+    Statein%hpbl = clear_val
+    Statein%kpbl = 1
+    Statein%dtsfc = clear_val
+    Statein%dqsfc = clear_val
+    Statein%dusfc = clear_val
+    Statein%dvsfc = clear_val
+    Statein%lsm = 0
+    Statein%hflx = clear_val
+    Statein%evap = clear_val
+    Statein%tsfc = clear_val
+    Statein%vfrac = clear_val
+    Statein%vtype = clear_val
+    Statein%ffmm = clear_val
+    Statein%ffhh = clear_val
+    Statein%snowd = clear_val
+    Statein%zorl = clear_val
+    Statein%ztrl = clear_val
+    Statein%uustar = clear_val
+    Statein%shdmax = clear_val
+    Statein%srflag = clear_val
+    Statein%hice = clear_val
+    Statein%fice = clear_val
+    Statein%tice = clear_val
+    Statein%weasd = clear_val
+    Statein%tprcp = clear_val
+    !Statein%stc = clear_val
+    Statein%qsurf = clear_val
+    Statein%cmm = clear_val
+    Statein%chh = clear_val
+    Statein%gflux = clear_val
+    Statein%ep = clear_val
 
     allocate (Statein%sst(IM))
     allocate (Statein%ci(IM))
@@ -1666,10 +1828,72 @@ module GFS_typedefs
     allocate (Stateout%gt0 (IM,Model%levs))
     allocate (Stateout%gq0 (IM,Model%levs,Model%ntrac))
 
+    allocate (Stateout%lsm (IM))
+    allocate (Stateout%radh (IM,Model%levs))
+    allocate (Stateout%hflx (IM))
+    allocate (Stateout%evap (IM))
+    allocate (Stateout%tsfc (IM))
+    allocate (Stateout%vfrac (IM))
+    allocate (Stateout%vtype (IM))
+    allocate (Stateout%ffmm (IM))
+    allocate (Stateout%ffhh (IM))
+    allocate (Stateout%snowd (IM))
+    allocate (Stateout%zorl (IM))
+    allocate (Stateout%ztrl (IM))
+    allocate (Stateout%uustar (IM))
+    allocate (Stateout%shdmax (IM))
+    allocate (Stateout%sfcemis (IM))
+    allocate (Stateout%dlwflx (IM))
+    allocate (Stateout%sfcnsw (IM))
+    allocate (Stateout%sfcdsw (IM))
+    allocate (Stateout%srflag (IM))
+    allocate (Stateout%hice (IM))
+    allocate (Stateout%fice (IM))
+    allocate (Stateout%tice (IM))
+    allocate (Stateout%weasd (IM))
+    allocate (Stateout%tprcp (IM))
+    allocate (Stateout%stc (IM,Model%lsoil))
+    allocate (Stateout%qsurf (IM))
+    allocate (Stateout%cmm (IM))
+    allocate (Stateout%chh (IM))
+    allocate (Stateout%gflux (IM))
+    allocate (Stateout%ep (IM))
+
     Stateout%gu0 = clear_val
     Stateout%gv0 = clear_val
     Stateout%gt0 = clear_val
     Stateout%gq0 = clear_val
+
+    Stateout%lsm = 0
+    Stateout%radh = clear_val
+    Stateout%hflx = clear_val
+    Stateout%evap = clear_val
+    Stateout%tsfc = clear_val
+    Stateout%vfrac = clear_val
+    Stateout%vtype = clear_val
+    Stateout%ffmm = clear_val
+    Stateout%ffhh = clear_val
+    Stateout%snowd = clear_val
+    Stateout%zorl = clear_val
+    Stateout%ztrl = clear_val
+    Stateout%uustar = clear_val
+    Stateout%shdmax = clear_val
+    Stateout%sfcemis = clear_val
+    Stateout%dlwflx = clear_val
+    Stateout%sfcnsw = clear_val
+    Stateout%sfcdsw = clear_val
+    Stateout%srflag = clear_val
+    Stateout%hice = clear_val
+    Stateout%fice = clear_val
+    Stateout%tice = clear_val
+    Stateout%weasd = clear_val
+    Stateout%tprcp = clear_val
+    Stateout%stc = clear_val
+    Stateout%qsurf = clear_val
+    Stateout%cmm = clear_val
+    Stateout%chh = clear_val
+    Stateout%gflux = clear_val
+    Stateout%ep = clear_val
 
  end subroutine stateout_create
 
@@ -2292,7 +2516,9 @@ end subroutine overrides_create
                                  dt_phys, idat, jdat, iau_offset,   &
                                  tracer_names, input_nml_file,      &
                                  tile_num, blksz, hydro,            &
-                                 do_inline_mp, do_cosp)
+                                 do_inline_mp, do_inline_pbl,       &
+                                 do_inline_cnv, do_inline_gwd,      &
+                                 do_cosp)
 
     !--- modules
     use physcons,         only: max_lon, max_lat, min_lon, min_lat, &
@@ -2331,6 +2557,9 @@ end subroutine overrides_create
     integer,                intent(in) :: blksz(:)
     logical,                intent(in) :: hydro
     logical,                intent(in) :: do_inline_mp
+    logical,                intent(in) :: do_inline_pbl
+    logical,                intent(in) :: do_inline_cnv
+    logical,                intent(in) :: do_inline_gwd
     logical,                intent(in) :: do_cosp
     !--- local variables
     integer :: n, i, j
@@ -2918,7 +3147,14 @@ end subroutine overrides_create
     Model%dycore_hydrostatic = hydro
     !--- GFDL microphysical parameters
     Model%do_sat_adj       = do_sat_adj
+    !--- inline microphysical parameters
     Model%do_inline_mp     = do_inline_mp
+    !--- inline planetary boundary layer parameters
+    Model%do_inline_pbl    = do_inline_pbl
+    !--- inline convection parameters
+    Model%do_inline_cnv    = do_inline_cnv
+    !--- inline gravity wave drag parameters
+    Model%do_inline_gwd    = do_inline_gwd
     !--- The CFMIP Observation Simulator Package (COSP)
     Model%do_cosp          = do_cosp
     !--- Zhao-Carr MP parameters
@@ -3318,6 +3554,23 @@ end subroutine overrides_create
                                             ' ntke=',Model%ntke
     endif
 
+    !--- turn off PBL when the inline planetary boundary layer is activated
+    if (Model%do_inline_pbl) then
+      Model%no_pbl = .true.
+    endif
+
+    !--- turn off convection when the inline convection is activated
+    if (Model%do_inline_cnv) then
+      Model%do_deep = .false.
+      Model%shal_cnv = .false.
+    endif
+
+    !--- turn off gravity wave drag when the inline gravity wave drag is activated
+    if (Model%do_inline_gwd) then
+      Model%orogwd = .false.
+      Model%cnvgwd = .false.
+    endif
+
     !--- set number of cloud types
     if (Model%cscnv) then
       Model%nctp = nint(Model%cs_parm(5))
@@ -3646,7 +3899,14 @@ end subroutine overrides_create
       print *, ' dycore_hydrostatic: ', Model%dycore_hydrostatic
       print *, ' GFDL microphysical parameters'
       print *, ' do_sat_adj        : ', Model%do_sat_adj
+      print *, ' inline microphysical parameters'
       print *, ' do_inline_mp      : ', Model%do_inline_mp
+      print *, ' inline planetary boundary layer parameters'
+      print *, ' do_inline_pbl     : ', Model%do_inline_pbl
+      print *, ' inline convection parameters'
+      print *, ' do_inline_cnv     : ', Model%do_inline_cnv
+      print *, ' inline gravity wave drag parameters'
+      print *, ' do_inline_gwd     : ', Model%do_inline_gwd
       print *, ' The CFMIP Observation Simulator Package (COSP)'
       print *, ' do_cosp           : ', Model%do_cosp
       print *, ' Z-C microphysical parameters'
