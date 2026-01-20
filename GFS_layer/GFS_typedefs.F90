@@ -1047,7 +1047,7 @@ module GFS_typedefs
     !real(kind=kind_phys), allocatable :: stored_adjnirbmd(:), stored_adjnirdfd(:), stored_adjvisbmd(:), stored_adjvisdfd(:)
     !real(kind=kind_phys), allocatable :: stored_adjnirbmu(:), stored_adjnirdfu(:), stored_adjvisbmu(:), stored_adjvisdfu(:)
     !real(kind=kind_phys), pointer :: stored_adjsfcdlw_ptr(:), stored_adjsfcnsw_ptr(:)
-    real(kind=kind_phys), allocatable ::  stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
+    real(kind=kind_phys),  pointer :: stored_adjsfcdlw(:), stored_adjsfcdsw(:), stored_adjsfcnsw(:)
 
     ! State tendencies
     real(kind=kind_phys), allocatable, dimension(:,:) :: stored_dtdt, stored_dtdtc
@@ -4063,10 +4063,6 @@ end subroutine overrides_create
      Statemid%stored_kpbl = 1
 
      ! Radiation variables
-     ! deallocating beforing allocating to avoid memory leaks.
-     if (allocated (Statemid%stored_adjsfcdlw)) deallocate (Statemid%stored_adjsfcdlw)
-     if (allocated (Statemid%stored_adjsfcdsw)) deallocate (Statemid%stored_adjsfcdsw)
-     if (allocated (Statemid%stored_adjsfcnsw)) deallocate (Statemid%stored_adjsfcnsw)
      allocate (Statemid%stored_adjsfcdlw(IM), Statemid%stored_adjsfcdsw(IM), Statemid%stored_adjsfcnsw(IM))
      allocate (Statemid%stored_xmu(IM), Statemid%stored_xcosz(IM), Statemid%stored_adjsfculw(IM))
 
