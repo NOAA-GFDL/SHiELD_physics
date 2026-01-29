@@ -620,22 +620,6 @@ module module_physics_driver
 !
 !  --- ...  frain=factor for centered difference scheme correction of rain amount.
 
-      if (Model%do_inline_pbl) then
-      
-         do i=1,im
-            ! from dycore (because ocean and sea ice are off)
-            Sfcprop%slmsk(i) = statein%lsm(i)
-            !Sfcprop%tsfc(i) = statein%tsfc(i)
-            Sfcprop%vfrac(i) = statein%vfrac(i)
-            Sfcprop%vtype(i) = statein%vtype(i)
-            Sfcprop%hice(i) = statein%hice(i)
-            Sfcprop%fice(i) = statein%fice(i)
-            Sfcprop%tisfc(i) = statein%tice(i)
-            Sfcprop%stc(i,:) = statein%stc(i,:)
-         enddo
-
-      endif
-
       Statemid%stored_frain = dtf / dtp
 
       do i= 1, im
@@ -961,30 +945,7 @@ module module_physics_driver
       Diag%zlvl(:)    = Statein%phil(:,1) * onebg
       Diag%smcwlt2(:) = 0.0
       Diag%smcref2(:) = 0.0
-      
-      if (Model%do_inline_pbl) then
-      
-         do i=1,im
-            ! from dycore (because ocean and sea ice are off)
-            hflx(i) = statein%hflx(i)
-            evap(i) = statein%evap(i)
-            ep1d(i) = statein%ep(i)
-            qss(i) = statein%qsurf(i)
-            gflx(i) = statein%gflux(i)
-            Sfcprop%ffmm(i) = statein%ffmm(i)
-            Sfcprop%ffhh(i) = statein%ffhh(i)
-            Sfcprop%snowd(i) = statein%snowd(i)
-            Sfcprop%zorl(i) = statein%zorl(i)
-            Sfcprop%uustar(i) = statein%uustar(i)
-            Sfcprop%shdmax(i) = statein%shdmax(i)
-            !Sfcprop%srflag(i) = statein%srflag(i)
-            Sfcprop%weasd(i) = statein%weasd(i)
-            Sfcprop%tprcp(i) = statein%tprcp(i)
-            Diag%cmm(i) = statein%cmm(i)
-            Diag%chh(i) = statein%chh(i)
-         enddo
 
-      endif
 
 ! check the definition from atmos_model.F90
 ! 2: all ocean and land fluxes from full coupler
@@ -1255,8 +1216,6 @@ module module_physics_driver
 
         else
 
-          if (.not. Model%do_inline_pbl) then
-          
 !  --- ...  surface energy balance over ocean
 
           if (Model%sfc_coupled==1) then
@@ -1283,8 +1242,6 @@ module module_physics_driver
             maxevap,                                                    &
 !  ---  outputs:        
              Statemid%stored_qss, Diag%cmm, Diag%chh, gflx, Statemid%stored_evap, Statemid%stored_hflx, ep1d)
-          endif
-
           endif
 
         endif       ! if ( nstf_name(1) > 0 ) then
@@ -1379,8 +1336,6 @@ module module_physics_driver
           enddo
         endif
 
-        if (.not. Model%do_inline_pbl) then
-
         call sfc_sice                                                   &
 !  ---  inputs:
            (im, Model%lsoil, Statein%pgr, Statein%ugrs, Statein%vgrs,   &
@@ -1395,8 +1350,6 @@ module module_physics_driver
 !  ---  outputs:
             Sfcprop%snowd, Statemid%stored_qss, snowmt, gflx, Diag%cmm, Diag%chh, Statemid%stored_evap, &
             Statemid%stored_hflx)
-
-        endif
 
         if (Model%cplflx) then
           do i = 1, im
@@ -1918,56 +1871,7 @@ module module_physics_driver
 !      dtsfc1(:) = 0.
 !      dqsfc1(:) = 0.
 
-      if (Model%do_inline_pbl) then
-
-         do i=1,im
-            ! from dycore (because PBL is off)
-            Diag%hpbl(i) = Statein%hpbl(i)
-            kpbl(i) = Statein%kpbl(i)
-            dtsfc1(i) = Statein%dtsfc(i)
-            dqsfc1(i) = Statein%dqsfc(i)
-            dusfc1(i) = Statein%dusfc(i)
-            dvsfc1(i) = Statein%dvsfc(i)
-            ! to dycore (for inline PBL)
-            stateout%lsm(i) = islmsk(i)
-            Stateout%radh(i,:) = Radtend%htrsw(i,:)*xmu(i)+Radtend%htrlw(i,:)
-            stateout%hflx(i) = hflx(i)
-            stateout%evap(i) = evap(i)
-            stateout%tsfc(i) = Sfcprop%tsfc(i)
-            stateout%ffmm(i) = Sfcprop%ffmm(i)
-            stateout%ffhh(i) = Sfcprop%ffhh(i)
-            stateout%zorl(i) = Sfcprop%zorl(i)
-            ! to dycore (for inline surface)
-            stateout%vfrac(i) = Sfcprop%vfrac(i)
-            stateout%vtype(i) = Sfcprop%vtype(i)
-            stateout%snowd(i) = Sfcprop%snowd(i)
-            stateout%uustar(i) = Sfcprop%uustar(i)
-            stateout%shdmax(i) = Sfcprop%shdmax(i)
-            stateout%sfcemis(i) = Radtend%semis(i)
-            stateout%dlwflx(i) = gabsbdlw(i)
-            stateout%sfcnsw(i) = adjsfcnsw(i)
-            stateout%sfcdsw(i) = adjsfcdsw(i)
-            stateout%srflag(i) = Sfcprop%srflag(i)
-            if (islmsk(i) == 2) then
-               stateout%hice(i) = zice(i)
-               stateout%fice(i) = cice(i)
-               stateout%tice(i) = tice(i)
-            else
-               stateout%hice(i) = 0.0
-               stateout%fice(i) = 0.0
-               stateout%tice(i) = Sfcprop%tsfc(i)
-            endif
-            stateout%weasd(i) = Sfcprop%weasd(i)
-            stateout%tprcp(i) = Sfcprop%tprcp(i)
-            stateout%stc(i,:) = stsoil(i,:)
-            stateout%qsurf(i) = qss(i)
-            stateout%cmm(i) = Diag%cmm(i)
-            stateout%chh(i) = Diag%chh(i)
-            stateout%gflux(i) = gflx(i)
-            stateout%ep(i) = ep1d(i)
-         enddo
-
-      elseif (Model%do_shoc) then
+      if (Model%do_shoc) then
         call moninshoc(ix, im, levs, ntrac, Model%ntcw, Statemid%stored_dvdt, Statemid%stored_dudt, Statemid%stored_dtdt, Statemid%stored_dqdt,  &
                        Statein%ugrs, Statein%vgrs, Statein%tgrs, Statein%qgrs,   &
                        Statemid%phy_f3d(1,1,Model%ntot3d-1), prnum, Model%ntke,       &
@@ -2829,20 +2733,7 @@ module module_physics_driver
 !
       if (.not. Model%ras .and. .not. Model%cscnv) then
 
-        if (Model%do_inline_cnv) then
-
-          cld1d = 0.
-          rain1 = Statein%prec(:)
-          ud_mf = 0.
-          dd_mf = 0.
-          dt_mf = 0.
-          cnvw  = 0.
-          cnvc  = 0.
-          ktop  = Statein%ktop(:)
-          kbot  = Statein%kbot(:)
-          kcnv  = Statein%kcnv(:)
-
-        elseif (Model%do_deep) then
+        if (Model%do_deep) then
 
           if (Model%do_ca) then
             do k=1,levs
@@ -3127,12 +3018,6 @@ module module_physics_driver
 !  --- ...  calculate maximum convective heating rate 
 !           cuhr = temperature change due to deep convection
 
-        if (Model%do_inline_cnv) then
-
-        cumabs(:) = Statein%cumabs(:)
-
-        else
-
         cumabs(:) = 0.0
         work3 (:)  = 0.0
         do k = 1, levs
@@ -3146,8 +3031,6 @@ module module_physics_driver
         do i=1,im
           if (work3(i) > 0.0) cumabs(i) = cumabs(i) / (dtp*work3(i))
         enddo
-
-        endif
 
 !       do i = 1, im
 !         do k = kbot(i), ktop(i)
@@ -3893,7 +3776,7 @@ module module_physics_driver
 
         endif
 
-        if (Model%do_inline_mp) then       ! inline microphysics
+        if (Model%do_inline_mp) then       ! GFDL Cloud microphysics
 
         tem = dtp * con_p001 / con_day
         Statein%prew(:) = Statein%prew(:) * tem
@@ -4082,7 +3965,7 @@ module module_physics_driver
         enddo
 
         if (Model%do_cosp) then
-            if (Model%do_inline_mp) then       ! inline microphysics
+            if (Model%do_inline_mp) then       ! GFDL Cloud microphysics
                 Diag%pfr = Statein%prefluxr
                 Diag%pfs = Statein%prefluxs
                 Diag%pfg = Statein%prefluxg
@@ -4242,7 +4125,7 @@ module module_physics_driver
               crain = 0.0
               csnow = Diag%rainc(i)
             endif
-            if (Model%do_inline_mp) then       ! inline microphysics
+            if (Model%do_inline_mp) then       ! GFDL Cloud microphysics
             if ((Statein%prei(i)+Statein%pres(i)+Statein%preg(i)+csnow) .gt. (Statein%prew(i)+Statein%prer(i)+crain)) then
               Sfcprop%srflag(i) = 1.              ! clu: set srflag to 'snow' (i.e. 1)
             endif
