@@ -12,7 +12,7 @@ on:
 jobs:
   delete:
     if: github.repository == 'NOAA-GFDL/SHiELD_physics'
-    runs-on: [shieldphysicsciintel]
+    runs-on: [self-hosted]
     name: Delete Builds
     steps:
       - run: find /contrib/fv3/2023.2.0/SHiELD_physics/refs/pull -maxdepth 1 -mindepth 1 -mtime +30 -type d -print -exec rm -rf "{}" \;

@@ -14,7 +14,7 @@ container_env_script=/contrib/containers/load_spack_noaa-intel.sh
 
 #Parse Arguments
 branch=main
-commit=""
+commit=none
 while [[ $# -gt 0 ]]; do
   case $1 in
     -b|--branch)
@@ -42,9 +42,6 @@ echo "commit is $commit"
 testDir=${dirRoot}/${intelVersion}/SHiELD_physics/${branch}/${commit}
 logDir=${testDir}/log
 export MODULESHOME=/usr/share/lmod/lmod
-#Define External Libs path
-export EXTERNAL_LIBS=${dirRoot}/${intelVersion}/SHiELD_physics/externallibs
-mkdir -p ${EXTERNAL_LIBS}
 ## create directories
 rm -rf ${testDir}
 mkdir -p ${logDir}
@@ -64,29 +61,4 @@ git clone --recursive https://github.com/NOAA-GFDL/SHiELD_build.git
 cd ${testDir}/SHiELD_build && ./CHECKOUT_code
 
 ## Check out the PR
-cd ${testDir}/SHiELD_SRC/SHiELD_physcis && git fetch origin ${branch}:toMerge && git merge toMerge
-
-##Check if we already have FMS compiled and recompile if version doesn't match what is in SHiELD_build checkout script
-grep -m 1 "fms_release" ${testDir}/SHiELD_build/CHECKOUT_code > ${logDir}/release.txt
-source ${logDir}/release.txt
-echo ${fms_release}
-echo `cat ${EXTERNAL_LIBS}/FMSversion`
-if [[ ${fms_release} != `cat ${EXTERNAL_LIBS}/FMSversion` ]]
-  then
-    #remove libFMS if it exists
-    if [ -d $EXTERNAL_LIBS/libFMS ]
-      then
-        rm -rf $EXTERNAL_LIBS/libFMS
-    fi
-    if [ -e $EXTERNAL_LIBS/FMSversion ]
-      then
-        rm $EXTERNAL_LIBS/FMSversion
-    fi
-    echo $fms_release > $EXTERNAL_LIBS/FMSversion
-    echo $container > $EXTERNAL_LIBS/FMScontainerversion
-    echo $container_env_script >> $EXTERNAL_LIBS/FMScontainerversion
-    # Build FMS
-    cd ${testDir}/SHiELD_build/Build
-    set -o pipefail
-    singularity exec -B /contrib ${container} ${container_env_script} "./BUILDlibfms intel"
- fi
+cd ${testDir}/SHiELD_SRC/SHiELD_physics && git fetch origin ${branch}:toMerge && git merge toMerge
