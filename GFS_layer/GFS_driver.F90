@@ -156,6 +156,8 @@ module GFS_driver
                      Init_parm%tracer_names,                       &
                      Init_parm%input_nml_file, Init_parm%tile_num, &
                      Init_parm%blksz, Init_parm%hydro,             &
+                     Init_parm%ak, Init_parm%bk,                   &
+                     Init_parm%restart, Init_parm%fcst_mpi_comm,   &
                      Init_parm%do_inline_mp, Init_parm%do_cosp)
 
 
@@ -530,6 +532,33 @@ module GFS_driver
            if (qnew >= 1.0e-10) then
               Stateout%gq0(i,k,1) = qnew
               Stateout%gt0(i,k)   = Statein%tgrs(i,k) + tpert + Statemid%dtdtr(i,k)
+           endif
+           if (Model%pert_mp) then
+              if (Model%ntcw>0) then
+                 qpert = (Stateout%gq0(i,k,Model%ntcw) - Statein%qgrs(i,k,Model%ntcw)) * Coupling%sppt_wts(i,k)
+                 qnew = Statein%qgrs(i,k,Model%ntcw)+qpert
+                 Stateout%gq0(i,k,Model%ntcw) = max(0.0,qnew)
+              endif
+              if (Model%ntrw>0) then
+                 qpert = (Stateout%gq0(i,k,Model%ntrw) - Statein%qgrs(i,k,Model%ntrw)) * Coupling%sppt_wts(i,k)
+                 qnew = Statein%qgrs(i,k,Model%ntrw)+qpert
+                 Stateout%gq0(i,k,Model%ntrw) = max(0.0,qnew)
+              endif
+              if (Model%ntsw>0) then
+                 qpert = (Stateout%gq0(i,k,Model%ntsw) - Statein%qgrs(i,k,Model%ntsw)) * Coupling%sppt_wts(i,k)
+                 qnew = Statein%qgrs(i,k,Model%ntsw)+qpert
+                 Stateout%gq0(i,k,Model%ntsw) = max(0.0,qnew)
+              endif
+              if (Model%ntiw>0) then
+                 qpert = (Stateout%gq0(i,k,Model%ntiw) - Statein%qgrs(i,k,Model%ntiw)) * Coupling%sppt_wts(i,k)
+                 qnew = Statein%qgrs(i,k,Model%ntiw)+qpert
+                 Stateout%gq0(i,k,Model%ntiw) = max(0.0,qnew)
+              endif
+              if (Model%ntgl>0) then
+                 qpert = (Stateout%gq0(i,k,Model%ntgl) - Statein%qgrs(i,k,Model%ntgl)) * Coupling%sppt_wts(i,k)
+                 qnew = Statein%qgrs(i,k,Model%ntgl)+qpert
+                 Stateout%gq0(i,k,Model%ntgl) = max(0.0,qnew)
+              endif
            endif
          enddo
        enddo
