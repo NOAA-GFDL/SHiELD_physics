@@ -160,7 +160,12 @@
      &                     ri(im,km-1),  tkmnz(im,km-1),
      &                     rdzt(im,km-1),rlmnz(im,km),
      &                     al(im,km-1),  ad(im,km),   au(im,km-1),
-     &                     f1(im,km),    f2(im,km*(ntrac-1))
+     &                     f1(im,km),    f2(im,km*(ntrac-1)),
+     &                     al_new(im,km-1),  ad_new (im,km),
+     &                     au_new(im,km-1),
+     &                     f1_new(im,km),    f2_new(im,km*(ntrac-1))
+!
+!
 !
       real(kind=kind_phys) elm(im,km),   ele(im,km),
      &                     ckz(im,km),   chz(im,km),  frik(im),
@@ -1604,6 +1609,26 @@ c
       endif
 
 
+! flip the matrix upside down
+! since k=1 is surface
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      do k=1,km-1
+        al_new(:, k) = au(:, km-1-k+1)
+        au_new(:, k) = al(:, km-1-k+1)
+      enddo
+
+      do k=1,km
+        ad_new(:, k) = ad(:, km-k+1)
+        f1_new(:, k) = f1(:, km-k+1)
+      enddo
+
+      do n = 1, ntrac-1
+         is = (n-1)*km
+         do k =1,km
+          f2_new(:, is+k) = f2(:, is+km-k+1)
+         enddo
+      end do
       
 c
 c     solve tridiagonal problem for heat and moisture
@@ -1612,12 +1637,13 @@ c     Original:
 c     call tridin(im,km,ntrac1,al,ad,au,f1,f2,au,f1,f2)
 
 c     Modified: downward sweep only
-      call tridin_down(im,km,ntrac1,al,ad,au,f1,f2,au,f1,f2)
+      call tridin_down(im,km,ntrac1,al_new,ad_new,
+     &           au_new,f1_new,f2_new,au_new,f1_new,f2_new)
       
 c     Save upper diag and RHS for upward sweep 
-      au_out(:,:)=au(:,:) 
-      f1_out(:,:)=f1(:,:)
-      f2_out(:,:)=f2(:,:)
+      au_out(:,:)=au_new(:,:)
+      f1_out(:,:)=f1_new(:,:)
+      f2_out(:,:)=f2_new(:,:)
       diss_out(:,:)=diss(:,:)
 
       ! to be rearranged in the upward sweep
@@ -1773,9 +1799,10 @@ c
       ! Input arrays from part 1
       real(kind=kind_phys) au_in(im,km-1), diss_in(im,km-1)
       real(kind=kind_phys) f1_in(im,km), f2_in(im,km*(ntrac-1))
+      real(kind=kind_phys) f1_in_n(im,km), f2_in_n(im,km*(ntrac-1))
 !
       ! Local variables
-      integer i, k, kk, is, ntrac1
+      integer i, n, k, kk, is, ntrac1
       real(kind=kind_phys) rdt, ttend, qtend
       real(kind=kind_phys) cont, conq
 !
@@ -1788,6 +1815,19 @@ c
 
       ! Perform upward sweep for heat, moisture and tracers
       call tridin_up(im,km,ntrac1,au_in,f1_in,f2_in)
+
+      do k=1,km
+       f1_in_n(:,k)=f1_in(:,km-k+1)
+      enddo
+      f1_in=f1_in_n
+
+      do n = 1, ntrac-1
+         is = (n-1)*km
+         do k =1,km
+          f2_in_n(:, is+k) = f2_in(:, is+km-k+1)
+         enddo
+      end do
+      f2_in=f2_in_n
 
       ! Apply tendencies for heat and moisture
       do k = 1,km
