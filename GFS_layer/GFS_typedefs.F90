@@ -1032,6 +1032,7 @@ module GFS_typedefs
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     real(kind=kind_phys), allocatable :: stored_au_out(:,:), stored_f1_out(:,:), stored_f2_out(:,:), stored_diss_out(:,:)
+    real(kind=kind_phys), allocatable :: dkt(:,:)
     integer, allocatable :: stored_kpbl(:)
     real(kind=kind_phys), allocatable :: stored_flux_cg(:,:), stored_flux_en(:,:), stored_elm_pbl(:,:)
     real(kind=kind_phys), allocatable :: stored_dudt(:,:), stored_dvdt(:,:), stored_dqdt(:,:,:)
@@ -4041,6 +4042,7 @@ end subroutine overrides_create
      allocate (Statemid%stored_dvsfc1(IM))
      allocate (Statemid%stored_dtsfc1(IM))
      allocate (Statemid%stored_dqsfc1(IM))
+     allocate (Statemid%dkt(IM,model%levs))
 
      ! Surface fluxes and state
      allocate (Statemid%stored_hflx(IM), Statemid%stored_evap(IM), Statemid%stored_stress(IM), Statemid%stored_wind(IM))
@@ -4058,6 +4060,7 @@ end subroutine overrides_create
      Statemid%stored_snowc = clear_val
      Statemid%stored_drain = clear_val
      Statemid%stored_runof = clear_val
+     Statemid%dkt = clear_val
      !Statemid%stored_ep1d = clear_val
      !Statemid%stored_gflx = clear_val
      Statemid%stored_kpbl = 1
