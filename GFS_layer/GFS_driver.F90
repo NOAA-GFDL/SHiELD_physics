@@ -156,8 +156,7 @@ module GFS_driver
                      Init_parm%tracer_names,                       &
                      Init_parm%input_nml_file, Init_parm%tile_num, &
                      Init_parm%blksz, Init_parm%hydro,             &
-                     Init_parm%ak, Init_parm%bk,                   &
-                     Init_parm%restart, Init_parm%fcst_mpi_comm,   &
+                     Init_parm%ak, Init_parm%bk, Init_parm%restart,&
                      Init_parm%do_inline_mp, Init_parm%do_cosp)
 
 

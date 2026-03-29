@@ -1,6 +1,5 @@
 module GFS_typedefs
 
-       use mpi_f08
        use machine,                  only: kind_phys, kind_evod
        use module_radsw_parameters,  only: topfsw_type, sfcfsw_type
        use module_radlw_parameters,  only: topflw_type, sfcflw_type
@@ -54,7 +53,6 @@ module GFS_typedefs
   type GFS_init_type
     integer :: me                                !< my MPI-rank
     integer :: master                            !< master MPI-rank
-    type(MPI_Comm) :: fcst_mpi_comm              !< forecast tasks mpi communicator
     integer :: tile_num                          !< tile number for this MPI rank
     integer :: isc                               !< starting i-index for this MPI-domain
     integer :: jsc                               !< starting j-index for this MPI-domain
@@ -494,7 +492,6 @@ module GFS_typedefs
 
     integer              :: me              !< MPI rank designator
     integer              :: master          !< MPI rank of master atmosphere processor
-    type(MPI_Comm)       :: communicator    !< MPI communicator
     integer              :: nlunit          !< unit for namelist
     character(len=64)    :: fn_nml          !< namelist filename for surface data cycling
     character(len=:), pointer, dimension(:) :: input_nml_file => null() !< character string containing full namelist
@@ -885,14 +882,13 @@ module GFS_typedefs
 
 
     !--- stochastic physics control parameters
-    logical              :: do_sppt
-    logical              :: pert_clds
-    logical              :: pert_radtend
-    logical              :: pert_mp
-    logical              :: use_zmtnblck
-    logical              :: do_shum
-    logical              :: do_skeb
-    integer              :: skeb_npass
+    logical              :: do_sppt         !< logical switch for SPPT (Stochastic Perturbed Physics Tendencies)
+    logical              :: pert_radtend    !< logical switch to use clear-sky or all-sky heating rate for SPPT
+    logical              :: pert_mp         !< logical switch for stochastic microphysics perturbations
+    logical              :: use_zmtnblck    !< logical switch mountain blocking for sppt
+    logical              :: do_shum         !< logical switch for SHUM (perturbed boundary layer humidity)
+    logical              :: do_skeb         !< logical switch for SKEB (Stochastic Kinetic Energy Backscatter)
+    integer              :: skeb_npass      !< Filter dissipation "skeb_npass" times for SKEB
 
     real(kind=kind_phys) :: pertvegf(5)        ! mg, sfc-perts (for the version of sfc_drv used in SHiELD)
   
@@ -910,13 +906,13 @@ module GFS_typedefs
     character(len=3)    , pointer :: lndp_var_list(:)
     real(kind=kind_phys), pointer :: lndp_prt_list(:)
     logical              :: do_spp            ! Overall flag to turn on SPP or not
-    integer              :: spp_pbl
-    integer              :: spp_sfc
-    integer              :: spp_mp
-    integer              :: spp_rad
-    integer              :: spp_gwd
-    integer              :: spp_cu_deep
-    integer              :: n_var_spp
+    integer              :: spp_pbl           ! control for pbl spp perturbations
+    integer              :: spp_sfc           ! control for surface layer spp perturbations
+    integer              :: spp_mp            ! control for microphysics spp perturbations
+    integer              :: spp_rad           ! control for radiation spp perturbations
+    integer              :: spp_gwd           ! control for gravity wave drag spp perturbations
+    integer              :: spp_cu_deep       ! control for deep convection spp perturbations
+    integer              :: n_var_spp         ! number of perturbed spp_schemes
     character(len=10)    , pointer :: spp_var_list(:)
     real(kind=kind_phys), pointer :: spp_prt_list(:)
     real(kind=kind_phys), pointer :: spp_stddev_cutoff(:)
@@ -2355,7 +2351,7 @@ end subroutine overrides_create
                                  dt_phys, idat, jdat, iau_offset,   &
                                  tracer_names, input_nml_file,      &
                                  tile_num, blksz, hydro,            &
-                                 ak, bk, restart, communicator,     &
+                                 ak, bk, restart,                   &
                                  do_inline_mp, do_cosp)
 
     !--- modules
@@ -2396,7 +2392,6 @@ end subroutine overrides_create
     real(kind=kind_phys), dimension(:), intent(in) :: ak
     real(kind=kind_phys), dimension(:), intent(in) :: bk
     logical,                intent(in) :: restart
-    type(MPI_Comm),         intent(in) :: communicator
     logical,                intent(in) :: hydro
     logical,                intent(in) :: do_inline_mp
     logical,                intent(in) :: do_cosp
@@ -2748,7 +2743,6 @@ end subroutine overrides_create
 !--- stochastic physics control parameters
     logical :: do_sppt      = .false.
     logical :: pert_mp      = .false.
-    logical :: pert_clds    = .false.
     logical :: pert_radtend = .true.
     logical :: use_zmtnblck = .false.  
     logical :: do_shum      = .false.
@@ -2860,7 +2854,7 @@ end subroutine overrides_create
                                do_sppt, do_shum, do_skeb,                                   &
                                do_spp, n_var_spp,                                           &
                                lndp_type,  n_var_lndp, lndp_each_step,                      &
-                               pert_mp,pert_clds,pert_radtend,                              &
+                               pert_mp,pert_radtend,                                        &
                           !--- IAU
                                iau_delthrs,iaufhrs,iau_inc_files,iau_forcing_var,           &
                                iau_filter_increments,iau_drymassfixer,                      &
@@ -2910,7 +2904,6 @@ end subroutine overrides_create
     !--- MPI parameters
     Model%me               = me
     Model%master           = master
-    Model%communicator     = communicator
     Model%nlunit           = nlunit
     Model%fn_nml           = fn_nml
     Model%fhzero           = fhzero
@@ -3212,7 +3205,6 @@ end subroutine overrides_create
     ! to the stochastic physics namelist parametersto ensure consistency.
     Model%do_sppt          = do_sppt
     Model%pert_mp          = pert_mp
-    Model%pert_clds        = pert_clds
     Model%pert_radtend     = pert_radtend
     Model%use_zmtnblck     = use_zmtnblck
     Model%do_shum          = do_shum
@@ -3399,8 +3391,8 @@ end subroutine overrides_create
     Model%phour            = rinc(4)/con_hr
     Model%fhour            = (rinc(4) + Model%dtp)/con_hr
     Model%zhour            = mod(Model%phour,Model%fhzero)
-    Model%kdt              = 0
-    Model%kdt_prev         = 0
+    Model%kdt              = nint(Model%fhour*con_hr/Model%dtp)
+    Model%kdt_prev         = Model%kdt-1
     Model%first_time_step  = .true.
     Model%restart          = restart
     Model%jdat(1:8)        = jdat(1:8)
@@ -3690,7 +3682,6 @@ end subroutine overrides_create
       print *, 'basic control parameters'
       print *, ' me                : ', Model%me
       print *, ' master            : ', Model%master
-      print *, ' communicator      : ', Model%communicator%mpi_val
       print *, ' nlunit            : ', Model%nlunit
       print *, ' fn_nml            : ', trim(Model%fn_nml)
       print *, ' fhzero            : ', Model%fhzero
@@ -3968,7 +3959,6 @@ end subroutine overrides_create
       print *, 'stochastic physics'
       print *, ' do_sppt           : ', Model%do_sppt
       print *, ' pert_mp         : ', Model%pert_mp
-      print *, ' pert_clds       : ', Model%pert_clds
       print *, ' pert_radtend    : ', Model%pert_radtend
       print *, ' do_shum           : ', Model%do_shum
       print *, ' do_skeb           : ', Model%do_skeb

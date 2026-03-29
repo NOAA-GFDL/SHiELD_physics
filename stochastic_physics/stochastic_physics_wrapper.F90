@@ -57,7 +57,7 @@ module stochastic_physics_wrapper_mod
 !-------------------------------
 !  CCPP step
 !-------------------------------
-  subroutine stochastic_physics_wrapper (IPD_Control, IPD_Data, Atm_block, ierr)
+  subroutine stochastic_physics_wrapper (IPD_Control, IPD_Data, Atm_block, nthreads, ierr)
 
 #ifdef _OPENMP
     use omp_lib
@@ -78,16 +78,12 @@ module stochastic_physics_wrapper_mod
     type(IPD_control_type),   intent(inout) :: IPD_Control
     type(IPD_data_type),      intent(inout) :: IPD_Data(:)
     type(block_control_type), intent(inout) :: Atm_block
+    integer,                  intent(in)    :: nthreads
     integer,                  intent(out)   :: ierr
 
-    integer :: nthreads, nb, levs, maxblk, nblks, n, v, lsm_ruc
+    integer :: nb, levs, maxblk, nblks, n, v, lsm_ruc
     logical :: param_update_flag
 
-#ifdef _OPENMP
-    nthreads = omp_get_max_threads()
-#else
-    nthreads = 1
-#endif
     ierr = 0
 
     levs   = IPD_Control%levs
@@ -114,7 +110,7 @@ module stochastic_physics_wrapper_mod
             IPD_Control%do_skeb, IPD_Control%lndp_type, IPD_Control%n_var_lndp, IPD_Control%use_zmtnblck, IPD_Control%skeb_npass,     &
             IPD_Control%lndp_var_list, IPD_Control%lndp_prt_list,    &
             IPD_Control%n_var_spp, IPD_Control%spp_var_list, IPD_Control%spp_prt_list, IPD_Control%spp_stddev_cutoff, IPD_Control%do_spp,                            &
-            IPD_Control%ak, IPD_Control%bk, nthreads, IPD_Control%master, IPD_Control%communicator, ierr)
+            IPD_Control%ak, IPD_Control%bk, nthreads, IPD_Control%master, iret=ierr)
             if (ierr/=0)  then
                     write(6,*) 'call to init_stochastic_physics failed'
                     return
@@ -393,7 +389,7 @@ module stochastic_physics_wrapper_mod
             Atm_block%isc,Atm_block%iec,Atm_block%jsc,Atm_block%jec,Atm(mygrid)%npx,Atm(mygrid)%npy, levs,                        &
             IPD_Control%nthresh,IPD_Control%tile_num,IPD_Control%nca,IPD_Control%ncells,IPD_Control%nlives,                       &
             IPD_Control%nfracseed, IPD_Control%nseed,IPD_Control%iseed_ca,IPD_Control%ca_advect,                                  &
-            IPD_Control%nspinup,IPD_Control%ca_trigger,Atm_block%blksz(1),IPD_Control%master,IPD_Control%communicator)
+            IPD_Control%nspinup,IPD_Control%ca_trigger,Atm_block%blksz(1),IPD_Control%master)
          ! Copy contiguous data back as needed
          do nb=1,nblks
              IPD_Data(nb)%Coupling%ca_deep(:) = ca_deep_cpl (nb,1:IPD_Control%blksz(nb))
@@ -406,7 +402,7 @@ module stochastic_physics_wrapper_mod
             Atm(mygrid)%domain_for_coupler, nblks,Atm_block%isc,Atm_block%iec,Atm_block%jsc,Atm_block%jec,Atm(mygrid)%npx,Atm(mygrid)%npy,levs, &
             IPD_Control%nca_g,IPD_Control%ncells_g,IPD_Control%nlives_g,IPD_Control%nfracseed,IPD_Control%nseed_g,                              &
             IPD_Control%iseed_ca,IPD_control%tile_num,IPD_Control%ca_smooth,IPD_Control%nspinup,Atm_block%blksz(1),                             &
-            IPD_Control%nsmooth,IPD_Control%ca_amplitude,IPD_Control%master,IPD_Control%communicator)
+            IPD_Control%nsmooth,IPD_Control%ca_amplitude,IPD_Control%master)
           ! Copy contiguous data back
           do nb=1,nblks
              IPD_Data(nb)%Coupling%ca1(:) = ca1_cpl(nb,1:IPD_Control%blksz(nb))
