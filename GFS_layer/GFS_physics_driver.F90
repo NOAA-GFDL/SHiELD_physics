@@ -974,7 +974,11 @@ module module_physics_driver
 !  --- ...  compute the maximum downward latent heat flux
 
          do i=1,im
-            maxevap(i) = statein%qgrs(i,1,1)/(dtp/(statein%phii(i,2)-statein%phii(i,1))*con_g)
+            if (Model%cap_evap) then
+               maxevap(i) = statein%qgrs(i,1,1)/(dtp/(statein%phii(i,2)-statein%phii(i,1))*con_g)
+            else
+               maxevap(i) = huge(dtp/dtp)
+            endif
          enddo
 !
 !  --- ...  surface exchange coefficients
@@ -4253,7 +4257,11 @@ module module_physics_driver
 
       if (Model%do_sppt) then
         !--- radiation heating rate
-        Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdtc(1:im,:)*dtf
+        if (Model%pert_radtend) then
+          Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdtc(1:im,:)*dtf
+        else
+          Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdt(1:im,:)*dtf
+        endif
         do i = 1, im
           if (t850(i) > 273.16) then
              !--- change in change in rain precip

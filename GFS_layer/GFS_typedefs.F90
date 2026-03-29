@@ -88,6 +88,7 @@ module GFS_typedefs
     character(len=65) :: fn_nml                   !< namelist filename
     character(len=:), pointer, dimension(:) :: input_nml_file => null() !< character string containing full namelist
                                                                         !< for use with internal file reads
+    logical :: restart                           !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
     logical :: hydro                             !< whether the dynamical core is hydrostatic
     logical :: do_inline_mp                      !< flag for GFDL cloud microphysics
     logical :: do_cosp                           !< flag for COSP
@@ -446,16 +447,15 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: slmsk_cpl  (:) => null()   !< Land/Sea/Ice mask  (slmsk from GFS_sfcprop_type)
 
     !--- cellular automata
-    real (kind=kind_phys), pointer :: tconvtend(:,:) => null()
-    real (kind=kind_phys), pointer :: qconvtend(:,:) => null()
-    real (kind=kind_phys), pointer :: uconvtend(:,:) => null()
-    real (kind=kind_phys), pointer :: vconvtend(:,:) => null()
-    real (kind=kind_phys), pointer :: ca_out   (:)   => null() !
+    real (kind=kind_phys), pointer :: ca1      (:)   => null() !
+    real (kind=kind_phys), pointer :: ca2      (:)   => null() !
+    real (kind=kind_phys), pointer :: ca3      (:)   => null() !
     real (kind=kind_phys), pointer :: ca_deep  (:)   => null() !
     real (kind=kind_phys), pointer :: ca_turb  (:)   => null() !
     real (kind=kind_phys), pointer :: ca_shal  (:)   => null() !
     real (kind=kind_phys), pointer :: ca_rad   (:)   => null() !
     real (kind=kind_phys), pointer :: ca_micro (:)   => null() !
+    real (kind=kind_phys), pointer :: condition(:)   => null() !
     real (kind=kind_phys), pointer :: cape     (:)   => null() !
 
     !--- stochastic physics
@@ -464,7 +464,12 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: skebu_wts (:,:) => null()  !
     real (kind=kind_phys), pointer :: skebv_wts (:,:) => null()  !
     real (kind=kind_phys), pointer :: sfc_wts   (:,:) => null()  ! mg, sfc-perts
-    integer              :: nsfcpert=6                             !< number of sfc perturbations
+    real (kind=kind_phys), pointer :: spp_wts_pbl   (:,:) => null()  ! spp-pbl-perts
+    real (kind=kind_phys), pointer :: spp_wts_sfc   (:,:) => null()  ! spp-sfc-perts
+    real (kind=kind_phys), pointer :: spp_wts_mp    (:,:) => null()  ! spp-mp-perts 
+    real (kind=kind_phys), pointer :: spp_wts_gwd   (:,:) => null()  ! spp-gwd-perts
+    real (kind=kind_phys), pointer :: spp_wts_rad   (:,:) => null()  ! spp-rad-perts
+    real (kind=kind_phys), pointer :: spp_wts_cu_deep (:,:) => null()  ! spp-cu-deep-perts
 
     !--- instantaneous quantities for GoCart and will be accumulated for 3D diagnostics
     real (kind=kind_phys), pointer :: dqdti   (:,:)   => null()  !< instantaneous total moisture tendency (kg/kg/s)
@@ -510,6 +515,9 @@ module GFS_typedefs
     integer              :: nx              !< number of points in the i-dir for this MPI-domain
     integer              :: ny              !< number of points in the j-dir for this MPI-domain
     integer              :: levs            !< number of vertical levels
+    !--- ak/bk for pressure level calculations
+    real(kind=kind_phys), pointer :: ak(:)  !< from surface (k=1) to TOA (k=levs)
+    real(kind=kind_phys), pointer :: bk(:)  !< from surface (k=1) to TOA (k=levs)
     integer              :: cnx             !< number of points in the i-dir for this cubed-sphere face
     integer              :: cny             !< number of points in the j-dir for this cubed-sphere face
     integer              :: lonr            !< number of global points in x-dir (i) along the equator
@@ -559,7 +567,7 @@ module GFS_typedefs
                                             !< radiation code treating ocean grid
                                             !< cells with temperature below
                                             !< freezing as sea ice
-    
+
     integer              :: iems            !< use fixed value of 1.0
     integer              :: iaer            !< default aerosol effect in sw only
     integer              :: iovr_sw         !< sw: max-random overlap clouds
@@ -630,6 +638,8 @@ module GFS_typedefs
                                             !< ivegsrc = 2   => UMD  (13 category)
     integer              :: isot            !< isot = 0   => Zobler soil type  ( 9 category)
                                             !< isot = 1   => STATSGO soil type (19 category)
+    real(kind=kind_phys), pointer :: pores(:) => null() !< max soil moisture for a given soil type for land surface model
+    real(kind=kind_phys), pointer :: resid(:) => null() !< min soil moisture for a given soil type for land surface model
     logical              :: mom4ice         !< flag controls mom4 sea ice
     logical              :: use_ufo         !< flag for gcycle surface option
     real(kind=kind_phys) :: czil_sfc        !< Zilintkinivich constant
@@ -778,6 +788,7 @@ module GFS_typedefs
 
     real(kind=kind_phys) :: rbcr            !< Critical Richardson Number in the PBL scheme
     logical              :: mix_precip      !< Whether to apply PBL mixing to precipitating hydrometeors
+    logical              :: cap_evap        !< Whether to apply limiter to evaperation from latent heat flux
 
     !--- Rayleigh friction
     real(kind=kind_phys) :: prslrd0         !< pressure level from which Rayleigh Damping is applied
@@ -848,38 +859,70 @@ module GFS_typedefs
     integer              :: nca             !< number of independent cellular automata
     integer              :: nlives          !< cellular automata lifetime
     integer              :: ncells          !< cellular automata finer grid
+    integer              :: nca_g           !< number of independent cellular automata
+    integer              :: nlives_g        !< cellular automata lifetime
+    integer              :: ncells_g        !< cellular automata finer grid
     real(kind=kind_phys) :: nfracseed       !< cellular automata seed probability
     integer              :: nseed           !< cellular automata seed frequency
+    integer              :: nseed_g         !< cellular automata seed frequency
     logical              :: do_ca           !< cellular automata main switch
+    logical              :: ca_advect       !< Advection of cellular automata 
     logical              :: ca_sgs          !< switch for sgs ca
     logical              :: ca_global       !< switch for global ca
     logical              :: ca_smooth       !< switch for gaussian spatial filter
-    logical              :: isppt_deep      !< switch for combination with isppt_deep. OBS! Switches off SPPT on other tendencies!
     integer              :: iseed_ca        !< seed for random number generation in ca scheme
     integer              :: nspinup         !< number of iterations to spin up the ca
     real(kind=kind_phys) :: nthresh         !< threshold used for perturbed vertical velocity
+    real                 :: ca_amplitude    !< amplitude of ca trigger perturbation
+    integer              :: nsmooth         !< number of passes through smoother
+    logical              :: ca_closure      !< logical switch for ca on closure
+    logical              :: ca_entr         !< logical switch for ca on entrainment
+    logical              :: ca_trigger      !< logical switch for ca on trigger
+    real (kind=kind_phys), allocatable :: vfact_ca(:) !< vertical tapering for ca_global
 
 
     !--- stochastic physics control parameters
-    logical              :: do_sppt
-    logical              :: use_zmtnblck
-    logical              :: do_shum
-    logical              :: do_skeb
-    integer              :: skeb_npass
-    logical              :: do_sfcperts
-    integer              :: nsfcpert=6
-    real(kind=kind_phys) :: pertz0(5)          ! mg, sfc-perts
-    real(kind=kind_phys) :: pertzt(5)          ! mg, sfc-perts
-    real(kind=kind_phys) :: pertshc(5)         ! mg, sfc-perts
-    real(kind=kind_phys) :: pertlai(5)         ! mg, sfc-perts
-    real(kind=kind_phys) :: pertalb(5)         ! mg, sfc-perts
-    real(kind=kind_phys) :: pertvegf(5)        ! mg, sfc-perts
+    logical              :: do_sppt         !< logical switch for SPPT (Stochastic Perturbed Physics Tendencies)
+    logical              :: pert_radtend    !< logical switch to use clear-sky or all-sky heating rate for SPPT
+    logical              :: pert_mp         !< logical switch for stochastic microphysics perturbations
+    logical              :: use_zmtnblck    !< logical switch mountain blocking for sppt
+    logical              :: do_shum         !< logical switch for SHUM (perturbed boundary layer humidity)
+    logical              :: do_skeb         !< logical switch for SKEB (Stochastic Kinetic Energy Backscatter)
+    integer              :: skeb_npass      !< Filter dissipation "skeb_npass" times for SKEB
+
+    real(kind=kind_phys) :: pertvegf(5)        ! mg, sfc-perts (for the version of sfc_drv used in SHiELD)
+  
+    integer              :: lndp_type         ! integer indicating land perturbation scheme type:
+                                              ! 0 - none
+                                              ! 1 - scheme from Gehne et al, MWR, 2019.  (Noah only, not maintained?)
+                                              ! 2 - scheme from Draper, JHM, 2021.
+    real(kind=kind_phys) :: sppt_amp          ! pjp cloud perturbations
+    integer              :: n_var_lndp
+    logical              :: lndp_each_step    ! flag to indicate that land perturbations are applied at every time step,
+                                              ! otherwise they are applied only
+                                              ! after gcycle is run
+
+    ! next two are duplicated here to support lndp_type=1. If delete that scheme, could remove from GFS defs?
+    character(len=3)    , pointer :: lndp_var_list(:)
+    real(kind=kind_phys), pointer :: lndp_prt_list(:)
+    logical              :: do_spp            ! Overall flag to turn on SPP or not
+    integer              :: spp_pbl           ! control for pbl spp perturbations
+    integer              :: spp_sfc           ! control for surface layer spp perturbations
+    integer              :: spp_mp            ! control for microphysics spp perturbations
+    integer              :: spp_rad           ! control for radiation spp perturbations
+    integer              :: spp_gwd           ! control for gravity wave drag spp perturbations
+    integer              :: spp_cu_deep       ! control for deep convection spp perturbations
+    integer              :: n_var_spp         ! number of perturbed spp_schemes
+    character(len=10)    , pointer :: spp_var_list(:)
+    real(kind=kind_phys), pointer :: spp_prt_list(:)
+    real(kind=kind_phys), pointer :: spp_stddev_cutoff(:)
+
     !--- tracer handling
     character(len=32), pointer :: tracer_names(:) !< array of initialized tracers from dynamic core
     integer              :: ntrac           !< number of tracers
     integer              :: ntoz            !< tracer index for ozone mixing ratio
     integer              :: ntcw            !< tracer index for cloud condensate (or liquid water)
-    integer              :: ntiw            !< tracer index for  ice water
+    integer              :: ntiw            !< tracer index for ice water
     integer              :: ntrw            !< tracer index for rain water
     integer              :: ntsw            !< tracer index for snow water
     integer              :: ntgl            !< tracer index for graupel
@@ -915,7 +958,7 @@ module GFS_typedefs
     !--- debug flag
     logical              :: debug
     logical              :: pre_rad         !< flag for testing purpose
-    logical              :: do_ocean        !< flag for slab ocean model 
+    logical              :: do_ocean        !< flag for slab ocean model
     logical              :: use_ifs_ini_sst !< only work when "ecmwf_ic = .T."
     logical              :: use_ext_sst     !< flag for using external SST forcing (or any external SST dataset, passed from the dynamics or nudging)
 
@@ -937,6 +980,8 @@ module GFS_typedefs
     real(kind=kind_phys) :: zhour           !< previous hour diagnostic buckets emptied
     integer              :: kdt             !< current forecast iteration
     integer              :: kdt_prev        !< last step
+    logical              :: first_time_step !< flag signaling first time step for time integration routine
+    logical              :: restart         !< flag whether this is a coldstart (.false.) or a warmstart/restart (.true.)
     integer              :: jdat(1:8)       !< current forecast date and time
                                             !< (yr, mon, day, t-zone, hr, min, sec, mil-sec)
     integer              :: imn             !< initial forecast month
@@ -1023,7 +1068,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: dsnow_cpl (:)     => null()  !< change in show_cpl (coupling_type)
 
     !--- phy_f*d variables needed for seamless restarts and moving data between grrad and gbphys
-    real (kind=kind_phys), pointer :: phy_fctd (:,:)   => null()  !< For CS convection
+    real (kind=kind_phys), pointer :: phy_fctd (:,:)   => null()  !< cloud base mass flux for CS convection
     real (kind=kind_phys), pointer :: phy_f2d  (:,:)   => null()  !< 2d arrays saved for restart
     real (kind=kind_phys), pointer :: phy_f3d  (:,:,:) => null()  !< 3d arrays saved for restart
 
@@ -2082,7 +2127,7 @@ module GFS_typedefs
        Coupling%sfcdlw_with_scaled_co2    = clear_val
     endif
 
-    if (Model%cplflx .or. Model%do_sppt) then
+    if (Model%cplflx .or. Model%do_sppt .or. Model%ca_global) then
       allocate (Coupling%rain_cpl     (IM))
       allocate (Coupling%snow_cpl     (IM))
 
@@ -2195,34 +2240,32 @@ module GFS_typedefs
 
 
    !-- cellular automata
+    allocate (Coupling%condition(IM))
     if (Model%do_ca) then
-      allocate (Coupling%tconvtend (IM,Model%levs))
-      allocate (Coupling%qconvtend (IM,Model%levs))
-      allocate (Coupling%uconvtend (IM,Model%levs))
-      allocate (Coupling%vconvtend (IM,Model%levs))
-      allocate (Coupling%cape     (IM))
-      allocate (Coupling%ca_out   (IM))
+      allocate (Coupling%ca1      (IM))
+      allocate (Coupling%ca2      (IM))
+      allocate (Coupling%ca3      (IM))
       allocate (Coupling%ca_deep  (IM))
       allocate (Coupling%ca_turb  (IM))
       allocate (Coupling%ca_shal  (IM))
       allocate (Coupling%ca_rad   (IM))
       allocate (Coupling%ca_micro (IM))
-      Coupling%ca_out    = clear_val
+      allocate (Coupling%cape     (IM))
+      Coupling%ca1       = clear_val
+      Coupling%ca2       = clear_val
+      Coupling%ca3       = clear_val
       Coupling%ca_deep   = clear_val
       Coupling%ca_turb   = clear_val
       Coupling%ca_shal   = clear_val
       Coupling%ca_rad    = clear_val
       Coupling%ca_micro  = clear_val
+      Coupling%condition = clear_val
       Coupling%cape      = clear_val
-      Coupling%tconvtend = clear_val
-      Coupling%qconvtend = clear_val
-      Coupling%uconvtend = clear_val
-      Coupling%vconvtend = clear_val
     endif
 
 
     !--- stochastic physics option
-    if (Model%do_sppt) then
+    if (Model%do_sppt .or. Model%ca_global) then
       allocate (Coupling%sppt_wts  (IM,Model%levs))
       Coupling%sppt_wts = clear_val
     endif
@@ -2242,10 +2285,26 @@ module GFS_typedefs
       Coupling%skebv_wts = clear_val
     endif
 
-!--- stochastic physics option
-    if (Model%do_sfcperts) then
-      allocate (Coupling%sfc_wts  (IM,Model%nsfcpert))
+    !--- stochastic land perturbation option
+    if (Model%lndp_type /= 0) then
+      allocate (Coupling%sfc_wts  (IM,Model%n_var_lndp))
       Coupling%sfc_wts = clear_val
+    endif
+
+    !--- stochastic spp perturbation option
+    if (Model%do_spp) then
+      allocate (Coupling%spp_wts_pbl  (IM,Model%levs))
+      Coupling%spp_wts_pbl = clear_val
+      allocate (Coupling%spp_wts_sfc  (IM,Model%levs))
+      Coupling%spp_wts_sfc = clear_val
+      allocate (Coupling%spp_wts_mp   (IM,Model%levs))
+      Coupling%spp_wts_mp = clear_val
+      allocate (Coupling%spp_wts_gwd   (IM,Model%levs))
+      Coupling%spp_wts_gwd = clear_val
+      allocate (Coupling%spp_wts_rad   (IM,Model%levs))
+      Coupling%spp_wts_rad = clear_val
+      allocate (Coupling%spp_wts_cu_deep   (IM,Model%levs))
+      Coupling%spp_wts_cu_deep = clear_val
     endif
 
     !--- needed for either GoCart or 3D diagnostics
@@ -2292,6 +2351,7 @@ end subroutine overrides_create
                                  dt_phys, idat, jdat, iau_offset,   &
                                  tracer_names, input_nml_file,      &
                                  tile_num, blksz, hydro,            &
+                                 ak, bk, restart,                   &
                                  do_inline_mp, do_cosp)
 
     !--- modules
@@ -2329,6 +2389,9 @@ end subroutine overrides_create
     character(len=32),      intent(in) :: tracer_names(:)
     character(len=:),       intent(in),  dimension(:), pointer :: input_nml_file
     integer,                intent(in) :: blksz(:)
+    real(kind=kind_phys), dimension(:), intent(in) :: ak
+    real(kind=kind_phys), dimension(:), intent(in) :: bk
+    logical,                intent(in) :: restart
     logical,                intent(in) :: hydro
     logical,                intent(in) :: do_inline_mp
     logical,                intent(in) :: do_cosp
@@ -2584,6 +2647,7 @@ end subroutine overrides_create
                                                                       !< from cloud edges for RAS
     real(kind=kind_phys) :: rbcr           = 0.25                     !< Critical Richardson Number in PBL scheme
     logical              :: mix_precip     = .true.                   !< Whether to apply PBL mixing to precipitating hydrometeors
+    logical              :: cap_evap       = .true.                   !< Whether to apply limiter to evaperation from latent heat flux
 
     !--- Rayleigh friction
     real(kind=kind_phys) :: prslrd0        = 0.0d0           !< pressure level from which Rayleigh Damping is applied
@@ -2654,36 +2718,47 @@ end subroutine overrides_create
 !---Cellular automaton options
     integer              :: nca            = 1
     integer              :: ncells         = 5
-    integer              :: nlives         = 10
+    integer              :: nlives         = 12
+
+    integer              :: nca_g          = 1
+    integer              :: ncells_g       = 1
+    integer              :: nlives_g       = 100
     real(kind=kind_phys) :: nfracseed      = 0.5
-    integer              :: nseed          = 100000
-    integer              :: iseed_ca       = 0
+    integer              :: nseed          = 1
+    integer              :: nseed_g        = 100
+    integer              :: iseed_ca       = 1 
     integer              :: nspinup        = 1
     logical              :: do_ca          = .false.
+    logical              :: ca_advect      = .false.
     logical              :: ca_sgs         = .false.
     logical              :: ca_global      = .false.
     logical              :: ca_smooth      = .false.
-    logical              :: isppt_deep     = .false.
-    real(kind=kind_phys) :: nthresh        = 0.0
+    real(kind=kind_phys) :: nthresh        = 18
+    real                 :: ca_amplitude   = 0.35
+    integer              :: nsmooth        = 100
+    logical              :: ca_closure     = .false.
+    logical              :: ca_entr        = .false.
+    logical              :: ca_trigger     = .false.
 
-
-
-    !--- stochastic physics control parameters
+!--- stochastic physics control parameters
     logical :: do_sppt      = .false.
-    logical :: use_zmtnblck = .false.  ! if true, do not apply perturbations below the
-                                       ! dividing streamline diagnosed by
-                                       ! the gravity wave drag, mountain blocking scheme
+    logical :: pert_mp      = .false.
+    logical :: pert_radtend = .true.
+    logical :: use_zmtnblck = .false.  
     logical :: do_shum      = .false.
     logical :: do_skeb      = .false.
-    integer :: skeb_npass = 11
-    logical :: do_sfcperts = .false.   ! mg, sfc-perts
-    integer :: nsfcpert    =  6        ! mg, sfc-perts
-    real(kind=kind_phys) :: pertz0   = -999.
-    real(kind=kind_phys) :: pertzt   = -999.
-    real(kind=kind_phys) :: pertshc  = -999.
-    real(kind=kind_phys) :: pertlai  = -999.
-    real(kind=kind_phys) :: pertalb  = -999.
-    real(kind=kind_phys) :: pertvegf = -999.
+    integer :: skeb_npass   = 11
+    integer :: lndp_type      = 0
+    integer :: n_var_lndp     = 0
+    logical :: lndp_each_step = .false.
+    integer :: n_var_spp    =  0
+    integer :: spp_pbl      =  0
+    integer :: spp_sfc      =  0
+    integer :: spp_mp       =  0
+    integer :: spp_rad      =  0
+    integer :: spp_gwd      =  0
+    integer :: spp_cu_deep  =  0
+    logical :: do_spp       = .false.
 
     !--- IAU options
     real(kind=kind_phys)  :: iau_delthrs      = 0           !< iau time interval (to scale increments)
@@ -2755,7 +2830,7 @@ end subroutine overrides_create
                                dlqf,rbcr,mix_precip,orogwd,myj_pbl,ysupbl,satmedmf,         &
                                cap_k0_land,do_dk_hb19,use_lup_only,use_l1_sfc,              &
                                use_tke_pbl,use_shear_pbl,use_tke_conv,use_shear_conv,       &
-                               limit_shal_conv,cloud_gfdl,gwd_p_crit,                       &
+                               limit_shal_conv,cloud_gfdl,gwd_p_crit,cap_evap,              &
                           !--- Rayleigh friction
                                prslrd0, ral_ts,                                             &
                           !--- mass flux deep convection
@@ -2771,10 +2846,15 @@ end subroutine overrides_create
                                frac_grid, min_lakeice, min_seaice, min_lake_height,         &
                                ignore_lake,                                                 &
                           !--- cellular automata
-                               nca, ncells, nlives, nfracseed,nseed, nthresh, do_ca,        &
-                               ca_sgs, ca_global,iseed_ca,ca_smooth,isppt_deep,nspinup,     &
+                               nca, ncells, nlives, nca_g, ncells_g, nlives_g, nfracseed,   &
+                               nseed,  nseed_g,  nthresh, do_ca, ca_advect,                 &
+                               ca_sgs, ca_global,iseed_ca,ca_smooth,                        &
+                               nspinup,ca_amplitude,nsmooth,ca_closure,ca_entr,ca_trigger,  &
                           !--- stochastic physics
-                               do_sppt, do_shum, do_skeb, do_sfcperts,                      &
+                               do_sppt, do_shum, do_skeb,                                   &
+                               do_spp, n_var_spp,                                           &
+                               lndp_type,  n_var_lndp, lndp_each_step,                      &
+                               pert_mp,pert_radtend,                                        &
                           !--- IAU
                                iau_delthrs,iaufhrs,iau_inc_files,iau_forcing_var,           &
                                iau_filter_increments,iau_drymassfixer,                      &
@@ -2845,6 +2925,10 @@ end subroutine overrides_create
     Model%nx               = nx
     Model%ny               = ny
     Model%levs             = levs
+    allocate(Model%ak(1:size(ak)))
+    allocate(Model%bk(1:size(bk)))
+    Model%ak               = ak
+    Model%bk               = bk
     Model%cnx              = cnx
     Model%cny              = cny
     Model%lonr             = gnx
@@ -2936,6 +3020,13 @@ end subroutine overrides_create
     !--- land/surface model parameters
     Model%lsm              = lsm
     Model%lsoil            = lsoil
+
+    ! Allocate variable for min/max soil moisture for a given soil type
+    allocate (Model%pores(30))
+    allocate (Model%resid(30))
+    Model%pores    = clear_val
+    Model%resid    = clear_val
+
     Model%ivegsrc          = ivegsrc
     Model%isot             = isot
     Model%mom4ice          = mom4ice
@@ -3062,6 +3153,7 @@ end subroutine overrides_create
     Model%dlqf             = dlqf
     Model%rbcr             = rbcr
     Model%mix_precip       = mix_precip
+    Model%cap_evap         = cap_evap
 
     !--- Rayleigh friction
     Model%prslrd0          = prslrd0
@@ -3107,37 +3199,67 @@ end subroutine overrides_create
     Model%min_lake_height  = min_lake_height
     Model%rho_h2o          = rho_h2o
 
-    !--- stochastic physics options
-    ! do_sppt, do_shum, do_skeb and do_sfcperts are namelist variables in group
+!--- stochastic physics options
+    ! do_sppt, do_shum, do_skeb and lndp_type are namelist variables in group
     ! physics that are parsed here and then compared in init_stochastic_physics
     ! to the stochastic physics namelist parametersto ensure consistency.
     Model%do_sppt          = do_sppt
+    Model%pert_mp          = pert_mp
+    Model%pert_radtend     = pert_radtend
     Model%use_zmtnblck     = use_zmtnblck
     Model%do_shum          = do_shum
     Model%do_skeb          = do_skeb
-    Model%do_sfcperts      = do_sfcperts ! mg, sfc-perts
-    Model%nsfcpert         = nsfcpert    ! mg, sfc-perts
-    Model%pertz0           = pertz0
-    Model%pertzt           = pertzt
-    Model%pertshc          = pertshc
-    Model%pertlai          = pertlai
-    Model%pertalb          = pertalb
-    Model%pertvegf         = pertvegf
+    !--- stochastic surface perturbation options 
+    Model%lndp_type        = lndp_type
+    Model%n_var_lndp       = n_var_lndp
+    Model%lndp_each_step   = lndp_each_step
+    Model%do_spp           = do_spp 
+    Model%n_var_spp        = n_var_spp
+                               
+    if (Model%lndp_type/=0) then
+      allocate(Model%lndp_var_list(Model%n_var_lndp))
+      allocate(Model%lndp_prt_list(Model%n_var_lndp))
+      Model%lndp_var_list(:) = ''
+      Model%lndp_prt_list(:) = clear_val
+    end if                
+                               
+    if (Model%do_spp) then
+      allocate(Model%spp_var_list(Model%n_var_spp))
+      allocate(Model%spp_prt_list(Model%n_var_spp))
+      allocate(Model%spp_stddev_cutoff(Model%n_var_spp))
+      Model%spp_var_list(:) = ''
+      Model%spp_prt_list(:) = clear_val
+      Model%spp_stddev_cutoff(:) = clear_val
+    end if
 
     !--- cellular automata options
+    ! force namelist constsitency
+    allocate(Model%vfact_ca(levs))
+    if ( .not. ca_global ) nca_g=0
+    if ( .not. ca_sgs ) nca=0
+
     Model%nca              = nca
     Model%ncells           = ncells
     Model%nlives           = nlives
+    Model%nca_g            = nca_g
+    Model%ncells_g         = ncells_g
+    Model%nlives_g         = nlives_g
     Model%nfracseed        = nfracseed
     Model%nseed            = nseed
+    Model%nseed_g          = nseed_g
     Model%ca_global        = ca_global
     Model%do_ca            = do_ca
+    Model%ca_advect        = ca_advect
     Model%ca_sgs           = ca_sgs
     Model%iseed_ca         = iseed_ca
     Model%ca_smooth        = ca_smooth
-    Model%isppt_deep       = isppt_deep
     Model%nspinup          = nspinup
     Model%nthresh          = nthresh
+    Model%ca_amplitude     = ca_amplitude
+    Model%nsmooth          = nsmooth
+    Model%ca_closure       = ca_closure
+    Model%ca_entr          = ca_entr
+    Model%ca_trigger       = ca_trigger
 
     Model%sst_perturbation = sst_perturbation
 
@@ -3269,8 +3391,10 @@ end subroutine overrides_create
     Model%phour            = rinc(4)/con_hr
     Model%fhour            = (rinc(4) + Model%dtp)/con_hr
     Model%zhour            = mod(Model%phour,Model%fhzero)
-    Model%kdt              = 0
-    Model%kdt_prev         = 0
+    Model%kdt              = nint(Model%fhour*con_hr/Model%dtp)
+    Model%kdt_prev         = Model%kdt-1
+    Model%first_time_step  = .true.
+    Model%restart          = restart
     Model%jdat(1:8)        = jdat(1:8)
 
     !--- stored in wam_f107_kp module
@@ -3664,6 +3788,8 @@ end subroutine overrides_create
       print *, 'land/surface model parameters'
       print *, ' lsm               : ', Model%lsm
       print *, ' lsoil             : ', Model%lsoil
+      print *, ' shape(pores)      : ', shape(Model%pores)
+      print *, ' shape(resid)      : ', shape(Model%resid)
       print *, ' ivegsrc           : ', Model%ivegsrc
       print *, ' isot              : ', Model%isot
       print *, ' mom4ice           : ', Model%mom4ice
@@ -3792,6 +3918,7 @@ end subroutine overrides_create
       print *, ' dlqf              : ', Model%dlqf
       print *, ' seed0             : ', Model%seed0
       print *, ' rbcr              : ', Model%rbcr
+      print *, ' cap_evap          : ', Model%cap_evap
       print *, ' '
       print *, 'Rayleigh friction'
       print *, ' prslrd0           : ', Model%prslrd0
@@ -3831,24 +3958,39 @@ end subroutine overrides_create
       print *, ' '
       print *, 'stochastic physics'
       print *, ' do_sppt           : ', Model%do_sppt
+      print *, ' pert_mp         : ', Model%pert_mp
+      print *, ' pert_radtend    : ', Model%pert_radtend
       print *, ' do_shum           : ', Model%do_shum
       print *, ' do_skeb           : ', Model%do_skeb
-      print *, ' do_sfcperts       : ', Model%do_sfcperts
+      print *, ' lndp_type         : ', Model%lndp_type
+      print *, ' n_var_lndp        : ', Model%n_var_lndp
+      print *, ' lndp_each_step    : ', Model%lndp_each_step
+      print *, ' do_spp            : ', Model%do_spp
+      print *, ' n_var_spp         : ', Model%n_var_spp
       print *, ' '
       print *, 'cellular automata'
-      print *, ' nca               : ', Model%ncells
+      print *, ' nca               : ', Model%nca
       print *, ' ncells            : ', Model%ncells
       print *, ' nlives            : ', Model%nlives
+      print *, ' nca_g             : ', Model%nca_g
+      print *, ' ncells_g          : ', Model%ncells_g
+      print *, ' nlives_g          : ', Model%nlives_g
       print *, ' nfracseed         : ', Model%nfracseed
+      print *, ' nseed_g           : ', Model%nseed_g
       print *, ' nseed             : ', Model%nseed
       print *, ' ca_global         : ', Model%ca_global
       print *, ' ca_sgs            : ', Model%ca_sgs
       print *, ' do_ca             : ', Model%do_ca
+      print *, ' ca_advect         : ', Model%ca_advect
       print *, ' iseed_ca          : ', Model%iseed_ca
       print *, ' ca_smooth         : ', Model%ca_smooth
-      print *, ' isppt_deep        : ', Model%isppt_deep
       print *, ' nspinup           : ', Model%nspinup
       print *, ' nthresh           : ', Model%nthresh
+      print *, ' ca_amplitude      : ', Model%ca_amplitude
+      print *, ' nsmooth           : ', Model%nsmooth
+      print *, ' ca_closure        : ', Model%ca_closure
+      print *, ' ca_entr           : ', Model%ca_entr
+      print *, ' ca_trigger        : ', Model%ca_trigger
       print *, ' '
       print *, 'tracers'
       print *, ' tracer_names      : ', Model%tracer_names
@@ -3911,6 +4053,8 @@ end subroutine overrides_create
       print *, ' kdt               : ', Model%kdt
       print *, ' jdat              : ', Model%jdat
       print *, '  sst_perturbation   : ', Model%sst_perturbation
+      print *, ' first_time_step   : ', Model%first_time_step
+      print *, ' restart           : ', Model%restart
     endif
 
   end subroutine control_print
