@@ -3442,6 +3442,25 @@ end subroutine overrides_create
        endif
     endif
 
+    ! CHECK if ntke if using inline pbl
+    if (Model%ntke < 1 .and. Model%do_inline_pbl ) then
+       write(*,*) ' FATAL GFS_typedefs: inline PBL scheme enabled but TKE tracer not found in field_table.'
+       write(*,*) ' Stopping execution.'
+       stop 999
+    endif
+
+    ! Sanity check. Inline convection and gravity wave drag depend on inline pbl quantities
+    if (Model%do_inline_cnv .and. .not. Model%do_inline_pbl) then
+       write(*,*) ' FATAL GFS_typedefs: can not run do_inline_cnv without do_inline_pbl, enable do_inline_pbl or contact developper'
+       write(*,*) ' Stopping execution.'
+       stop 999
+    endif
+    if (Model%do_inline_gwd .and. .not. Model%do_inline_pbl) then
+       write(*,*) ' FATAL GFS_typedefs: can not run do_inline_gwd without do_inline_pbl, enable do_inline_pbl or contact developper'
+       write(*,*) ' Stopping execution.'
+       stop 999
+    endif
+
     ! -- setup aerosol scavenging factors
     allocate(Model%fscav(Model%ntchm))
     if (Model%ntchm > 0) then
