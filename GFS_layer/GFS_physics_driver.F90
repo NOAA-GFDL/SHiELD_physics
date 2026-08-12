@@ -1569,7 +1569,7 @@ module module_physics_driver
                        Model%l2_diag_opt, Model%use_lup_only, Model%l1l2_blend_opt, &
                        Model%use_l1_sfc, Model%use_tke_pbl, Model%use_shear_pbl,    &
                        dkt, Statemid%stored_flux_cg, Statemid%stored_flux_en, Statemid%stored_elm_pbl, & !cg as up and en as down
-                       Statemid%stored_au_out,Statemid%stored_f1_out,Statemid%stored_f2_out, Statemid%stored_diss_out) ! output of the tridiagonal matrix for heat, moisture, tracers !joseph
+                       Statemid%stored_au_out,Statemid%stored_f1_out,Statemid%stored_f2_out, Statemid%stored_q1_out, Statemid%stored_diss_out) ! output of the tridiagonal matrix for heat, moisture, tracers !joseph
 
           endif
         endif
@@ -1999,7 +1999,7 @@ module module_physics_driver
 !!!                       au_out,f1_out,f2_out, diss_out)
 
                 call satmedmfvdifq_up(ix, im, levs, nvdiff, model%ntke,                  &
-                       Statemid%stored_dtdt, Statemid%stored_dqdt, Statein%qgrs, Statein%tgrs, model%dspheat, model%dspfac,                &
+                       Statemid%stored_dtdt, Statemid%stored_dqdt, Statemid%stored_q1_out, Statein%tgrs, model%dspheat, model%dspfac,                &
                        Statemid%stored_del, dtp,                                                           &
                        Statemid%stored_dtsfc1, Statemid%stored_dqsfc1,                                                     &
                        Statemid%stored_au_out, Statemid%stored_f1_out, Statemid%stored_f2_out, Statemid%stored_diss_out)
