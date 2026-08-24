@@ -64,7 +64,7 @@
      &     use_tke_ent_det,use_shear,
      &     dkt_out, flux_up, flux_dn, elm,
 !    to be passed for the upward sweep
-     &     au_out, f1_out, f2_out, diss_out) 
+     &     au_out, f1_out, f2_out, q1_out, diss_out)
 
       use machine  , only : kind_phys
       use funcphys , only : fpvs
@@ -79,7 +79,7 @@
 !----------------------------------------------------------------------
       real(kind=kind_phys) au_out(im,km-1)
       real(kind=kind_phys) f1_out(im,km), f2_out(im,km*(ntrac-1)),
-     &                     diss_out(im,km-1) 
+     &                     diss_out(im,km-1), q1_out(im,km,ntrac)
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
       integer ix, im, km, ntrac, ntcw, ntiw, ntke, ntcw_new
@@ -1648,6 +1648,7 @@ c     Save upper diag and RHS for upward sweep
 
       ! to be rearranged in the upward sweep
       rtg_in(:,:,:)=rtg(:,:,:)
+      q1_out(:,:,:)=q1(:,:,:)
 
 
 ! Commented out, to be done in the upward sweep

@@ -1,3 +1,32 @@
+# RELEASE NOTES for FV3 202604: Summary
+FV3-202604-public --- April 2026
+Lucas Harris, GFDL lucas.harris@noaa.gov
+
+This version has been tested with:  
+FV3 Dynamical Core release FV3-202604-public from https://github.com/NOAA-GFDL/GFDL_atmos_cubed_sphere  
+FMS release 2026.01 from https://github.com/NOAA-GFDL/FMS  
+FMS Coupler release 2026.01 from https://github.com/NOAA-GFDL/FMScoupler  
+Atmos Drivers release FV3-202604-public from https://github.com/NOAA-GFDL/atmos_drivers  
+
+This release includes the following:    
+
+- Coupling support:  
+  - Refactor physics driver for implicit coupling to surface (@JosephMouallem)    
+  - Refactor vertical diffusion for atmosphere-land implicit coupling by (@JosephMouallem)
+  - Option to allow surface fluxes to be fully specified from the FMSCoupler, bypassing internal SHiELD flux calculation (@JosephMouallem)  
+  - Introduce intermediate state Statemid between the down and up drivers, and eliminate `Tbd` (@JosephMouallem)  
+  - Pass adjusted surface radiative fluxes to coupler (@gaokun227)
+  - Fixes for radiative flux variables (@Biao-Zhao) 
+  - Updates for handling inconsistent SHiELD and MOM6 land-sea masks (@gaokun227)  
+- New Diagnostics:  
+  - 3D heating rates for radiation multi-calls (@spencerkclark)
+  - Add zenith-angle-adjusted TOA shortwave flux diagnostics (@spencerkclark)
+  - Updates for reading IFS (ECMWF) SST analyses (@linjiongzhou) 
+  - Added scale_awareness_factor as a runtime option (@linjiongzhou)
+  - Bugfix for specified CO2 (@oelbert)
+  - Update CI (@vithikashah001)
+
+
 # RELEASE NOTES for FV3 202411: Summary
 FV3-202411-public --- November 2024
 Lucas Harris, GFDL lucas.harris@noaa.gov

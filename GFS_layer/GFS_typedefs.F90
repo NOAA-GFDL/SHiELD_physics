@@ -249,7 +249,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: ffmm   (:)   => null()  !< fm parameter from PBL scheme
     real (kind=kind_phys), pointer :: ffhh   (:)   => null()  !< fh parameter from PBL scheme
     real (kind=kind_phys), pointer :: f10m   (:)   => null()  !< fm at 10m - Ratio of sigma level 1 wind and 10m wind
-    real (kind=kind_phys), pointer :: tprcp  (:)   => null()  !< sfc_fld%tprcp - total precipitation
+    real (kind=kind_phys), pointer :: tprcp  (:)   => null()  !< sfc_fld%tprcp - total precipitation (m) or (kg/m^2 * 1e-3)
     real (kind=kind_phys), pointer :: srflag (:)   => null()  !< sfc_fld%srflag - snow/rain flag for precipitation
     real (kind=kind_phys), pointer :: slc    (:,:) => null()  !< liquid soil moisture
     real (kind=kind_phys), pointer :: smc    (:,:) => null()  !< total soil moisture
@@ -1033,6 +1033,7 @@ module GFS_typedefs
 
     real(kind=kind_phys), allocatable :: stored_au_out(:,:), stored_f1_out(:,:), stored_f2_out(:,:), stored_diss_out(:,:)
     real(kind=kind_phys), allocatable :: dkt(:,:)
+    real(kind=kind_phys), allocatable :: stored_q1_out(:,:,:)
     integer, allocatable :: stored_kpbl(:)
     real(kind=kind_phys), allocatable :: stored_flux_cg(:,:), stored_flux_en(:,:), stored_elm_pbl(:,:)
     real(kind=kind_phys), allocatable :: stored_dudt(:,:), stored_dvdt(:,:), stored_dqdt(:,:,:)
@@ -4027,6 +4028,7 @@ end subroutine overrides_create
      allocate (Statemid%stored_au_out(IM,model%levs-1))
      allocate (Statemid%stored_f1_out(IM,model%levs))
      allocate (Statemid%stored_f2_out(IM,model%levs*(model%ntrac-1)))
+     allocate (Statemid%stored_q1_out(IM,model%levs,model%ntrac))
      allocate (Statemid%stored_diss_out(IM,model%levs-1))
 
      allocate (Statemid%stored_kpbl(IM))
