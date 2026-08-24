@@ -1573,6 +1573,7 @@ module module_physics_driver
 
           endif
         endif
+      statemid%dkt(:,:)=dkt(:,:)
 
 !  --- ...  return updated smsoil and stsoil to global arrays
       Sfcprop%smc(:,:) = smsoil(:,:)
