@@ -437,26 +437,26 @@ module GFS_driver
     endif
 
 ! kludge for output
-    if (Model%do_skeb) then
+    if (Model%stochastic%do_skeb) then
       do nb = 1,nblks
         do k=1,Model%levs
-          Diag(nb)%skebu_wts(:,k) = Coupling(nb)%skebu_wts(:,Model%levs-k+1)
-          Diag(nb)%skebv_wts(:,k) = Coupling(nb)%skebv_wts(:,Model%levs-k+1)
-          Diag(nb)%diss_est(:,k) = Statein(nb)%diss_est(:,Model%levs-k+1)
+          Diag(nb)%stochastic%skebu_wts(:,k) = Coupling(nb)%stochastic%skebu_wts(:,Model%levs-k+1)
+          Diag(nb)%stochastic%skebv_wts(:,k) = Coupling(nb)%stochastic%skebv_wts(:,Model%levs-k+1)
+          Diag(nb)%stochastic%diss_est(:,k) = Statein(nb)%diss_est(:,Model%levs-k+1)
         enddo
       enddo
     endif
-    !if (Model%do_sppt) then
+    !if (Model%stochastic%do_sppt) then
     !  do nb = 1,nblks
     !    do k=1,Model%levs
-    !      Diag(nb)%sppt_wts(:,k) = Coupling(nb)%sppt_wts(:,Model%levs-k+1)
+    !      Diag(nb)%stochastic%sppt_wts(:,k) = Coupling(nb)%stochastic%sppt_wts(:,Model%levs-k+1)
     !    enddo
     !  enddo
     !endif
-    if (Model%do_shum) then
+    if (Model%stochastic%do_shum) then
       do nb = 1,nblks
         do k=1,Model%levs
-          Diag(nb)%shum_wts(:,k)=Coupling(nb)%shum_wts(:,Model%levs-k+1)
+          Diag(nb)%stochastic%shum_wts(:,k)=Coupling(nb)%stochastic%shum_wts(:,Model%levs-k+1)
         enddo
       enddo
     endif
@@ -494,34 +494,34 @@ module GFS_driver
     integer :: k, i
     real(kind=kind_phys) :: upert, vpert, tpert, qpert, qnew, sppt_vwt
 
-     if (Model%do_sppt) then
+     if (Model%stochastic%do_sppt) then
        do k = 1,size(Statein%tgrs,2)
          do i = 1,size(Statein%tgrs,1)
            sppt_vwt=1.0
-           if (Diag%zmtnblck(i).EQ.0.0) then
+           if (Diag%stochastic%zmtnblck(i).EQ.0.0) then
               sppt_vwt=1.0
            else
-              if (k.GT.Diag%zmtnblck(i)+2) then
+              if (k.GT.Diag%stochastic%zmtnblck(i)+2) then
                  sppt_vwt=1.0
               endif
-              if (k.LE.Diag%zmtnblck(i)) then
+              if (k.LE.Diag%stochastic%zmtnblck(i)) then
                  sppt_vwt=0.0
               endif
-              if (k.EQ.Diag%zmtnblck(i)+1) then
+              if (k.EQ.Diag%stochastic%zmtnblck(i)+1) then
                  sppt_vwt=0.333333
               endif
-              if (k.EQ.Diag%zmtnblck(i)+2) then
+              if (k.EQ.Diag%stochastic%zmtnblck(i)+2) then
                  sppt_vwt=0.666667
               endif
            endif
-           if (Model%use_zmtnblck)then
-              Coupling%sppt_wts(i,k)=(Coupling%sppt_wts(i,k)-1)*sppt_vwt+1.0
+           if (Model%stochastic%use_zmtnblck)then
+              Coupling%stochastic%sppt_wts(i,k)=(Coupling%stochastic%sppt_wts(i,k)-1)*sppt_vwt+1.0
            endif
-           Diag%sppt_wts(i,Model%levs-k+1)=Coupling%sppt_wts(i,k)
-           upert = (Stateout%gu0(i,k)   - Statein%ugrs(i,k))   * Coupling%sppt_wts(i,k)
-           vpert = (Stateout%gv0(i,k)   - Statein%vgrs(i,k))   * Coupling%sppt_wts(i,k)
-           tpert = (Stateout%gt0(i,k)   - Statein%tgrs(i,k) - Statemid%dtdtr(i,k)) * Coupling%sppt_wts(i,k)
-           qpert = (Stateout%gq0(i,k,1) - Statein%qgrs(i,k,1)) * Coupling%sppt_wts(i,k)
+           Diag%stochastic%sppt_wts(i,Model%levs-k+1)=Coupling%stochastic%sppt_wts(i,k)
+           upert = (Stateout%gu0(i,k)   - Statein%ugrs(i,k))   * Coupling%stochastic%sppt_wts(i,k)
+           vpert = (Stateout%gv0(i,k)   - Statein%vgrs(i,k))   * Coupling%stochastic%sppt_wts(i,k)
+           tpert = (Stateout%gt0(i,k)   - Statein%tgrs(i,k) - Statemid%stochastic%dtdtr(i,k)) * Coupling%stochastic%sppt_wts(i,k)
+           qpert = (Stateout%gq0(i,k,1) - Statein%qgrs(i,k,1)) * Coupling%stochastic%sppt_wts(i,k)
 
            Stateout%gu0(i,k)  = Statein%ugrs(i,k)+upert
            Stateout%gv0(i,k)  = Statein%vgrs(i,k)+vpert
@@ -530,31 +530,31 @@ module GFS_driver
            qnew = Statein%qgrs(i,k,1)+qpert
            if (qnew >= 1.0e-10) then
               Stateout%gq0(i,k,1) = qnew
-              Stateout%gt0(i,k)   = Statein%tgrs(i,k) + tpert + Statemid%dtdtr(i,k)
+              Stateout%gt0(i,k)   = Statein%tgrs(i,k) + tpert + Statemid%stochastic%dtdtr(i,k)
            endif
-           if (Model%pert_mp) then
+           if (Model%stochastic%pert_mp) then
               if (Model%ntcw>0) then
-                 qpert = (Stateout%gq0(i,k,Model%ntcw) - Statein%qgrs(i,k,Model%ntcw)) * Coupling%sppt_wts(i,k)
+                 qpert = (Stateout%gq0(i,k,Model%ntcw) - Statein%qgrs(i,k,Model%ntcw)) * Coupling%stochastic%sppt_wts(i,k)
                  qnew = Statein%qgrs(i,k,Model%ntcw)+qpert
                  Stateout%gq0(i,k,Model%ntcw) = max(0.0,qnew)
               endif
               if (Model%ntrw>0) then
-                 qpert = (Stateout%gq0(i,k,Model%ntrw) - Statein%qgrs(i,k,Model%ntrw)) * Coupling%sppt_wts(i,k)
+                 qpert = (Stateout%gq0(i,k,Model%ntrw) - Statein%qgrs(i,k,Model%ntrw)) * Coupling%stochastic%sppt_wts(i,k)
                  qnew = Statein%qgrs(i,k,Model%ntrw)+qpert
                  Stateout%gq0(i,k,Model%ntrw) = max(0.0,qnew)
               endif
               if (Model%ntsw>0) then
-                 qpert = (Stateout%gq0(i,k,Model%ntsw) - Statein%qgrs(i,k,Model%ntsw)) * Coupling%sppt_wts(i,k)
+                 qpert = (Stateout%gq0(i,k,Model%ntsw) - Statein%qgrs(i,k,Model%ntsw)) * Coupling%stochastic%sppt_wts(i,k)
                  qnew = Statein%qgrs(i,k,Model%ntsw)+qpert
                  Stateout%gq0(i,k,Model%ntsw) = max(0.0,qnew)
               endif
               if (Model%ntiw>0) then
-                 qpert = (Stateout%gq0(i,k,Model%ntiw) - Statein%qgrs(i,k,Model%ntiw)) * Coupling%sppt_wts(i,k)
+                 qpert = (Stateout%gq0(i,k,Model%ntiw) - Statein%qgrs(i,k,Model%ntiw)) * Coupling%stochastic%sppt_wts(i,k)
                  qnew = Statein%qgrs(i,k,Model%ntiw)+qpert
                  Stateout%gq0(i,k,Model%ntiw) = max(0.0,qnew)
               endif
               if (Model%ntgl>0) then
-                 qpert = (Stateout%gq0(i,k,Model%ntgl) - Statein%qgrs(i,k,Model%ntgl)) * Coupling%sppt_wts(i,k)
+                 qpert = (Stateout%gq0(i,k,Model%ntgl) - Statein%qgrs(i,k,Model%ntgl)) * Coupling%stochastic%sppt_wts(i,k)
                  qnew = Statein%qgrs(i,k,Model%ntgl)+qpert
                  Stateout%gq0(i,k,Model%ntgl) = max(0.0,qnew)
               endif
@@ -563,30 +563,30 @@ module GFS_driver
        enddo
 
         ! instantaneous precip rate going into land model at the next time step
-        Sfcprop%tprcp(:) = Coupling%sppt_wts(:,15)*Sfcprop%tprcp(:)
-        Diag%totprcp(:)      = Diag%totprcp(:)      + (Coupling%sppt_wts(:,15) - 1 )*Diag%rain(:)
+        Sfcprop%tprcp(:) = Coupling%stochastic%sppt_wts(:,15)*Sfcprop%tprcp(:)
+        Diag%totprcp(:)      = Diag%totprcp(:)      + (Coupling%stochastic%sppt_wts(:,15) - 1 )*Diag%rain(:)
         ! acccumulated total and convective preciptiation
-        Diag%cnvprcp(:)      = Diag%cnvprcp(:)      + (Coupling%sppt_wts(:,15) - 1 )*Diag%rainc(:)
+        Diag%cnvprcp(:)      = Diag%cnvprcp(:)      + (Coupling%stochastic%sppt_wts(:,15) - 1 )*Diag%rainc(:)
         ! bucket precipitation adjustment due to sppt
-        Diag%totprcpb(:)      = Diag%totprcpb(:)      + (Coupling%sppt_wts(:,15) - 1 )*Diag%rain(:)
-        Diag%cnvprcpb(:)      = Diag%cnvprcpb(:)      + (Coupling%sppt_wts(:,15) - 1 )*Diag%rainc(:)
+        Diag%totprcpb(:)      = Diag%totprcpb(:)      + (Coupling%stochastic%sppt_wts(:,15) - 1 )*Diag%rain(:)
+        Diag%cnvprcpb(:)      = Diag%cnvprcpb(:)      + (Coupling%stochastic%sppt_wts(:,15) - 1 )*Diag%rainc(:)
 
 
         if (Model%cplflx) then
-           Coupling%rain_cpl(:) = Coupling%rain_cpl(:) + (Coupling%sppt_wts(:,15) - 1.0)*Statemid%drain_cpl(:)
-           Coupling%snow_cpl(:) = Coupling%snow_cpl(:) + (Coupling%sppt_wts(:,15) - 1.0)*Statemid%dsnow_cpl(:)
+           Coupling%stochastic%rain_cpl(:) = Coupling%stochastic%rain_cpl(:) + (Coupling%stochastic%sppt_wts(:,15) - 1.0)*Statemid%stochastic%drain_cpl(:)
+           Coupling%stochastic%snow_cpl(:) = Coupling%stochastic%snow_cpl(:) + (Coupling%stochastic%sppt_wts(:,15) - 1.0)*Statemid%stochastic%dsnow_cpl(:)
         endif
 
      endif
 
-     if (Model%do_shum) then
-       Stateout%gq0(:,:,1) = Stateout%gq0(:,:,1)*(1.0 + Coupling%shum_wts(:,:))
+     if (Model%stochastic%do_shum) then
+       Stateout%gq0(:,:,1) = Stateout%gq0(:,:,1)*(1.0 + Coupling%stochastic%shum_wts(:,:))
      endif
 
-     if (Model%do_skeb) then
+     if (Model%stochastic%do_skeb) then
        do k = 1,size(Statein%tgrs,2)
-           Stateout%gu0(:,k) = Stateout%gu0(:,k)+Coupling%skebu_wts(:,k)*(Statein%diss_est(:,k))
-           Stateout%gv0(:,k) = Stateout%gv0(:,k)+Coupling%skebv_wts(:,k)*(Statein%diss_est(:,k))
+           Stateout%gu0(:,k) = Stateout%gu0(:,k)+Coupling%stochastic%skebu_wts(:,k)*(Statein%diss_est(:,k))
+           Stateout%gv0(:,k) = Stateout%gv0(:,k)+Coupling%stochastic%skebv_wts(:,k)*(Statein%diss_est(:,k))
        enddo
      endif
 

@@ -570,11 +570,11 @@ module module_physics_driver
 !
 !!
 !!  ---  set initial quantities for stochastic physics deltas
-!      if (Model%do_sppt) then
-!        Statemid%dtdtr = 0.0
+!      if (Model%stochastic%do_sppt) then
+!        Statemid%stochastic%dtdtr = 0.0
 !        do i=1,im
-!          Statemid%drain_cpl(i) = Coupling%rain_cpl (i)
-!          Statemid%dsnow_cpl(i) = Coupling%snow_cpl (i)
+!          Statemid%stochastic%drain_cpl(i) = Coupling%stochastic%rain_cpl (i)
+!          Statemid%stochastic%dsnow_cpl(i) = Coupling%stochastic%snow_cpl (i)
 !        enddo
 !      endif
 !
@@ -1272,7 +1272,7 @@ module module_physics_driver
             Sfcprop%shdmin, Sfcprop%shdmax, Sfcprop%snoalb,            &
             Radtend%sfalb, flag_iter, flag_guess,                      &
             Model%lheatstrg, Model%isot, Model%ivegsrc,                &
-            bexp1d, xlai1d, vegf1d, Model%pertvegf, maxevap,           &
+            bexp1d, xlai1d, vegf1d, Model%stochastic%pertvegf, maxevap,           &
 !  ---  in/outs:
             Sfcprop%weasd, Sfcprop%snowd, Sfcprop%tsfc, Sfcprop%tprcp, &
             Sfcprop%srflag, smsoil, stsoil, slsoil, Sfcprop%canopy,    &
@@ -1807,11 +1807,11 @@ module module_physics_driver
 
 !
 !  ---  set initial quantities for stochastic physics deltas
-      if (Model%do_sppt) then
-        Statemid%dtdtr = 0.0
+      if (Model%stochastic%do_sppt) then
+        Statemid%stochastic%dtdtr = 0.0
         do i=1,im
-          Statemid%drain_cpl(i) = Coupling%rain_cpl (i)
-          Statemid%dsnow_cpl(i) = Coupling%snow_cpl (i)
+          Statemid%stochastic%drain_cpl(i) = Coupling%stochastic%rain_cpl (i)
+          Statemid%stochastic%dsnow_cpl(i) = Coupling%stochastic%snow_cpl (i)
         enddo
       endif
 
@@ -2406,7 +2406,7 @@ module module_physics_driver
                  sigma, gamma, elvmax, dusfcg, dvsfcg,      &
                  con_g, con_cp, con_rd, con_rv, Model%lonr, &
                  Model%nmtvr, Model%cdmbgwd, me, lprnt,ipr, &
-                 Model%gwd_p_crit, Diag%zmtnblck)
+                 Model%gwd_p_crit, Diag%stochastic%zmtnblck)
       endif
 
 !     if (lprnt)  print *,' dudtg=',dudt(ipr,:)
@@ -2739,10 +2739,10 @@ module module_physics_driver
 
         if (Model%do_deep) then
 
-          if (Model%do_ca) then
+          if (Model%stochastic%do_ca) then
             do k=1,levs
               do i=1,im
-                Stateout%gq0(i,k,1) = Stateout%gq0(i,k,1)*(1. + Coupling%ca_deep(i)/500.)
+                Stateout%gq0(i,k,1) = Stateout%gq0(i,k,1)*(1. + Coupling%stochastic%ca_deep(i)/500.)
               enddo
             enddo
           endif
@@ -2788,8 +2788,8 @@ module module_physics_driver
             call samfdeepcnv(im, ix, levs, dtp, itc, Model%ntchm, ntk, nsamftrac,  &
                              Statemid%stored_del, Statein%prsl, Statein%pgr, Statein%phil, clw(:,:,1:nsamftrac+2),    &
                              Stateout%gq0(:,:,1), Stateout%gt0,                    &
-                             Stateout%gu0, Stateout%gv0, Model%fscav, Model%do_ca, &
-                             Coupling%ca_deep, cld1d, rain1, kbot, ktop, Statemid%stored_kcnv,     &
+                             Stateout%gu0, Stateout%gv0, Model%fscav, Model%stochastic%do_ca, &
+                             Coupling%stochastic%ca_deep, cld1d, rain1, kbot, ktop, Statemid%stored_kcnv,     &
                              Statemid%stored_islmsk, Statemid%stored_garea,                                        &
                              Statein%vvl, Model%ncld, ud_mf, dd_mf, dt_mf, cnvw, cnvc,   &
                              QLCN, QICN, w_upi,cf_upi, CNV_MFD,                    &
@@ -2842,8 +2842,8 @@ module module_physics_driver
           enddo
         endif
           
-        if(Model%do_ca) then
-          Coupling%cape(:) = cld1d(:)
+        if(Model%stochastic%do_ca) then
+          Coupling%stochastic%cape(:) = cld1d(:)
         endif
 
 
@@ -4155,9 +4155,9 @@ module module_physics_driver
       if (Model%cplflx) then
         do i = 1, im
           if (t850(i) > 273.16) then
-             Coupling%rain_cpl(i) = Coupling%rain_cpl(i) + Diag%rain(i)
+             Coupling%stochastic%rain_cpl(i) = Coupling%stochastic%rain_cpl(i) + Diag%rain(i)
           else
-             Coupling%snow_cpl(i) = Coupling%snow_cpl(i) + Diag%rain(i)
+             Coupling%stochastic%snow_cpl(i) = Coupling%stochastic%snow_cpl(i) + Diag%rain(i)
           endif
         enddo
       endif
@@ -4255,20 +4255,20 @@ module module_physics_driver
 !         write(0,*) ' endgw0=',gq0(ipr,:,3),' kdt=',kdt,' lat=',lat
 !       endif
 
-      if (Model%do_sppt) then
+      if (Model%stochastic%do_sppt) then
         !--- radiation heating rate
-        if (Model%pert_radtend) then
-          Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdtc(1:im,:)*dtf
+        if (Model%stochastic%pert_radtend) then
+          Statemid%stochastic%dtdtr(1:im,:) = Statemid%stochastic%dtdtr(1:im,:) + Statemid%stored_dtdtc(1:im,:)*dtf
         else
-          Statemid%dtdtr(1:im,:) = Statemid%dtdtr(1:im,:) + Statemid%stored_dtdt(1:im,:)*dtf
+          Statemid%stochastic%dtdtr(1:im,:) = Statemid%stochastic%dtdtr(1:im,:) + Statemid%stored_dtdt(1:im,:)*dtf
         endif
         do i = 1, im
           if (t850(i) > 273.16) then
              !--- change in change in rain precip
-             Statemid%drain_cpl(i) = Diag%rain(i) - Statemid%drain_cpl(i)
+             Statemid%stochastic%drain_cpl(i) = Diag%rain(i) - Statemid%stochastic%drain_cpl(i)
           else
              !--- change in change in snow precip
-             Statemid%dsnow_cpl(i) = Diag%rain(i) - Statemid%dsnow_cpl(i)
+             Statemid%stochastic%dsnow_cpl(i) = Diag%rain(i) - Statemid%stochastic%dsnow_cpl(i)
           endif
         enddo
       endif

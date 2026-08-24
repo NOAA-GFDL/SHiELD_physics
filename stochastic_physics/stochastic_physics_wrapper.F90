@@ -97,7 +97,8 @@ module stochastic_physics_wrapper_mod
 
     initalize_stochastic_physics: if (.not. is_initialized) then
 
-      if (IPD_Control%do_sppt .OR. IPD_Control%do_shum .OR. IPD_Control%do_skeb .OR. (IPD_Control%lndp_type > 0) .OR. IPD_Control%do_spp) then
+      if (IPD_Control%stochastic%do_sppt .OR. IPD_Control%stochastic%do_shum .OR. IPD_Control%stochastic%do_skeb .OR. &
+          (IPD_Control%stochastic%lndp_type > 0) .OR. IPD_Control%stochastic%do_spp) then
          allocate(xlat(1:nblks,maxblk))
          allocate(xlon(1:nblks,maxblk))
          do nb=1,nblks
@@ -105,54 +106,56 @@ module stochastic_physics_wrapper_mod
             xlon(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Grid%xlon(:)
          end do
         ! Initialize stochastic physics
-        call init_stochastic_physics(levs, IPD_Control%blksz, IPD_Control%dtp, IPD_Control%sppt_amp,                                  &
-            IPD_Control%input_nml_file, IPD_Control%fn_nml, IPD_Control%nlunit, xlon, xlat, IPD_Control%do_sppt, IPD_Control%do_shum, &
-            IPD_Control%do_skeb, IPD_Control%lndp_type, IPD_Control%n_var_lndp, IPD_Control%use_zmtnblck, IPD_Control%skeb_npass,     &
-            IPD_Control%lndp_var_list, IPD_Control%lndp_prt_list,    &
-            IPD_Control%n_var_spp, IPD_Control%spp_var_list, IPD_Control%spp_prt_list, IPD_Control%spp_stddev_cutoff, IPD_Control%do_spp,                            &
+        call init_stochastic_physics(levs, IPD_Control%blksz, IPD_Control%dtp, IPD_Control%stochastic%sppt_amp,                &
+            IPD_Control%input_nml_file, IPD_Control%fn_nml, IPD_Control%nlunit, xlon, xlat, IPD_Control%stochastic%do_sppt,    &
+            IPD_Control%stochastic%do_shum, IPD_Control%stochastic%do_skeb, IPD_Control%stochastic%lndp_type,    &
+            IPD_Control%stochastic%n_var_lndp, IPD_Control%stochastic%use_zmtnblck, IPD_Control%stochastic%skeb_npass,     &
+            IPD_Control%stochastic%lndp_var_list, IPD_Control%stochastic%lndp_prt_list,    &
+            IPD_Control%stochastic%n_var_spp, IPD_Control%stochastic%spp_var_list, IPD_Control%stochastic%spp_prt_list,    &
+            IPD_Control%stochastic%spp_stddev_cutoff, IPD_Control%stochastic%do_spp,       &
             IPD_Control%ak, IPD_Control%bk, nthreads, IPD_Control%master, iret=ierr)
             if (ierr/=0)  then
                     write(6,*) 'call to init_stochastic_physics failed'
                     return
             endif
       end if
-      if (IPD_Control%do_sppt) then
+      if (IPD_Control%stochastic%do_sppt) then
          allocate(sppt_wts(1:nblks,maxblk,1:levs))
       end if
-      if (IPD_Control%do_shum) then
+      if (IPD_Control%stochastic%do_shum) then
          allocate(shum_wts(1:nblks,maxblk,1:levs))
       end if
-      if (IPD_Control%do_skeb) then
+      if (IPD_Control%stochastic%do_skeb) then
          allocate(skebu_wts(1:nblks,maxblk,1:levs))
          allocate(skebv_wts(1:nblks,maxblk,1:levs))
       end if
-      if ( IPD_Control%do_spp ) then
-         allocate(spp_wts(1:nblks,maxblk,1:levs,1:IPD_Control%n_var_spp))
-         do n=1,IPD_Control%n_var_spp
-           select case (trim(IPD_Control%spp_var_list(n)))
+      if ( IPD_Control%stochastic%do_spp ) then
+         allocate(spp_wts(1:nblks,maxblk,1:levs,1:IPD_Control%stochastic%n_var_spp))
+         do n=1,IPD_Control%stochastic%n_var_spp
+           select case (trim(IPD_Control%stochastic%spp_var_list(n)))
            case('pbl')
-             IPD_Control%spp_pbl = 1
+             IPD_Control%stochastic%spp_pbl = 1
            case('sfc')
-             IPD_Control%spp_sfc = 1
+             IPD_Control%stochastic%spp_sfc = 1
            case('mp')
-             IPD_Control%spp_mp = 7
+             IPD_Control%stochastic%spp_mp = 7
            case('rad')
-             IPD_Control%spp_rad = 1
+             IPD_Control%stochastic%spp_rad = 1
            case('gwd')
-             IPD_Control%spp_gwd = 1
+             IPD_Control%stochastic%spp_gwd = 1
            case('cu_deep')
-             IPD_Control%spp_cu_deep = 1
+             IPD_Control%stochastic%spp_cu_deep = 1
            end select
          end do
       end if
-      if ( IPD_Control%lndp_type == 2 ) then
-          allocate(sfc_wts(1:nblks,maxblk,1:IPD_Control%n_var_lndp))
+      if ( IPD_Control%stochastic%lndp_type == 2 ) then
+          allocate(sfc_wts(1:nblks,maxblk,1:IPD_Control%stochastic%n_var_lndp))
           if ( (IPD_Control%lsm == IPD_Control%lsm_noah) .or. (IPD_Control%lsm == IPD_Control%lsm_noahmp)) then
             lsoil = IPD_Control%lsoil
           endif
           allocate(smc   (1:nblks, maxblk, lsoil))
-          do v = 1,IPD_Control%n_var_lndp
-            select case (trim(IPD_Control%lndp_var_list(v)))
+          do v = 1,IPD_Control%stochastic%n_var_lndp
+            select case (trim(IPD_Control%stochastic%lndp_var_list(v)))
             case('smc')
               allocate(slc   (1:nblks, maxblk, lsoil))
               allocate(stype (1:nblks, maxblk))
@@ -174,21 +177,21 @@ module stochastic_physics_wrapper_mod
       endif
 
 
-      if ( IPD_Control%lndp_type == 1 ) then ! this scheme sets perts once
-         allocate(sfc_wts(1:nblks, maxblk, IPD_Control%n_var_lndp))
+      if ( IPD_Control%stochastic%lndp_type == 1 ) then ! this scheme sets perts once
+         allocate(sfc_wts(1:nblks, maxblk, IPD_Control%stochastic%n_var_lndp))
          call run_stochastic_physics(levs, IPD_Control%kdt, IPD_Control%fhour, IPD_Control%blksz,       &
                                      sppt_wts=sppt_wts, shum_wts=shum_wts, skebu_wts=skebu_wts,         &
                                      skebv_wts=skebv_wts, sfc_wts=sfc_wts,                              &
                                      spp_wts=spp_wts, nthreads=nthreads)
          ! Copy contiguous data back
          do nb=1,nblks
-            IPD_Data(nb)%Coupling%sfc_wts(:,:) = sfc_wts(nb,1:IPD_Control%blksz(nb),:)
+            IPD_Data(nb)%Coupling%stochastic%sfc_wts(:,:) = sfc_wts(nb,1:IPD_Control%blksz(nb),:)
          end do
          deallocate(sfc_wts)
       end if
       ! Consistency check for cellular automata
-      if(IPD_Control%do_ca)then
-        if(IPD_Control%ca_sgs)then
+      if(IPD_Control%stochastic%do_ca)then
+        if(IPD_Control%stochastic%ca_sgs)then
            allocate(sst         (1:nblks, maxblk))
            allocate(lmsk        (1:nblks, maxblk))
            allocate(lake        (1:nblks, maxblk))
@@ -201,7 +204,7 @@ module stochastic_physics_wrapper_mod
            allocate(ca_turb_cpl (1:nblks, maxblk))
            allocate(ca_shal_cpl (1:nblks, maxblk))
         endif
-        if(IPD_Control%ca_global)then
+        if(IPD_Control%stochastic%ca_global)then
           ! Allocate contiguous arrays; no need to copy in (intent out)
           allocate(ca1_cpl (1:nblks, maxblk))
           allocate(ca2_cpl (1:nblks, maxblk))
@@ -212,71 +215,72 @@ module stochastic_physics_wrapper_mod
       is_initialized = .true.
 
     else initalize_stochastic_physics
-      if (IPD_Control%do_sppt .OR. IPD_Control%do_shum .OR. IPD_Control%do_skeb .OR. (IPD_Control%lndp_type == 2) .OR. IPD_Control%do_spp) then
+      if (IPD_Control%stochastic%do_sppt .OR. IPD_Control%stochastic%do_shum .OR. IPD_Control%stochastic%do_skeb .OR. &
+          (IPD_Control%stochastic%lndp_type == 2) .OR. IPD_Control%stochastic%do_spp) then
          call run_stochastic_physics(levs, IPD_Control%kdt, IPD_Control%fhour, IPD_Control%blksz, &
                                  sppt_wts=sppt_wts, shum_wts=shum_wts, skebu_wts=skebu_wts, skebv_wts=skebv_wts, sfc_wts=sfc_wts, &
                                  spp_wts=spp_wts, nthreads=nthreads)
          ! Copy contiguous data back
-         if (IPD_Control%do_sppt) then
+         if (IPD_Control%stochastic%do_sppt) then
             do nb=1,nblks
-                IPD_Data(nb)%Coupling%sppt_wts(:,:) = sppt_wts(nb,1:IPD_Control%blksz(nb),:)
+                IPD_Data(nb)%Coupling%stochastic%sppt_wts(:,:) = sppt_wts(nb,1:IPD_Control%blksz(nb),:)
             end do
          end if
-         if (IPD_Control%do_shum) then
+         if (IPD_Control%stochastic%do_shum) then
             do nb=1,nblks
-                IPD_Data(nb)%Coupling%shum_wts(:,:) = shum_wts(nb,1:IPD_Control%blksz(nb),:)
+                IPD_Data(nb)%Coupling%stochastic%shum_wts(:,:) = shum_wts(nb,1:IPD_Control%blksz(nb),:)
             end do
          end if
-         if (IPD_Control%do_skeb) then
+         if (IPD_Control%stochastic%do_skeb) then
             do nb=1,nblks
-                IPD_Data(nb)%Coupling%skebu_wts(:,:) = skebu_wts(nb,1:IPD_Control%blksz(nb),:)
-                IPD_Data(nb)%Coupling%skebv_wts(:,:) = skebv_wts(nb,1:IPD_Control%blksz(nb),:)
+                IPD_Data(nb)%Coupling%stochastic%skebu_wts(:,:) = skebu_wts(nb,1:IPD_Control%blksz(nb),:)
+                IPD_Data(nb)%Coupling%stochastic%skebv_wts(:,:) = skebv_wts(nb,1:IPD_Control%blksz(nb),:)
             end do
          end if
-         if (IPD_Control%do_spp) then
-            do n=1,IPD_Control%n_var_spp
-               select case (trim(IPD_Control%spp_var_list(n)))
+         if (IPD_Control%stochastic%do_spp) then
+            do n=1,IPD_Control%stochastic%n_var_spp
+               select case (trim(IPD_Control%stochastic%spp_var_list(n)))
                case('pbl')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_pbl(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_pbl(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                case('sfc')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_sfc(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_sfc(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                case('mp')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_mp(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_mp(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                case('gwd')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_gwd(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_gwd(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                case('rad')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_rad(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_rad(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                case('cu_deep')
                  do nb=1,Atm_block%nblks
-                     IPD_Data(nb)%Coupling%spp_wts_cu_deep(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
+                     IPD_Data(nb)%Coupling%stochastic%spp_wts_cu_deep(:,:) = spp_wts(nb,1:IPD_Control%blksz(nb),:,n)
                  end do
                end select
             end do
          end if
 
-         if (IPD_Control%lndp_type == 2) then ! save wts, and apply lndp scheme
+         if (IPD_Control%stochastic%lndp_type == 2) then ! save wts, and apply lndp scheme
              do nb=1,nblks
-                IPD_Data(nb)%Coupling%sfc_wts(:,:) = sfc_wts(nb,1:IPD_Control%blksz(nb),:)
+                IPD_Data(nb)%Coupling%stochastic%sfc_wts(:,:) = sfc_wts(nb,1:IPD_Control%blksz(nb),:)
              end do
  
              do nb=1,nblks
-                do v = 1,IPD_Control%n_var_lndp
+                do v = 1,IPD_Control%stochastic%n_var_lndp
                   ! used to identify locations with land model (=soil) 
                   if ( (IPD_Control%lsm == IPD_Control%lsm_noah) .or. (IPD_Control%lsm == IPD_Control%lsm_noahmp)) then
                      smc(nb,1:IPD_Control%blksz(nb),1:lsoil) = IPD_Data(nb)%Sfcprop%smc(1:IPD_Control%blksz(nb),1:lsoil)
                   endif
 
-                  select case (trim(IPD_Control%lndp_var_list(v)))
+                  select case (trim(IPD_Control%stochastic%lndp_var_list(v)))
                   ! DH* is this correct? shouldn't this be slc ?
                   case('smc')
                       ! stype used to fetch soil params
@@ -325,7 +329,8 @@ module stochastic_physics_wrapper_mod
               
              call lndp_apply_perts(IPD_Control%blksz, IPD_Control%lsm, IPD_Control%lsm_noah, lsm_ruc,                         &
                                IPD_Control%lsm_noahmp, IPD_Control%iopt_dveg, lsoil, IPD_Control%dtp, IPD_Control%kdt,        &
-                               IPD_Control%n_var_lndp, IPD_Control%lndp_var_list, IPD_Control%lndp_prt_list,                  &
+                               IPD_Control%stochastic%n_var_lndp, IPD_Control%stochastic%lndp_var_list,                       &
+                               IPD_Control%stochastic%lndp_prt_list,                  &
                                sfc_wts, xlon, xlat, stype, IPD_Control%pores, IPD_Control%resid,param_update_flag,            &
                                smc, slc, stc, vfrac, alnsf, alnwf, snoalb, semis, zorll, ierr)
 
@@ -335,9 +340,9 @@ module stochastic_physics_wrapper_mod
              endif
 
              do nb=1,nblks
-                do v = 1,IPD_Control%n_var_lndp
+                do v = 1,IPD_Control%stochastic%n_var_lndp
 
-                  select case (trim(IPD_Control%lndp_var_list(v)))
+                  select case (trim(IPD_Control%stochastic%lndp_var_list(v)))
                   case('smc')
                       if ( (IPD_Control%lsm == IPD_Control%lsm_noah) .or. (IPD_Control%lsm == IPD_Control%lsm_noahmp)) then
                            IPD_Data(nb)%Sfcprop%smc(1:IPD_Control%blksz(nb),1:lsoil) = smc(nb,1:IPD_Control%blksz(nb),1:lsoil)
@@ -368,9 +373,9 @@ module stochastic_physics_wrapper_mod
          endif ! lndp block
       endif ! if do* block
 
-      if (IPD_Control%do_ca) then
+      if (IPD_Control%stochastic%do_ca) then
 
-       if(IPD_Control%ca_sgs)then
+       if(IPD_Control%stochastic%ca_sgs)then
          do nb=1,nblks
              sst        (nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Sfcprop%tsfco(:)
              lmsk       (nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Sfcprop%slmsk(:)
@@ -379,35 +384,36 @@ module stochastic_physics_wrapper_mod
              vwind      (nb,1:IPD_Control%blksz(nb),:) =  IPD_Data(nb)%Statein%vgrs(:,:)
              height     (nb,1:IPD_Control%blksz(nb),:) =  IPD_Data(nb)%Statein%phil(:,:)
              dx         (nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Grid%dx(:)
-             condition  (nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%condition(:)
-             ca_deep_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%ca_deep(:)
-             ca_turb_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%ca_turb(:)
-             ca_shal_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%ca_shal(:)
+             condition  (nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%stochastic%condition(:)
+             ca_deep_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%stochastic%ca_deep(:)
+             ca_turb_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%stochastic%ca_turb(:)
+             ca_shal_cpl(nb,1:IPD_Control%blksz(nb)) = IPD_Data(nb)%Coupling%stochastic%ca_shal(:)
          enddo
          call cellular_automata_sgs(IPD_Control%kdt,IPD_control%dtp,IPD_control%restart,IPD_Control%first_time_step,              &
             sst,lmsk,lake,uwind,vwind,height,dx,condition,ca_deep_cpl,ca_turb_cpl,ca_shal_cpl, Atm(mygrid)%domain_for_coupler,nblks,      &
             Atm_block%isc,Atm_block%iec,Atm_block%jsc,Atm_block%jec,Atm(mygrid)%npx,Atm(mygrid)%npy, levs,                        &
-            IPD_Control%nthresh,IPD_Control%tile_num,IPD_Control%nca,IPD_Control%ncells,IPD_Control%nlives,                       &
-            IPD_Control%nfracseed, IPD_Control%nseed,IPD_Control%iseed_ca,IPD_Control%ca_advect,                                  &
-            IPD_Control%nspinup,IPD_Control%ca_trigger,Atm_block%blksz(1),IPD_Control%master)
+            IPD_Control%stochastic%nthresh,IPD_Control%tile_num,IPD_Control%stochastic%nca,IPD_Control%stochastic%ncells,IPD_Control%stochastic%nlives,  &
+            IPD_Control%stochastic%nfracseed, IPD_Control%stochastic%nseed,IPD_Control%stochastic%iseed_ca,IPD_Control%stochastic%ca_advect,  &
+            IPD_Control%stochastic%nspinup,IPD_Control%stochastic%ca_trigger,Atm_block%blksz(1),IPD_Control%master)
          ! Copy contiguous data back as needed
          do nb=1,nblks
-             IPD_Data(nb)%Coupling%ca_deep(:) = ca_deep_cpl (nb,1:IPD_Control%blksz(nb))
-             IPD_Data(nb)%Coupling%ca_turb(:) = ca_turb_cpl (nb,1:IPD_Control%blksz(nb))
-             IPD_Data(nb)%Coupling%ca_shal(:) = ca_shal_cpl (nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca_deep(:) = ca_deep_cpl (nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca_turb(:) = ca_turb_cpl (nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca_shal(:) = ca_shal_cpl (nb,1:IPD_Control%blksz(nb))
          enddo
        endif
-       if(IPD_Control%ca_global)then
+       if(IPD_Control%stochastic%ca_global)then
           call cellular_automata_global(IPD_Control%kdt,IPD_control%restart,IPD_Control%first_time_step,ca1_cpl,ca2_cpl,ca3_cpl,                &
             Atm(mygrid)%domain_for_coupler, nblks,Atm_block%isc,Atm_block%iec,Atm_block%jsc,Atm_block%jec,Atm(mygrid)%npx,Atm(mygrid)%npy,levs, &
-            IPD_Control%nca_g,IPD_Control%ncells_g,IPD_Control%nlives_g,IPD_Control%nfracseed,IPD_Control%nseed_g,                              &
-            IPD_Control%iseed_ca,IPD_control%tile_num,IPD_Control%ca_smooth,IPD_Control%nspinup,Atm_block%blksz(1),                             &
-            IPD_Control%nsmooth,IPD_Control%ca_amplitude,IPD_Control%master)
+            IPD_Control%stochastic%nca_g,IPD_Control%stochastic%ncells_g,IPD_Control%stochastic%nlives_g,IPD_Control%stochastic%nfracseed, &
+            IPD_Control%stochastic%nseed_g,IPD_Control%stochastic%iseed_ca,IPD_control%tile_num,IPD_Control%stochastic%ca_smooth, &
+            IPD_Control%stochastic%nspinup,Atm_block%blksz(1),                             &
+            IPD_Control%stochastic%nsmooth,IPD_Control%stochastic%ca_amplitude,IPD_Control%master)
           ! Copy contiguous data back
           do nb=1,nblks
-             IPD_Data(nb)%Coupling%ca1(:) = ca1_cpl(nb,1:IPD_Control%blksz(nb))
-             IPD_Data(nb)%Coupling%ca2(:) = ca2_cpl(nb,1:IPD_Control%blksz(nb))
-             IPD_Data(nb)%Coupling%ca3(:) = ca3_cpl(nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca1(:) = ca1_cpl(nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca2(:) = ca2_cpl(nb,1:IPD_Control%blksz(nb))
+             IPD_Data(nb)%Coupling%stochastic%ca3(:) = ca3_cpl(nb,1:IPD_Control%blksz(nb))
           enddo
        endif
 
@@ -427,27 +433,27 @@ module stochastic_physics_wrapper_mod
 
   type(IPD_control_type),   intent(inout) :: IPD_Control
 
-  if (IPD_Control%do_sppt .OR. IPD_Control%do_shum .OR. IPD_Control%do_skeb .OR. (IPD_Control%lndp_type > 0) .OR. IPD_Control%do_spp) then
+  if (IPD_Control%stochastic%do_sppt .OR. IPD_Control%stochastic%do_shum .OR. IPD_Control%stochastic%do_skeb .OR. (IPD_Control%stochastic%lndp_type > 0) .OR. IPD_Control%stochastic%do_spp) then
       if (allocated(xlat)) deallocate(xlat)
       if (allocated(xlon)) deallocate(xlon)
-      if (IPD_Control%do_sppt) then
+      if (IPD_Control%stochastic%do_sppt) then
          if (allocated(sppt_wts)) deallocate(sppt_wts)
       end if
-      if (IPD_Control%do_shum) then
+      if (IPD_Control%stochastic%do_shum) then
          if (allocated(shum_wts)) deallocate(shum_wts)
       end if
-      if (IPD_Control%do_skeb) then
+      if (IPD_Control%stochastic%do_skeb) then
          if (allocated(skebu_wts)) deallocate(skebu_wts)
          if (allocated(skebv_wts)) deallocate(skebv_wts)
       end if
-      if (IPD_Control%do_spp) then
+      if (IPD_Control%stochastic%do_spp) then
          if (allocated(spp_wts)) deallocate(spp_wts)
       end if
-      if ( IPD_Control%lndp_type == 2 ) then
+      if ( IPD_Control%stochastic%lndp_type == 2 ) then
          lsoil = -999
          if (allocated(sfc_wts)) deallocate(sfc_wts)
       end if
-      if (IPD_Control%lndp_type == 2) then
+      if (IPD_Control%stochastic%lndp_type == 2) then
           if (allocated(smc))    deallocate(smc)
           if (allocated(slc))    deallocate(slc)
           if (allocated(stc))    deallocate(stc)
@@ -461,8 +467,8 @@ module stochastic_physics_wrapper_mod
       endif
       call finalize_stochastic_physics()
    endif
-   if(IPD_Control%do_ca)then
-        if(IPD_Control%ca_sgs)then
+   if(IPD_Control%stochastic%do_ca)then
+        if(IPD_Control%stochastic%ca_sgs)then
            deallocate(sst         )
            deallocate(lmsk        )
            deallocate(lake        )
@@ -475,7 +481,7 @@ module stochastic_physics_wrapper_mod
            deallocate(ca_turb_cpl )
            deallocate(ca_shal_cpl )
         endif
-        if(IPD_Control%ca_global)then
+        if(IPD_Control%stochastic%ca_global)then
             deallocate(ca1_cpl )
             deallocate(ca2_cpl )
             deallocate(ca3_cpl )
