@@ -8,7 +8,7 @@ module IPD_typedefs
                                        grid_type,     statemid_type,     &
                                        cldprop_type,  radtend_type,      &
                                        intdiag_type,                     &
-                                       overrides_type
+                                       overrides_type, stochastic_type
 
 !--------------------
 !  IPD sub-containers
@@ -24,6 +24,7 @@ module IPD_typedefs
     type(radtend_type)  :: Radtend
     type(intdiag_type)  :: Intdiag
     type(overrides_type) :: Overrides
+    type(stochastic_type) :: Stochastic
   end type IPD_data_type
 
 

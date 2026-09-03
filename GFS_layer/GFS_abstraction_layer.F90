@@ -11,7 +11,8 @@ module physics_abstraction_layer
                              cldprop_type     =>  GFS_cldprop_type,  &
                              radtend_type     =>  GFS_radtend_type,  &
                              intdiag_type     =>  GFS_diag_type,     &
-                             overrides_type   =>  GFS_overrides_type
+                             overrides_type   =>  GFS_overrides_type,&
+                             stochastic_type  =>  stochastic_physics_type
 
   use GFS_driver,      only: initialize       =>  GFS_initialize,       &
                              time_vary_step   =>  GFS_time_vary_step,   &
@@ -35,6 +36,7 @@ module physics_abstraction_layer
   public  cldprop_type
   public  radtend_type
   public  intdiag_type
+  public  stochastic_type
 
 !--------------------------
 !  public physics functions

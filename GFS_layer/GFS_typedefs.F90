@@ -43,6 +43,121 @@ module GFS_typedefs
 !    GFS_clprop_type         !< cloud fields needed by radiation from physics
 !    GFS_radtend_type        !< radiation tendencies needed in physics
 !    GFS_diag_type           !< fields targetted for diagnostic output
+!    !---Stochastic physics data type
+!    stochastic_physics_type !< variables and fields needed by stochastic physics
+
+!----------------------------------------------------------------
+! stochastic_control_type
+!  contains namelist variables and parameters for stochastic physics
+!----------------------------------------------------------------
+  type stochastic_control_type
+
+    !--- cellular automata control parameters
+    integer              :: nca             !< number of independent cellular automata
+    integer              :: nlives          !< cellular automata lifetime
+    integer              :: ncells          !< cellular automata finer grid
+    integer              :: nca_g           !< number of independent cellular automata
+    integer              :: nlives_g        !< cellular automata lifetime
+    integer              :: ncells_g        !< cellular automata finer grid
+    real(kind=kind_phys) :: nfracseed       !< cellular automata seed probability
+    integer              :: nseed           !< cellular automata seed frequency
+    integer              :: nseed_g         !< cellular automata seed frequency
+    logical              :: do_ca           !< cellular automata main switch
+    logical              :: ca_advect       !< Advection of cellular automata
+    logical              :: ca_sgs          !< switch for sgs ca
+    logical              :: ca_global       !< switch for global ca
+    logical              :: ca_smooth       !< switch for gaussian spatial filter
+    integer              :: iseed_ca        !< seed for random number generation in ca scheme
+    integer              :: nspinup         !< number of iterations to spin up the ca
+    real(kind=kind_phys) :: nthresh         !< threshold used for perturbed vertical velocity
+    real                 :: ca_amplitude    !< amplitude of ca trigger perturbation
+    integer              :: nsmooth         !< number of passes through smoother
+    logical              :: ca_closure      !< logical switch for ca on closure
+    logical              :: ca_entr         !< logical switch for ca on entrainment
+    logical              :: ca_trigger      !< logical switch for ca on trigger
+    real (kind=kind_phys), allocatable :: vfact_ca(:) !< vertical tapering for ca_global 
+
+    !--- stochastic physics control parameters
+    logical              :: do_sppt         !< logical switch for SPPT
+    logical              :: pert_radtend    !< logical switch to use clear-sky or all-sky heating rate for SPPT
+    logical              :: pert_mp         !< logical switch for stochastic microphysics perturbations
+    logical              :: use_zmtnblck    !< logical switch mountain blocking for sppt
+    logical              :: do_shum         !< logical switch for SHUM
+    logical              :: do_skeb         !< logical switch for SKEB
+    integer              :: skeb_npass      !< Filter dissipation "skeb_npass" times for SKEB
+
+    real(kind=kind_phys) :: pertvegf(5)
+
+    integer              :: lndp_type
+    real(kind=kind_phys) :: sppt_amp
+    integer              :: n_var_lndp
+    logical              :: lndp_each_step
+
+    character(len=3)    , pointer :: lndp_var_list(:) => null()
+    real(kind=kind_phys), pointer :: lndp_prt_list(:) => null()
+    logical              :: do_spp
+    integer              :: spp_pbl
+    integer              :: spp_sfc
+    integer              :: spp_mp
+    integer              :: spp_rad
+    integer              :: spp_gwd
+    integer              :: spp_cu_deep
+    integer              :: n_var_spp
+    character(len=10)    , pointer :: spp_var_list(:)        => null()
+    real(kind=kind_phys), pointer :: spp_prt_list(:)        => null()
+    real(kind=kind_phys), pointer :: spp_stddev_cutoff(:)   => null()
+
+  end type stochastic_control_type
+
+
+!----------------------------------------------------------------
+! stochastic_physics_type
+!  contains variables, fields, and control parameters needed by stochastic physics
+!----------------------------------------------------------------
+  type stochastic_physics_type
+
+    type(stochastic_control_type) :: control
+
+    !--- cellular automata
+    real (kind=kind_phys), pointer :: ca1      (:)   => null() !
+    real (kind=kind_phys), pointer :: ca2      (:)   => null() !
+    real (kind=kind_phys), pointer :: ca3      (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_out   (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_deep  (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_turb  (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_shal  (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_rad   (:)   => null() !
+    real (kind=kind_phys), pointer :: ca_micro (:)   => null() !
+    real (kind=kind_phys), pointer :: condition(:)   => null() !
+    real (kind=kind_phys), pointer :: cape     (:)   => null() !
+
+    !--- stochastic physics
+    real (kind=kind_phys), pointer :: shum_wts  (:,:) => null()  !
+    real (kind=kind_phys), pointer :: sppt_wts  (:,:) => null()  !
+    real (kind=kind_phys), pointer :: skebu_wts (:,:) => null()  !
+    real (kind=kind_phys), pointer :: skebv_wts (:,:) => null()  !
+    real (kind=kind_phys), pointer :: sfc_wts   (:,:) => null()  ! mg, sfc-perts
+    real (kind=kind_phys), pointer :: spp_wts_pbl   (:,:) => null()  ! spp-pbl-perts
+    real (kind=kind_phys), pointer :: spp_wts_sfc   (:,:) => null()  ! spp-sfc-perts
+    real (kind=kind_phys), pointer :: spp_wts_mp    (:,:) => null()  ! spp-mp-perts
+    real (kind=kind_phys), pointer :: spp_wts_gwd   (:,:) => null()  ! spp-gwd-perts
+    real (kind=kind_phys), pointer :: spp_wts_rad   (:,:) => null()  ! spp-rad-perts
+    real (kind=kind_phys), pointer :: spp_wts_cu_deep (:,:) => null()  ! spp-cu-deep-perts
+
+    !--- diagnostic variables
+    real (kind=kind_phys), pointer :: zmtnblck(:)    => null()
+
+    !--- Stochastic physics properties calculated in physics_driver
+    real (kind=kind_phys), pointer :: dtdtr     (:,:)   => null()
+    real (kind=kind_phys), pointer :: drain_cpl (:)     => null()
+    real (kind=kind_phys), pointer :: dsnow_cpl (:)     => null()
+    real (kind=kind_phys), pointer :: dtotprcp  (:)     => null()  !< change in totprcp  (diag_type)
+    real (kind=kind_phys), pointer :: dcnvprcp  (:)     => null()  !< change in cnvprcp  (diag_type)
+
+    contains
+      procedure :: create => stochastic_create   !< allocate array data
+
+  end type stochastic_physics_type
 
 !--------------------------------------------------------------------------------
 ! GFS_init_type
@@ -446,31 +561,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: oro_cpl    (:) => null()   !< orography          (  oro from GFS_sfcprop_type)
     real (kind=kind_phys), pointer :: slmsk_cpl  (:) => null()   !< Land/Sea/Ice mask  (slmsk from GFS_sfcprop_type)
 
-    !--- cellular automata
-    real (kind=kind_phys), pointer :: ca1      (:)   => null() !
-    real (kind=kind_phys), pointer :: ca2      (:)   => null() !
-    real (kind=kind_phys), pointer :: ca3      (:)   => null() !
-    real (kind=kind_phys), pointer :: ca_deep  (:)   => null() !
-    real (kind=kind_phys), pointer :: ca_turb  (:)   => null() !
-    real (kind=kind_phys), pointer :: ca_shal  (:)   => null() !
-    real (kind=kind_phys), pointer :: ca_rad   (:)   => null() !
-    real (kind=kind_phys), pointer :: ca_micro (:)   => null() !
-    real (kind=kind_phys), pointer :: condition(:)   => null() !
-    real (kind=kind_phys), pointer :: cape     (:)   => null() !
-
-    !--- stochastic physics
-    real (kind=kind_phys), pointer :: shum_wts  (:,:) => null()  !
-    real (kind=kind_phys), pointer :: sppt_wts  (:,:) => null()  !
-    real (kind=kind_phys), pointer :: skebu_wts (:,:) => null()  !
-    real (kind=kind_phys), pointer :: skebv_wts (:,:) => null()  !
-    real (kind=kind_phys), pointer :: sfc_wts   (:,:) => null()  ! mg, sfc-perts
-    real (kind=kind_phys), pointer :: spp_wts_pbl   (:,:) => null()  ! spp-pbl-perts
-    real (kind=kind_phys), pointer :: spp_wts_sfc   (:,:) => null()  ! spp-sfc-perts
-    real (kind=kind_phys), pointer :: spp_wts_mp    (:,:) => null()  ! spp-mp-perts 
-    real (kind=kind_phys), pointer :: spp_wts_gwd   (:,:) => null()  ! spp-gwd-perts
-    real (kind=kind_phys), pointer :: spp_wts_rad   (:,:) => null()  ! spp-rad-perts
-    real (kind=kind_phys), pointer :: spp_wts_cu_deep (:,:) => null()  ! spp-cu-deep-perts
-
     !--- instantaneous quantities for GoCart and will be accumulated for 3D diagnostics
     real (kind=kind_phys), pointer :: dqdti   (:,:)   => null()  !< instantaneous total moisture tendency (kg/kg/s)
     real (kind=kind_phys), pointer :: cnvqci  (:,:)   => null()  !< instantaneous total convective conensate (kg/kg)
@@ -855,68 +945,6 @@ module GFS_typedefs
     real(kind=kind_phys) :: min_lake_height !< minimum lake height value
     real(kind=kind_phys) :: rho_h2o         !< density of fresh water
 
- !---cellular automata control parameters
-    integer              :: nca             !< number of independent cellular automata
-    integer              :: nlives          !< cellular automata lifetime
-    integer              :: ncells          !< cellular automata finer grid
-    integer              :: nca_g           !< number of independent cellular automata
-    integer              :: nlives_g        !< cellular automata lifetime
-    integer              :: ncells_g        !< cellular automata finer grid
-    real(kind=kind_phys) :: nfracseed       !< cellular automata seed probability
-    integer              :: nseed           !< cellular automata seed frequency
-    integer              :: nseed_g         !< cellular automata seed frequency
-    logical              :: do_ca           !< cellular automata main switch
-    logical              :: ca_advect       !< Advection of cellular automata 
-    logical              :: ca_sgs          !< switch for sgs ca
-    logical              :: ca_global       !< switch for global ca
-    logical              :: ca_smooth       !< switch for gaussian spatial filter
-    integer              :: iseed_ca        !< seed for random number generation in ca scheme
-    integer              :: nspinup         !< number of iterations to spin up the ca
-    real(kind=kind_phys) :: nthresh         !< threshold used for perturbed vertical velocity
-    real                 :: ca_amplitude    !< amplitude of ca trigger perturbation
-    integer              :: nsmooth         !< number of passes through smoother
-    logical              :: ca_closure      !< logical switch for ca on closure
-    logical              :: ca_entr         !< logical switch for ca on entrainment
-    logical              :: ca_trigger      !< logical switch for ca on trigger
-    real (kind=kind_phys), allocatable :: vfact_ca(:) !< vertical tapering for ca_global
-
-
-    !--- stochastic physics control parameters
-    logical              :: do_sppt         !< logical switch for SPPT (Stochastic Perturbed Physics Tendencies)
-    logical              :: pert_radtend    !< logical switch to use clear-sky or all-sky heating rate for SPPT
-    logical              :: pert_mp         !< logical switch for stochastic microphysics perturbations
-    logical              :: use_zmtnblck    !< logical switch mountain blocking for sppt
-    logical              :: do_shum         !< logical switch for SHUM (perturbed boundary layer humidity)
-    logical              :: do_skeb         !< logical switch for SKEB (Stochastic Kinetic Energy Backscatter)
-    integer              :: skeb_npass      !< Filter dissipation "skeb_npass" times for SKEB
-
-    real(kind=kind_phys) :: pertvegf(5)        ! mg, sfc-perts (for the version of sfc_drv used in SHiELD)
-  
-    integer              :: lndp_type         ! integer indicating land perturbation scheme type:
-                                              ! 0 - none
-                                              ! 1 - scheme from Gehne et al, MWR, 2019.  (Noah only, not maintained?)
-                                              ! 2 - scheme from Draper, JHM, 2021.
-    real(kind=kind_phys) :: sppt_amp          ! pjp cloud perturbations
-    integer              :: n_var_lndp
-    logical              :: lndp_each_step    ! flag to indicate that land perturbations are applied at every time step,
-                                              ! otherwise they are applied only
-                                              ! after gcycle is run
-
-    ! next two are duplicated here to support lndp_type=1. If delete that scheme, could remove from GFS defs?
-    character(len=3)    , pointer :: lndp_var_list(:)
-    real(kind=kind_phys), pointer :: lndp_prt_list(:)
-    logical              :: do_spp            ! Overall flag to turn on SPP or not
-    integer              :: spp_pbl           ! control for pbl spp perturbations
-    integer              :: spp_sfc           ! control for surface layer spp perturbations
-    integer              :: spp_mp            ! control for microphysics spp perturbations
-    integer              :: spp_rad           ! control for radiation spp perturbations
-    integer              :: spp_gwd           ! control for gravity wave drag spp perturbations
-    integer              :: spp_cu_deep       ! control for deep convection spp perturbations
-    integer              :: n_var_spp         ! number of perturbed spp_schemes
-    character(len=10)    , pointer :: spp_var_list(:)
-    real(kind=kind_phys), pointer :: spp_prt_list(:)
-    real(kind=kind_phys), pointer :: spp_stddev_cutoff(:)
-
     !--- tracer handling
     character(len=32), pointer :: tracer_names(:) !< array of initialized tracers from dynamic core
     integer              :: ntrac           !< number of tracers
@@ -998,6 +1026,9 @@ module GFS_typedefs
     logical :: iau_filter_increments, iau_drymassfixer
     logical :: override_surface_radiative_fluxes  ! Whether to use Overrides to override the surface radiative fluxes
 
+!--- Stochastic control parameters
+    type(stochastic_control_type) :: stochastic
+
     contains
       procedure :: init  => control_initialize
       procedure :: print => control_print
@@ -1059,13 +1090,6 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: acv      (:)     => null()  !< array containing accumulated convective clouds
     real (kind=kind_phys), pointer :: acvb     (:)     => null()  !< arrays used by cnvc90 bottom
     real (kind=kind_phys), pointer :: acvt     (:)     => null()  !< arrays used by cnvc90 top (cnvc90.f)
-
-    !--- Stochastic physics properties calculated in physics_driver
-    real (kind=kind_phys), pointer :: dtdtr     (:,:)   => null()  !< temperature change due to radiative heating per time step (K)
-    real (kind=kind_phys), pointer :: dtotprcp  (:)     => null()  !< change in totprcp  (diag_type)
-    real (kind=kind_phys), pointer :: dcnvprcp  (:)     => null()  !< change in cnvprcp  (diag_type)
-    real (kind=kind_phys), pointer :: drain_cpl (:)     => null()  !< change in rain_cpl (coupling_type)
-    real (kind=kind_phys), pointer :: dsnow_cpl (:)     => null()  !< change in show_cpl (coupling_type)
 
     !--- phy_f*d variables needed for seamless restarts and moving data between grrad and gbphys
     real (kind=kind_phys), pointer :: phy_fctd (:,:)   => null()  !< cloud base mass flux for CS convection
@@ -1485,21 +1509,7 @@ module GFS_typedefs
     real (kind=kind_phys), pointer :: wet1   (:)    => null()   !< normalized soil wetness
     real (kind=kind_phys), pointer :: sr     (:)    => null()   !< snow ratio : ratio of snow to total precipitation
 !
-
-    real (kind=kind_phys), pointer :: ca_out  (:)    => null()   !< cellular automata fraction
-    real (kind=kind_phys), pointer :: ca_deep  (:)   => null()   !< cellular automata fraction
-    real (kind=kind_phys), pointer :: ca_turb  (:)   => null()   !< cellular automata fraction
-    real (kind=kind_phys), pointer :: ca_shal  (:)   => null()   !< cellular automata fraction
-    real (kind=kind_phys), pointer :: ca_rad   (:)   => null()   !< cellular automata fraction
-    real (kind=kind_phys), pointer :: ca_micro (:)   => null()   !< cellular automata fraction
-
     real (kind=kind_phys), pointer :: diss_est(:,:)  => null()   !< dissipation rate for skeb
-    real (kind=kind_phys), pointer :: skebu_wts(:,:) => null()   !< 10 meter u wind speed
-    real (kind=kind_phys), pointer :: skebv_wts(:,:) => null()   !< 10 meter v wind speed
-    real (kind=kind_phys), pointer :: sppt_wts(:,:)  => null()   !<
-    real (kind=kind_phys), pointer :: shum_wts(:,:)  => null()   !<
-    real (kind=kind_phys), pointer :: zmtnblck(:)    => null()   !<mountain blocking level of dividing streamline
-
     real (kind=kind_phys), pointer :: pfr (:,:)     => null()  !< rain
     real (kind=kind_phys), pointer :: pfs (:,:)     => null()  !< snow
     real (kind=kind_phys), pointer :: pfg (:,:)     => null()  !< graupel
@@ -1588,9 +1598,101 @@ module GFS_typedefs
 #if defined (USE_COSP) || defined (COSP_OFFLINE)
   public cosp_type
 #endif
+  public stochastic_control_type, stochastic_physics_type
   logical, public :: landseaprt     = .true.
 !*******************************************************************************************
   CONTAINS
+
+!------------------------------------
+! stochastic_physics_type%create
+!------------------------------------
+subroutine stochastic_create (Stochastic, IM, Model)
+    implicit none
+
+    class(stochastic_physics_type) :: Stochastic
+    integer,                        intent(in) :: IM
+    type(GFS_control_type),         intent(in) :: Model
+
+    if (Model%stochastic%do_ca) then
+
+      allocate (Stochastic%ca1      (IM))
+      allocate (Stochastic%ca2      (IM))
+      allocate (Stochastic%ca3      (IM))
+      allocate (Stochastic%ca_out   (IM))
+      allocate (Stochastic%ca_deep  (IM))
+      allocate (Stochastic%ca_turb  (IM))
+      allocate (Stochastic%ca_shal  (IM))
+      allocate (Stochastic%ca_rad   (IM))
+      allocate (Stochastic%ca_micro (IM))
+      allocate (Stochastic%condition(IM))
+      allocate (Stochastic%cape     (IM))
+
+      Stochastic%ca1       = clear_val
+      Stochastic%ca2       = clear_val
+      Stochastic%ca3       = clear_val
+      Stochastic%ca_out    = clear_val
+      Stochastic%ca_deep   = clear_val
+      Stochastic%ca_turb   = clear_val
+      Stochastic%ca_shal   = clear_val
+      Stochastic%ca_rad    = clear_val
+      Stochastic%ca_micro  = clear_val
+      Stochastic%condition = clear_val
+      Stochastic%cape      = clear_val
+    endif
+
+    if (Model%stochastic%do_sppt .or. Model%stochastic%ca_global) then
+      allocate (Stochastic%sppt_wts  (IM, Model%levs))
+      allocate (Stochastic%dtdtr     (IM, Model%levs))
+      allocate (Stochastic%drain_cpl (IM))
+      allocate (Stochastic%dsnow_cpl (IM))
+      allocate (Stochastic%dtotprcp (IM))
+      allocate (Stochastic%dcnvprcp (IM))
+
+      Stochastic%sppt_wts  = clear_val
+      Stochastic%dtdtr     = clear_val
+      Stochastic%drain_cpl = clear_val
+      Stochastic%dsnow_cpl = clear_val
+      Stochastic%dtotprcp  = clear_val
+      Stochastic%dcnvprcp  = clear_val
+    endif
+
+    if (Model%stochastic%do_shum) then
+      allocate (Stochastic%shum_wts  (IM, Model%levs))
+      Stochastic%shum_wts = clear_val
+    endif
+
+    if (Model%stochastic%do_skeb) then
+      allocate (Stochastic%skebu_wts (IM, Model%levs))
+      allocate (Stochastic%skebv_wts (IM, Model%levs))
+      Stochastic%skebu_wts = clear_val
+      Stochastic%skebv_wts = clear_val
+    endif
+
+    allocate (Stochastic%zmtnblck  (IM))
+    Stochastic%zmtnblck  = clear_val
+
+    if (Model%stochastic%lndp_type /= 0) then
+      allocate (Stochastic%sfc_wts  (IM, Model%stochastic%n_var_lndp))
+      Stochastic%sfc_wts = clear_val
+    endif
+
+    if (Model%stochastic%do_spp) then
+      allocate (Stochastic%spp_wts_pbl     (IM, Model%levs))
+      allocate (Stochastic%spp_wts_sfc     (IM, Model%levs))
+      allocate (Stochastic%spp_wts_mp      (IM, Model%levs))
+      allocate (Stochastic%spp_wts_gwd     (IM, Model%levs))
+      allocate (Stochastic%spp_wts_rad     (IM, Model%levs))
+      allocate (Stochastic%spp_wts_cu_deep (IM, Model%levs))
+
+      Stochastic%spp_wts_pbl     = clear_val
+      Stochastic%spp_wts_sfc     = clear_val
+      Stochastic%spp_wts_mp      = clear_val
+      Stochastic%spp_wts_gwd     = clear_val
+      Stochastic%spp_wts_rad     = clear_val
+      Stochastic%spp_wts_cu_deep = clear_val
+    endif
+
+  end subroutine stochastic_create
 
 !------------------------
 ! GFS_statein_type%create
@@ -2127,7 +2229,7 @@ module GFS_typedefs
        Coupling%sfcdlw_with_scaled_co2    = clear_val
     endif
 
-    if (Model%cplflx .or. Model%do_sppt .or. Model%ca_global) then
+    if (Model%cplflx .or. Model%stochastic%do_sppt .or. Model%stochastic%ca_global) then
       allocate (Coupling%rain_cpl     (IM))
       allocate (Coupling%snow_cpl     (IM))
 
@@ -2236,75 +2338,6 @@ module GFS_typedefs
       Coupling%psurfi_cpl  = clear_val
 !!    Coupling%oro_cpl     = clear_val  !< pointer to sfcprop%oro
 !!    Coupling%slmsk_cpl   = clear_val  !< pointer to sfcprop%slmsk
-    endif
-
-
-   !-- cellular automata
-    allocate (Coupling%condition(IM))
-    if (Model%do_ca) then
-      allocate (Coupling%ca1      (IM))
-      allocate (Coupling%ca2      (IM))
-      allocate (Coupling%ca3      (IM))
-      allocate (Coupling%ca_deep  (IM))
-      allocate (Coupling%ca_turb  (IM))
-      allocate (Coupling%ca_shal  (IM))
-      allocate (Coupling%ca_rad   (IM))
-      allocate (Coupling%ca_micro (IM))
-      allocate (Coupling%cape     (IM))
-      Coupling%ca1       = clear_val
-      Coupling%ca2       = clear_val
-      Coupling%ca3       = clear_val
-      Coupling%ca_deep   = clear_val
-      Coupling%ca_turb   = clear_val
-      Coupling%ca_shal   = clear_val
-      Coupling%ca_rad    = clear_val
-      Coupling%ca_micro  = clear_val
-      Coupling%condition = clear_val
-      Coupling%cape      = clear_val
-    endif
-
-
-    !--- stochastic physics option
-    if (Model%do_sppt .or. Model%ca_global) then
-      allocate (Coupling%sppt_wts  (IM,Model%levs))
-      Coupling%sppt_wts = clear_val
-    endif
-
-    !--- stochastic shum option
-    if (Model%do_shum) then
-      allocate (Coupling%shum_wts  (IM,Model%levs))
-      Coupling%shum_wts = clear_val
-    endif
-
-    !--- stochastic skeb option
-    if (Model%do_skeb) then
-      allocate (Coupling%skebu_wts (IM,Model%levs))
-      allocate (Coupling%skebv_wts (IM,Model%levs))
-
-      Coupling%skebu_wts = clear_val
-      Coupling%skebv_wts = clear_val
-    endif
-
-    !--- stochastic land perturbation option
-    if (Model%lndp_type /= 0) then
-      allocate (Coupling%sfc_wts  (IM,Model%n_var_lndp))
-      Coupling%sfc_wts = clear_val
-    endif
-
-    !--- stochastic spp perturbation option
-    if (Model%do_spp) then
-      allocate (Coupling%spp_wts_pbl  (IM,Model%levs))
-      Coupling%spp_wts_pbl = clear_val
-      allocate (Coupling%spp_wts_sfc  (IM,Model%levs))
-      Coupling%spp_wts_sfc = clear_val
-      allocate (Coupling%spp_wts_mp   (IM,Model%levs))
-      Coupling%spp_wts_mp = clear_val
-      allocate (Coupling%spp_wts_gwd   (IM,Model%levs))
-      Coupling%spp_wts_gwd = clear_val
-      allocate (Coupling%spp_wts_rad   (IM,Model%levs))
-      Coupling%spp_wts_rad = clear_val
-      allocate (Coupling%spp_wts_cu_deep   (IM,Model%levs))
-      Coupling%spp_wts_cu_deep = clear_val
     endif
 
     !--- needed for either GoCart or 3D diagnostics
@@ -2747,7 +2780,6 @@ end subroutine overrides_create
     logical :: use_zmtnblck = .false.  
     logical :: do_shum      = .false.
     logical :: do_skeb      = .false.
-    integer :: skeb_npass   = 11
     integer :: lndp_type      = 0
     integer :: n_var_lndp     = 0
     logical :: lndp_each_step = .false.
@@ -3203,63 +3235,63 @@ end subroutine overrides_create
     ! do_sppt, do_shum, do_skeb and lndp_type are namelist variables in group
     ! physics that are parsed here and then compared in init_stochastic_physics
     ! to the stochastic physics namelist parametersto ensure consistency.
-    Model%do_sppt          = do_sppt
-    Model%pert_mp          = pert_mp
-    Model%pert_radtend     = pert_radtend
-    Model%use_zmtnblck     = use_zmtnblck
-    Model%do_shum          = do_shum
-    Model%do_skeb          = do_skeb
+    Model%stochastic%do_sppt          = do_sppt
+    Model%stochastic%pert_mp          = pert_mp
+    Model%stochastic%pert_radtend     = pert_radtend
+    Model%stochastic%use_zmtnblck     = use_zmtnblck
+    Model%stochastic%do_shum          = do_shum
+    Model%stochastic%do_skeb          = do_skeb
     !--- stochastic surface perturbation options 
-    Model%lndp_type        = lndp_type
-    Model%n_var_lndp       = n_var_lndp
-    Model%lndp_each_step   = lndp_each_step
-    Model%do_spp           = do_spp 
-    Model%n_var_spp        = n_var_spp
+    Model%stochastic%lndp_type        = lndp_type
+    Model%stochastic%n_var_lndp       = n_var_lndp
+    Model%stochastic%lndp_each_step   = lndp_each_step
+    Model%stochastic%do_spp           = do_spp 
+    Model%stochastic%n_var_spp        = n_var_spp
                                
-    if (Model%lndp_type/=0) then
-      allocate(Model%lndp_var_list(Model%n_var_lndp))
-      allocate(Model%lndp_prt_list(Model%n_var_lndp))
-      Model%lndp_var_list(:) = ''
-      Model%lndp_prt_list(:) = clear_val
+    if (Model%stochastic%lndp_type /= 0) then
+      allocate(Model%stochastic%lndp_var_list(Model%stochastic%n_var_lndp))
+      allocate(Model%stochastic%lndp_prt_list(Model%stochastic%n_var_lndp))
+      Model%stochastic%lndp_var_list(:) = ''
+      Model%stochastic%lndp_prt_list(:) = clear_val
     end if                
                                
-    if (Model%do_spp) then
-      allocate(Model%spp_var_list(Model%n_var_spp))
-      allocate(Model%spp_prt_list(Model%n_var_spp))
-      allocate(Model%spp_stddev_cutoff(Model%n_var_spp))
-      Model%spp_var_list(:) = ''
-      Model%spp_prt_list(:) = clear_val
-      Model%spp_stddev_cutoff(:) = clear_val
+    if (Model%stochastic%do_spp) then
+      allocate(Model%stochastic%spp_var_list(Model%stochastic%n_var_spp))
+      allocate(Model%stochastic%spp_prt_list(Model%stochastic%n_var_spp))
+      allocate(Model%stochastic%spp_stddev_cutoff(Model%stochastic%n_var_spp))
+      Model%stochastic%spp_var_list(:) = ''
+      Model%stochastic%spp_prt_list(:) = clear_val
+      Model%stochastic%spp_stddev_cutoff(:) = clear_val
     end if
 
     !--- cellular automata options
     ! force namelist constsitency
-    allocate(Model%vfact_ca(levs))
-    if ( .not. ca_global ) nca_g=0
-    if ( .not. ca_sgs ) nca=0
+    allocate(Model%stochastic%vfact_ca(levs))
+    if (.not. ca_global) nca_g = 0
+    if (.not. ca_sgs)    nca   = 0
 
-    Model%nca              = nca
-    Model%ncells           = ncells
-    Model%nlives           = nlives
-    Model%nca_g            = nca_g
-    Model%ncells_g         = ncells_g
-    Model%nlives_g         = nlives_g
-    Model%nfracseed        = nfracseed
-    Model%nseed            = nseed
-    Model%nseed_g          = nseed_g
-    Model%ca_global        = ca_global
-    Model%do_ca            = do_ca
-    Model%ca_advect        = ca_advect
-    Model%ca_sgs           = ca_sgs
-    Model%iseed_ca         = iseed_ca
-    Model%ca_smooth        = ca_smooth
-    Model%nspinup          = nspinup
-    Model%nthresh          = nthresh
-    Model%ca_amplitude     = ca_amplitude
-    Model%nsmooth          = nsmooth
-    Model%ca_closure       = ca_closure
-    Model%ca_entr          = ca_entr
-    Model%ca_trigger       = ca_trigger
+    Model%stochastic%nca              = nca
+    Model%stochastic%ncells           = ncells
+    Model%stochastic%nlives           = nlives
+    Model%stochastic%nca_g            = nca_g
+    Model%stochastic%ncells_g         = ncells_g
+    Model%stochastic%nlives_g         = nlives_g
+    Model%stochastic%nfracseed        = nfracseed
+    Model%stochastic%nseed            = nseed
+    Model%stochastic%nseed_g          = nseed_g
+    Model%stochastic%ca_global        = ca_global
+    Model%stochastic%do_ca            = do_ca
+    Model%stochastic%ca_advect        = ca_advect
+    Model%stochastic%ca_sgs           = ca_sgs
+    Model%stochastic%iseed_ca         = iseed_ca
+    Model%stochastic%ca_smooth        = ca_smooth
+    Model%stochastic%nspinup          = nspinup
+    Model%stochastic%nthresh          = nthresh
+    Model%stochastic%ca_amplitude     = ca_amplitude
+    Model%stochastic%nsmooth          = nsmooth
+    Model%stochastic%ca_closure       = ca_closure
+    Model%stochastic%ca_entr          = ca_entr
+    Model%stochastic%ca_trigger       = ca_trigger
 
     Model%sst_perturbation = sst_perturbation
 
@@ -3957,40 +3989,40 @@ end subroutine overrides_create
       print *, ' nstf_name         : ', Model%nstf_name
       print *, ' '
       print *, 'stochastic physics'
-      print *, ' do_sppt           : ', Model%do_sppt
-      print *, ' pert_mp         : ', Model%pert_mp
-      print *, ' pert_radtend    : ', Model%pert_radtend
-      print *, ' do_shum           : ', Model%do_shum
-      print *, ' do_skeb           : ', Model%do_skeb
-      print *, ' lndp_type         : ', Model%lndp_type
-      print *, ' n_var_lndp        : ', Model%n_var_lndp
-      print *, ' lndp_each_step    : ', Model%lndp_each_step
-      print *, ' do_spp            : ', Model%do_spp
-      print *, ' n_var_spp         : ', Model%n_var_spp
+      print *, ' do_sppt           : ', Model%stochastic%do_sppt
+      print *, ' pert_mp         : ', Model%stochastic%pert_mp
+      print *, ' pert_radtend    : ', Model%stochastic%pert_radtend
+      print *, ' do_shum           : ', Model%stochastic%do_shum
+      print *, ' do_skeb           : ', Model%stochastic%do_skeb
+      print *, ' lndp_type         : ', Model%stochastic%lndp_type
+      print *, ' n_var_lndp        : ', Model%stochastic%n_var_lndp
+      print *, ' lndp_each_step    : ', Model%stochastic%lndp_each_step
+      print *, ' do_spp            : ', Model%stochastic%do_spp
+      print *, ' n_var_spp         : ', Model%stochastic%n_var_spp
       print *, ' '
       print *, 'cellular automata'
-      print *, ' nca               : ', Model%nca
-      print *, ' ncells            : ', Model%ncells
-      print *, ' nlives            : ', Model%nlives
-      print *, ' nca_g             : ', Model%nca_g
-      print *, ' ncells_g          : ', Model%ncells_g
-      print *, ' nlives_g          : ', Model%nlives_g
-      print *, ' nfracseed         : ', Model%nfracseed
-      print *, ' nseed_g           : ', Model%nseed_g
-      print *, ' nseed             : ', Model%nseed
-      print *, ' ca_global         : ', Model%ca_global
-      print *, ' ca_sgs            : ', Model%ca_sgs
-      print *, ' do_ca             : ', Model%do_ca
-      print *, ' ca_advect         : ', Model%ca_advect
-      print *, ' iseed_ca          : ', Model%iseed_ca
-      print *, ' ca_smooth         : ', Model%ca_smooth
-      print *, ' nspinup           : ', Model%nspinup
-      print *, ' nthresh           : ', Model%nthresh
-      print *, ' ca_amplitude      : ', Model%ca_amplitude
-      print *, ' nsmooth           : ', Model%nsmooth
-      print *, ' ca_closure        : ', Model%ca_closure
-      print *, ' ca_entr           : ', Model%ca_entr
-      print *, ' ca_trigger        : ', Model%ca_trigger
+      print *, ' nca               : ', Model%stochastic%nca
+      print *, ' ncells            : ', Model%stochastic%ncells
+      print *, ' nlives            : ', Model%stochastic%nlives
+      print *, ' nca_g             : ', Model%stochastic%nca_g
+      print *, ' ncells_g          : ', Model%stochastic%ncells_g
+      print *, ' nlives_g          : ', Model%stochastic%nlives_g
+      print *, ' nfracseed         : ', Model%stochastic%nfracseed
+      print *, ' nseed_g           : ', Model%stochastic%nseed_g
+      print *, ' nseed             : ', Model%stochastic%nseed
+      print *, ' ca_global         : ', Model%stochastic%ca_global
+      print *, ' ca_sgs            : ', Model%stochastic%ca_sgs
+      print *, ' do_ca             : ', Model%stochastic%do_ca
+      print *, ' ca_advect         : ', Model%stochastic%ca_advect
+      print *, ' iseed_ca          : ', Model%stochastic%iseed_ca
+      print *, ' ca_smooth         : ', Model%stochastic%ca_smooth
+      print *, ' nspinup           : ', Model%stochastic%nspinup
+      print *, ' nthresh           : ', Model%stochastic%nthresh
+      print *, ' ca_amplitude      : ', Model%stochastic%ca_amplitude
+      print *, ' nsmooth           : ', Model%stochastic%nsmooth
+      print *, ' ca_closure        : ', Model%stochastic%ca_closure
+      print *, ' ca_entr           : ', Model%stochastic%ca_entr
+      print *, ' ca_trigger        : ', Model%stochastic%ca_trigger
       print *, ' '
       print *, 'tracers'
       print *, ' tracer_names      : ', Model%tracer_names
@@ -4138,20 +4170,6 @@ end subroutine overrides_create
     Statemid%acv  = clear_val
     Statemid%acvb = clear_val
     Statemid%acvt = clear_val
-
-    if (Model%do_sppt) then
-      allocate (Statemid%dtdtr     (IM,Model%levs))
-      allocate (Statemid%dtotprcp  (IM))
-      allocate (Statemid%dcnvprcp  (IM))
-      allocate (Statemid%drain_cpl (IM))
-      allocate (Statemid%dsnow_cpl (IM))
-
-      Statemid%dtdtr     = clear_val
-      Statemid%dtotprcp  = clear_val
-      Statemid%dcnvprcp  = clear_val
-      Statemid%drain_cpl = clear_val
-      Statemid%dsnow_cpl = clear_val
-    endif
 
     allocate (Statemid%phy_fctd (IM,Model%nctp))
     allocate (Statemid%phy_f2d  (IM,Model%ntot2d))
@@ -4541,12 +4559,9 @@ end subroutine overrides_create
     allocate (Diag%wet1    (IM))
     allocate (Diag%sr      (IM))
 
-    allocate (Diag%diss_est(IM,Model%levs))
-    allocate (Diag%skebu_wts(IM,Model%levs))
-    allocate (Diag%skebv_wts(IM,Model%levs))
-    allocate (Diag%sppt_wts(IM,Model%levs))
-    allocate (Diag%shum_wts(IM,Model%levs))
-    allocate (Diag%zmtnblck(IM))
+    if (Model%stochastic%do_skeb) then
+      allocate (Diag%diss_est(IM,Model%levs))
+    endif
 
     allocate (Diag%pfr(IM,Model%levs))
     allocate (Diag%pfs(IM,Model%levs))
@@ -4858,12 +4873,9 @@ end subroutine overrides_create
     Diag%smcref2 = zero
     Diag%wet1    = zero
     Diag%sr      = zero
-    Diag%diss_est   = zero
-    Diag%skebu_wts  = zero
-    Diag%skebv_wts  = zero
-    Diag%sppt_wts   = zero
-    Diag%shum_wts   = zero
-    Diag%zmtnblck   = zero
+    if (Model%stochastic%do_skeb) then
+      Diag%diss_est   = zero
+    endif
     Diag%totprcpb   = zero
     Diag%cnvprcpb   = zero
     Diag%toticeb    = zero
@@ -4873,15 +4885,6 @@ end subroutine overrides_create
     Diag%pfr   = zero
     Diag%pfs   = zero
     Diag%pfg   = zero
-
-    if (Model%do_ca) then
-      Diag%ca_out   = zero
-      Diag%ca_deep  = zero
-      Diag%ca_turb  = zero
-      Diag%ca_shal  = zero
-      Diag%ca_rad   = zero
-      Diag%ca_micro = zero
-    endif
 
     if (Model%ldiag3d) then
       Diag%du3dt   = zero
