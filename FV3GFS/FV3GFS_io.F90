@@ -7032,7 +7032,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%stochastic%diss_est(:,:)
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%diss_est(:,:)
     enddo
 
     idx = idx + 1
@@ -7043,7 +7043,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%stochastic%skebu_wts(:,:)
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%skebu_wts(:,:)
     enddo
 
     idx = idx + 1
@@ -7054,7 +7054,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%stochastic%skebv_wts(:,:)
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%skebv_wts(:,:)
     enddo
 
     idx = idx + 1
@@ -7065,7 +7065,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%stochastic%zmtnblck(:)
+      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%zmtnblck(:)
     enddo
 
 !    idx = idx + 1
@@ -7097,7 +7097,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%stochastic%sppt_wts(:,:)
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%sppt_wts(:,:)
     enddo
 
     idx = idx + 1
@@ -7108,7 +7108,7 @@ module FV3GFS_io_mod
     Diag(idx)%mod_name = 'gfs_phys'
     allocate (Diag(idx)%data(nblks))
     do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%stochastic%shum_wts(:,:)
+       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%shum_wts(:,:)
     enddo
 
 !!$    idx = idx + 1
