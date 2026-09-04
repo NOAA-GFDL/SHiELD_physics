@@ -158,7 +158,10 @@ module GFS_driver
                      Init_parm%input_nml_file, Init_parm%tile_num, &
                      Init_parm%blksz, Init_parm%hydro,             &
                      Init_parm%ak, Init_parm%bk, Init_parm%restart,&
-                     Init_parm%do_inline_mp, Init_parm%do_cosp)
+                     Init_parm%do_inline_mp,                       &
+                     Init_parm%do_inline_pbl,                      &
+                     Init_parm%do_inline_cnv,                      &
+                     Init_parm%do_inline_gwd, Init_parm%do_cosp)
 
 
     call read_o3data  (Model%ntoz, Model%me, Model%master)

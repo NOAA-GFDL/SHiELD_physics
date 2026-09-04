@@ -14,7 +14,7 @@ container_env_script=/contrib/containers/load_spack_noaa-intel.sh
 
 #Parse Arguments
 branch=main
-commit=""
+commit=none
 while [[ $# -gt 0 ]]; do
   case $1 in
     -b|--branch)
@@ -77,8 +77,8 @@ if [ $hydro = "sw" ] && [ $config = "shield" ]
     # Set up build
     cd ${testDir}/SHiELD_build/Build
     #Define External Libs path
-    export EXTERNAL_LIBS=${dirRoot}/${intelVersion}/SHiELD_physics/externallibs
+    export EXTERNAL_LIBS=${dirRoot}/externallibs
     # Build SHiELD
     set -o pipefail
-    singularity exec -B /contrib ${container} ${container_env_script} "./COMPILE ${config} ${hydro} ${bit} ${mode} intel clean"
+    singularity exec -B /contrib ${container} ${container_env_script} "./COMPILE ${config} ${hydro} ${bit} ${mode} intel clean" |& tee ${logDir}/compile_${config}_${hydro}_${bit}_${mode}_intel.out
 fi
