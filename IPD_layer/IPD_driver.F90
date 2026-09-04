@@ -53,7 +53,8 @@ module IPD_driver
     call initialize (IPD_Control, IPD_Data(:)%Statein, IPD_Data(:)%Stateout,      &
                      IPD_Data(:)%Sfcprop, IPD_Data(:)%Coupling, IPD_Data(:)%Grid, &
                      IPD_Data(:)%Statemid, IPD_Data(:)%Cldprop, IPD_Data(:)%Radtend,   &
-                     IPD_Data(:)%Intdiag, IPD_Data(:)%Overrides, IPD_init_parm)
+                     IPD_Data(:)%Intdiag, IPD_Data(:)%Overrides, IPD_Data(:)%Stochastic, &
+                     IPD_init_parm)
 
 
     !--- populate/associate the Diag container elements
@@ -83,7 +84,7 @@ module IPD_driver
     type(IPD_restart_type), intent(inout) :: IPD_Restart
 
     call time_vary_step (IPD_Control, IPD_Data(:)%Statein, IPD_Data(:)%Stateout,      &
-                         IPD_Data(:)%Sfcprop, IPD_Data(:)%Coupling, IPD_Data(:)%Grid, &
+                         IPD_Data(:)%Sfcprop, IPD_Data(:)%Stochastic, IPD_Data(:)%Grid, &
                          IPD_Data(:)%Statemid, IPD_Data(:)%Cldprop, IPD_Data(:)%Radtend,   &
                          IPD_Data(:)%Intdiag)
 
@@ -132,7 +133,7 @@ module IPD_driver
     call physics_step1_up (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
                         IPD_Data%Sfcprop, IPD_Data%Coupling, IPD_Data%Grid, &
                         IPD_Data%Statemid, IPD_Data%Cldprop, IPD_Data%Radtend,   &
-                        IPD_Data%Intdiag, IPD_Data%Overrides)
+                        IPD_Data%Intdiag, IPD_Data%Overrides, IPD_Data%Stochastic)
 
 
   end subroutine IPD_physics_step1_up
@@ -151,7 +152,7 @@ module IPD_driver
     call physics_step2 (IPD_control, IPD_Data%Statein, IPD_Data%Stateout,   &
                         IPD_Data%Sfcprop, IPD_Data%Coupling, IPD_Data%Grid, &
                         IPD_Data%Statemid, IPD_Data%Cldprop, IPD_Data%Radtend,   &
-                        IPD_Data%Intdiag)
+                        IPD_Data%Intdiag, IPD_Data%Stochastic)
 
   end subroutine IPD_physics_step2
 
