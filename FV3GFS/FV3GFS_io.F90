@@ -49,6 +49,7 @@ module FV3GFS_io_mod
 !--- GFS_typedefs
   use GFS_typedefs,       only: GFS_sfcprop_type, GFS_diag_type, GFS_grid_type
   use GFS_typedefs,       only: GFS_cldprop_type, landseaprt
+  use GFS_typedefs,       only: stochastic_physics_type
   use ozne_def,           only: oz_coeff
 !
 !--- IPD typdefs
@@ -3246,7 +3247,7 @@ module FV3GFS_io_mod
 !    13+NFXR - radiation
 !    76+pl_coeff - physics
 !-------------------------------------------------------------------------
-  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Model, Cldprop, Atm_block, axes)
+  subroutine gfdl_diag_register(Time, Sfcprop, Gfs_diag, Model, Cldprop, Stochastic, Atm_block, axes)
     use physcons,  only: con_g
 !--- subroutine interface variable definitions
     type(time_type),           intent(in) :: Time
@@ -3254,6 +3255,7 @@ module FV3GFS_io_mod
     type(GFS_diag_type),       intent(in) :: Gfs_diag(:)
     type(IPD_control_type),    intent(in) :: Model
     type(GFS_cldprop_type),    intent(in) :: Cldprop(:)
+    type(stochastic_physics_type), intent(in) :: Stochastic(:)
     type (block_control_type), intent(in) :: Atm_block
     integer, dimension(4),     intent(in) :: axes
 !--- local variables
@@ -7024,49 +7026,77 @@ module FV3GFS_io_mod
 !      enddo
 !    endif
 
-    idx = idx + 1
-    Diag(idx)%axes = 3
-    Diag(idx)%name = 'diss_est'
-    Diag(idx)%desc = 'dissipation rate for skeb'
-    Diag(idx)%unit = 'none'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%diss_est(:,:)
-    enddo
+    if (Model%stochastic%do_skeb) then
+       idx = idx + 1
+       Diag(idx)%axes = 3
+       Diag(idx)%name = 'diss_est'
+       Diag(idx)%desc = 'dissipation rate for skeb'
+       Diag(idx)%unit = 'none'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%diss_est(:,:)
+       enddo
+   
+       idx = idx + 1
+       Diag(idx)%axes = 3
+       Diag(idx)%name = 'skebu_wts'
+       Diag(idx)%desc = 'perturbation velocity'
+       Diag(idx)%unit = 'm/s'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var3 => Stochastic(nb)%skebu_wts(:,:)
+       enddo
+   
+       idx = idx + 1
+       Diag(idx)%axes = 3
+       Diag(idx)%name = 'skebv_wts'
+       Diag(idx)%desc = 'perturbation velocity'
+       Diag(idx)%unit = 'm/s'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var3 => Stochastic(nb)%skebv_wts(:,:)
+       enddo
+    endif ! if (Model%stochastic%do_skeb) then
 
-    idx = idx + 1
-    Diag(idx)%axes = 3
-    Diag(idx)%name = 'skebu_wts'
-    Diag(idx)%desc = 'perturbation velocity'
-    Diag(idx)%unit = 'm/s'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%skebu_wts(:,:)
-    enddo
+    if (Model%stochastic%do_sppt) then
+       idx = idx + 1
+       Diag(idx)%axes = 2
+       Diag(idx)%name = 'zmtnblck'
+       Diag(idx)%desc = 'level of dividing streamline'
+       Diag(idx)%unit = 'm/s'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+         Diag(idx)%data(nb)%var2 => Stochastic(nb)%zmtnblck(:)
+       enddo
+   
+       idx = idx + 1
+       Diag(idx)%axes = 3
+       Diag(idx)%name = 'sppt_wts'
+       Diag(idx)%desc = 'perturbation velocity'
+       Diag(idx)%unit = 'm/s'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var3 => Stochastic(nb)%sppt_wts(:,:)
+       enddo
+    endif
 
-    idx = idx + 1
-    Diag(idx)%axes = 3
-    Diag(idx)%name = 'skebv_wts'
-    Diag(idx)%desc = 'perturbation velocity'
-    Diag(idx)%unit = 'm/s'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%skebv_wts(:,:)
-    enddo
-
-    idx = idx + 1
-    Diag(idx)%axes = 2
-    Diag(idx)%name = 'zmtnblck'
-    Diag(idx)%desc = 'level of dividing streamline'
-    Diag(idx)%unit = 'm/s'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%zmtnblck(:)
-    enddo
+    if (Model%stochastic%do_shum) then
+       idx = idx + 1
+       Diag(idx)%axes = 3
+       Diag(idx)%name = 'shum_wts'
+       Diag(idx)%desc = 'perturbation velocity'
+       Diag(idx)%unit = 'm/s'
+       Diag(idx)%mod_name = 'gfs_phys'
+       allocate (Diag(idx)%data(nblks))
+       do nb = 1,nblks
+          Diag(idx)%data(nb)%var3 => Stochastic(nb)%shum_wts(:,:)
+       enddo
+    endif 
 
 !    idx = idx + 1
 !    Diag(idx)%axes = 2
@@ -7088,28 +7118,6 @@ module FV3GFS_io_mod
 !    do nb = 1,nblks
 !      Diag(idx)%data(nb)%var2 => Gfs_diag(nb)%refdmax263k(:)
 !    enddo
-
-    idx = idx + 1
-    Diag(idx)%axes = 3
-    Diag(idx)%name = 'sppt_wts'
-    Diag(idx)%desc = 'perturbation velocity'
-    Diag(idx)%unit = 'm/s'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%sppt_wts(:,:)
-    enddo
-
-    idx = idx + 1
-    Diag(idx)%axes = 3
-    Diag(idx)%name = 'shum_wts'
-    Diag(idx)%desc = 'perturbation velocity'
-    Diag(idx)%unit = 'm/s'
-    Diag(idx)%mod_name = 'gfs_phys'
-    allocate (Diag(idx)%data(nblks))
-    do nb = 1,nblks
-       Diag(idx)%data(nb)%var3 => Gfs_diag(nb)%shum_wts(:,:)
-    enddo
 
 !!$    idx = idx + 1
 !!$    Diag(idx)%axes = 3
