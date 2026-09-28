@@ -976,10 +976,10 @@ module module_physics_driver
             Sfcprop%snowd(i) = statein%snowd(i)
             Sfcprop%zorl(i) = statein%zorl(i)
             Sfcprop%uustar(i) = statein%uustar(i)
-            Sfcprop%shdmax(i) = statein%shdmax(i)
+            !Sfcprop%shdmax(i) = statein%shdmax(i)
             !Sfcprop%srflag(i) = statein%srflag(i)
             Sfcprop%weasd(i) = statein%weasd(i)
-            Sfcprop%tprcp(i) = statein%tprcp(i)
+            !Sfcprop%tprcp(i) = statein%tprcp(i)
             Diag%cmm(i) = statein%cmm(i)
             Diag%chh(i) = statein%chh(i)
          enddo

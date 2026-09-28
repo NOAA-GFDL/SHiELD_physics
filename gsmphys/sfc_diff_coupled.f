@@ -178,21 +178,27 @@
 ! procedure as in uncoupled SHiELD (sfc_diff_gfdl.f) 
 !
 !    iteration 1 
-!         step 1 get z0/zt from previous step
+!         step 1 get z0, zt estimates 
 !         step 2 call similarity
 !    iteration 2 
-!         step 1 update z0/zt 
+!         step 1 update z0, zt 
 !         step 2 call similarity 
 !================================================
 
 ! === iteration 1
 
-            ! --- get z0/zt
+            ! --- get z0 estimate: using value from last phys timestep
             z0      = 0.01 * z0rl(i)
-            zt      = 0.01 * ztrl(i)
-
             z0max   = max(1.0e-6, min(z0,z1(i)))
-            ztmax   = max(zt,1.0e-6)
+
+            ! --- get zt estimate: using hwrf17 option (zt here is not very important)
+            tem1    = 1.0 / z0max
+            fm(i)   = log((z0max+z1(i)) * tem1)
+            fm10(i) = log((z0max+10.) * tem1)
+            u10m = u1(i) * fm10(i) / fm(i)
+            v10m = v1(i) * fm10(i) / fm(i)
+            ws10m = sqrt(u10m*u10m + v10m*v10m)
+            call cal_zt_hwrf17(ws10m, ztmax)
 
             ! --- call similarity
             call monin_obukhov_similarity

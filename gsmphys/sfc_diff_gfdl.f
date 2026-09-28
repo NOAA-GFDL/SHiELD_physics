@@ -153,22 +153,31 @@
 
 !================================================ 
 ! if over water (redesigned by Kun Gao)
-!    iteration 1 
-!         step 1 get z0/zt from previous step
-!         step 2 call similarity
-!    iteration 2 
-!         step 1 update z0/zt 
-!         step 2 call similarity 
+!
+! iteration 1: the estimate step
+!      step 1: get the best estimate of z0 and zt
+!      step 2: call similarity to obtain estimated ws10m
+!
+! iteration 2: get actual sfc-layer variables for
+!              current phys timestep
+!      step 1: update z0 and zt
+!      step 2: call similarity
 !================================================
 
 ! === iteration 1
 
-            ! --- get z0/zt
+            ! --- get z0 estimate: using value from last phys timestep
             z0      = 0.01 * z0rl(i)  
-            zt      = 0.01 * ztrl(i)
-
             z0max   = max(1.0e-6, min(z0,z1(i)))
-            ztmax   = max(zt,1.0e-6)
+
+            ! --- get zt estimate: using hwrf17 option (zt here is not very important)
+            tem1    = 1.0 / z0max
+            fm(i)   = log((z0max+z1(i)) * tem1)
+            fm10(i) = log((z0max+10.) * tem1)
+            u10m = u1(i) * fm10(i) / fm(i)
+            v10m = v1(i) * fm10(i) / fm(i)
+            ws10m = sqrt(u10m*u10m + v10m*v10m)
+            call cal_zt_hwrf17(ws10m, ztmax)
 
             ! --- call similarity
             call monin_obukhov_similarity
@@ -178,7 +187,7 @@
 
 ! === iteration 2
 
-            ! --- get z0/zt following the old sfc_diff.f 
+            ! --- get z0/zt following the old sfc_diff.f (not the best option)
             z0 = (charnock / grav) * ustar(i) * ustar(i)
             if (redrag) then
                z0 = max(min(z0, z0s_max), 1.e-7)
@@ -186,21 +195,12 @@
                z0 = max(min(z0,.1), 1.e-7)
             endif
 
-            ! zt calculations copied from old sfc_diff.f
-            !ustar(i) = sqrt(grav * z0 / charnock)
-            !restar = max(ustar(i)*z0max*visi, 0.000001)
-            !rat    = min(7.0, 2.67 * sqrt(sqrt(restar)) - 2.57)
-            !ztmax  = z0max * exp(-rat)
-
             ustar_1 = sqrt(grav * z0 / charnock)
             restar = max(ustar_1*z0max*visi, 0.000001)
             rat    = min(7.0, 2.67 * sqrt(sqrt(restar)) - 2.57)
             zt     = z0max * exp(-rat) ! zeng, zhao and dickinson 1997 (eq 25)
 
             ! --- update z0/zt with new options
-            ! only z0 options in the following
-            ! will add zt options in the future
-              
             u10m = u1(i) * fm10(i) / fm(i)
             v10m = v1(i) * fm10(i) / fm(i)
             ws10m = sqrt(u10m*u10m + v10m*v10m)
