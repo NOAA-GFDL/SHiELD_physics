@@ -5451,10 +5451,23 @@
       endif
 !
       len_thread_m  = (len+num_threads-1) / num_threads
+
+      kmaxl = 0
+      kminl = 0
+      kmaxo = 0
+      kmino = 0
+      kmaxi = 0
+      kmini = 0
+      kmaxj = 0
+      kminj = 0
+      kmaxs = 0
+      kmins = 0
+!
 !
 !$omp parallel do private(i1_t,i2_t,it,i)
-!$omp+private(nprt,ij,iwk,kmaxs,kmins)
-!$omp+private(kmaxl,kminl,kmaxo,kmino,kmaxi,kmini,kmaxj,kminj)
+!$omp+private(nprt,ij,iwk)
+!$omp+reduction(+:kmaxs,kmins,kmaxl,kminl,kmaxo)
+!$omp+reduction(+:kmino,kmaxi,kmini,kmaxj,kminj)
 !$omp+shared(mode,epsfld)
 !$omp+shared(fldlmx,fldlmn,fldomx,fldjmn,fldsmx,fldsmn)
 !$omp+shared(fld,slimsk,sno,rla,rlo)
@@ -5462,19 +5475,7 @@
       do it=1,num_threads   ! start of threaded loop ...................
         i1_t       = (it-1)*len_thread_m+1
         i2_t       = min(i1_t+len_thread_m-1,len)
-!
-        kmaxl = 0
-        kminl = 0
-        kmaxo = 0
-        kmino = 0
-        kmaxi = 0
-        kmini = 0
-        kmaxj = 0
-        kminj = 0
-        kmaxs = 0
-        kmins = 0
-!
-!
+
 !  lower bound check over bare land
 !
         if (fldlmn .ne. 999.0) then
@@ -6165,7 +6166,8 @@
 !
       if (kgds1 .eq. 4) then         ! grib file on gaussian grid
         kspla=4
-        call splat(kspla, jmax, a, w)
+        !call splat_r8(kspla, jmax, a, w)
+        call splat_r8(jmax, a, w)
 !
         radi = 180.0 / (4.*atan(1.))
         do  j=1,jmax
@@ -6665,7 +6667,8 @@ cjfe      call gaulat(gaul,jmxin)
 cjfe
 !
           kspla=4
-          call splat(kspla, jmxin, a, w)
+          !call splat(kspla, jmxin, a, w)
+          call splat_r8 (jmxin, a, w)
 !
           radi = 180.0 / (4.*atan(1.))
           do  n=1,jmxin
@@ -6889,7 +6892,8 @@ cjfe
       real (kind=kind_io8) radi
       real (kind=kind_io8) a(k), w(k), gaul(k)
 !
-      call splat(4, k, a, w)
+      !call splat(4, k, a, w)
+      call splat_r8(k, a, w)
 !
       radi = 180.0 / (4.*atan(1.))
       do  n=1,k
